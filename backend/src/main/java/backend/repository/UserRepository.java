@@ -9,6 +9,7 @@ import java.util.Optional;
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
     boolean existsByEmail(String email);
+    boolean existsByPhone(String phone);
     
     // THÊM HÀM NÀY ĐỂ TRA CỨU TÀI KHOẢN QUA MÃ TOKEN TRÊN URL
     Optional<User> findByResetToken(String resetToken);

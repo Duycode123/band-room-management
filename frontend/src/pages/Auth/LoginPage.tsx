@@ -2,6 +2,14 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
+type UserRole = 'ADMIN' | 'STAFF' | 'CUSTOMER';
+
+const dashboardByRole: Record<UserRole, string> = {
+    ADMIN: '/admin/dashboard',
+    STAFF: '/staff/dashboard',
+    CUSTOMER: '/customer/dashboard',
+};
+
 export default function LoginPage() {
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
@@ -20,20 +28,21 @@ export default function LoginPage() {
             // Gọi API đăng nhập xuống hệ thống Spring Boot
             const response = await axios.post('http://localhost:8080/api/auth/login', formData);
             if (response.status === 200 && response.data) {
-                const { accessToken, refreshToken, role } = response.data;
+                const { accessToken, refreshToken, role } = response.data as {
+                    accessToken: string;
+                    refreshToken: string;
+                    role: UserRole;
+                };
 
                 // Lưu trữ thông tin xác thực an toàn vào hệ thống
                 localStorage.setItem('accessToken', accessToken);
                 localStorage.setItem('refreshToken', refreshToken);
+                localStorage.setItem('role', role);
 
                 alert('Đăng nhập thành công!');
 
                 // Điều hướng thông minh dựa vào quyền truy cập
-                if (role === 'ADMIN') {
-                    navigate('/admin/dashboard');
-                } else {
-                    navigate('/');
-                }
+                navigate(dashboardByRole[role] || '/');
             }
         } catch (err: any) {
             setError(err.response?.data?.message || 'Đăng nhập thất bại, vui lòng kiểm tra lại tài khoản.');
