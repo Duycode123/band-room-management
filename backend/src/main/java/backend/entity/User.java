@@ -11,7 +11,6 @@ import java.util.List;
 
 @Entity
 @Table(name = "users")
-
 @Getter
 @Setter
 @NoArgsConstructor
@@ -41,6 +40,10 @@ public class User implements UserDetails {
     @Builder.Default
     private Boolean status = true;
 
+    // THÊM TRƯỜNG NÀY ĐỂ LƯU MÃ TOKEN QUÊN MẬT KHẨU
+    @Column(name = "reset_token")
+    private String resetToken;
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(
@@ -51,6 +54,11 @@ public class User implements UserDetails {
     @Override
     public String getUsername() {
         return email;
+    }
+
+    @Override
+    public String getPassword() {
+        return this.password;
     }
 
     @Override

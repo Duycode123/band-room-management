@@ -1,18 +1,15 @@
 package backend.dto.response;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Data
 @Builder
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 public class UserResponse {
+
     private Long id;
     private String fullName;
     private String email;
     private String role;
-    private boolean enabled;
 }
