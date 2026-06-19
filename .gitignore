@@ -51,7 +51,7 @@ hs_err_pid*
 replay_pid*
 .mvn/wrapper/maven-wrapper.jar
 
-# React frontend
+# Frontend
 node_modules/
 dist/
 dist-ssr/
@@ -59,6 +59,11 @@ coverage/
 *.tsbuildinfo
 .vite/
 .eslintcache
+
+# Next.js
+.next/
+out/
+next-env.d.ts
 
 # Package archives
 *.jar

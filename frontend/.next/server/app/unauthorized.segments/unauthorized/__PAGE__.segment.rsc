@@ -1,6 +1,0 @@
-1:"$Sreact.fragment"
-2:I[22016,["/_next/static/chunks/05-c3ty_6dwfk.js","/_next/static/chunks/14mrh2-p_w84d.js","/_next/static/chunks/1rxncug86bump.js"],""]
-3:I[97367,["/_next/static/chunks/05-c3ty_6dwfk.js","/_next/static/chunks/14mrh2-p_w84d.js"],"OutletBoundary"]
-4:"$Sreact.suspense"
-0:{"rsc":["$","$1","c",{"children":[["$","main",null,{"className":"flex min-h-screen items-center justify-center bg-slate-50 p-6","children":["$","section",null,{"className":"max-w-md rounded-2xl bg-white p-8 text-center shadow-sm","children":[["$","p",null,{"className":"text-sm font-semibold uppercase tracking-wide text-red-500","children":"Không có quyền"}],["$","h1",null,{"className":"mt-3 text-2xl font-bold text-slate-900","children":"Bạn không được phép vào trang này"}],["$","p",null,{"className":"mt-2 text-sm text-slate-500","children":"Vui lòng đăng nhập bằng tài khoản có đúng vai trò."}],["$","$L2",null,{"className":"mt-6 inline-flex rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white","href":"/login","children":"Quay lại đăng nhập"}]]}]}],[["$","script","script-0",{"src":"/_next/static/chunks/1rxncug86bump.js","async":true}]],["$","$L3",null,{"children":["$","$4",null,{"name":"Next.MetadataOutlet","children":"$@5"}]}]]}],"isPartial":false,"staleTime":300,"varyParams":null,"buildId":"59wsvjthVJa_8hEw1sCbQ"}
-5:null

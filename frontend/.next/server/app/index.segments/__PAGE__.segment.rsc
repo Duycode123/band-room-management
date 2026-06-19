@@ -1,6 +1,0 @@
-1:"$Sreact.fragment"
-2:I[22016,["/_next/static/chunks/05-c3ty_6dwfk.js","/_next/static/chunks/14mrh2-p_w84d.js","/_next/static/chunks/1rxncug86bump.js"],""]
-3:I[97367,["/_next/static/chunks/05-c3ty_6dwfk.js","/_next/static/chunks/14mrh2-p_w84d.js"],"OutletBoundary"]
-4:"$Sreact.suspense"
-0:{"rsc":["$","$1","c",{"children":[["$","div",null,{"children":[["$","nav",null,{"style":{"display":"flex","justifyContent":"space-between","padding":"20px","borderBottom":"1px solid #ddd"},"children":[["$","h2",null,{"children":"Band Room"}],["$","div",null,{"children":[["$","$L2",null,{"href":"/login","children":["$","button",null,{"children":"Đăng nhập"}]}],["$","$L2",null,{"href":"/register","children":["$","button",null,{"style":{"marginLeft":"10px"},"children":"Đăng ký"}]}]]}]]}],["$","div",null,{"style":{"textAlign":"center","marginTop":"80px"},"children":[["$","h1",null,{"children":"Band Room Management"}],["$","p",null,{"children":"Đặt phòng tập nhạc trực tuyến dễ dàng"}],["$","$L2",null,{"href":"/rooms","children":["$","button",null,{"children":"Xem phòng tập"}]}]]}]]}],[["$","script","script-0",{"src":"/_next/static/chunks/1rxncug86bump.js","async":true}]],["$","$L3",null,{"children":["$","$4",null,{"name":"Next.MetadataOutlet","children":"$@5"}]}]]}],"isPartial":false,"staleTime":300,"varyParams":null,"buildId":"59wsvjthVJa_8hEw1sCbQ"}
-5:null
