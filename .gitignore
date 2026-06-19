@@ -68,3 +68,4 @@ coverage/
 *.zip
 *.tar.gz
 *.rar
+backend/src/main/resources/application.properties
