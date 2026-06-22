@@ -5,11 +5,15 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
+
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class RefreshTokenRequest {
+public class CalculateBookingCostRequest {
 
-    private String refreshToken;
+    private Long roomId;
+    private LocalDateTime startTime;
+    private LocalDateTime endTime;
 }
