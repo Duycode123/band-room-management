@@ -2,12 +2,14 @@
 
 import { useRouter } from 'next/navigation'
 import AuthGuard from '@/components/AuthGuard'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function CustomerDashboardPage() {
   const router = useRouter()
+  const { logout } = useAuth()
 
-  const logout = () => {
-    localStorage.clear()
+  const handleLogout = () => {
+    logout()
     router.push('/login')
   }
 
@@ -21,7 +23,7 @@ export default function CustomerDashboardPage() {
               <h1 className="mt-2 text-3xl font-bold text-slate-900">Trang đặt phòng của bạn</h1>
               <p className="mt-2 text-slate-500">Đặt phòng tập, xem lịch đã đặt và theo dõi ưu đãi thành viên.</p>
             </div>
-            <button onClick={logout} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
+            <button onClick={handleLogout} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
               Đăng xuất
             </button>
           </div>
