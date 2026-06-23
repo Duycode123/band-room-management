@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import api from '@/lib/api'
 import axios from 'axios'
 import { useAuth } from '@/contexts/AuthContext'
 import AuthBanner from '@/components/auth/AuthBanner'
@@ -40,6 +41,7 @@ export default function LoginPage() {
     setIsLoading(true)
     setError('')
     try {
+      const response = await api.post('/api/auth/login', formData)
       const response = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`,
         {
@@ -48,11 +50,10 @@ export default function LoginPage() {
         },
       )
       if (response.status === 200 && response.data) {
-        const { accessToken, refreshToken, role } = response.data as {
-          accessToken: string
-          refreshToken: string
+        const { role } = response.data as {
           role: UserRole
         }
+        alert('Đăng nhập thành công!')
         login({ accessToken, refreshToken, role })
         router.push(dashboardByRole[role] || '/')
       }

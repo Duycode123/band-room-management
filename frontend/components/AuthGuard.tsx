@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -25,5 +25,5 @@ export default function AuthGuard({ allowedRoles, children }: AuthGuardProps) {
     }
   }, [user, allowedRoles, router])
 
-  return <>{children}</>
+  return authorized ? <>{children}</> : null
 }

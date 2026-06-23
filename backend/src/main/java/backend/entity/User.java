@@ -2,15 +2,18 @@ package backend.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
 @Entity
-@Table(name = "users")
+@Table(name = "tai_khoan")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -20,45 +23,36 @@ public class User implements UserDetails {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(name = "full_name", nullable = false)
-    private String fullName;
+    private Integer id;
 
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(nullable = false)
+    @Column(name = "mat_khau_hash", nullable = false)
     private String password;
 
-    @Column(unique = true)
-    private String phone;
-
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "vai_tro", nullable = false, columnDefinition = "vai_tro")
     private Role role;
 
-    @Builder.Default
-    private Boolean status = true;
+    @Column(name = "ngay_tao", insertable = false, updatable = false)
+    private LocalDateTime createdAt;
 
-    // THÊM TRƯỜNG NÀY ĐỂ LƯU MÃ TOKEN QUÊN MẬT KHẨU
-    @Column(name = "reset_token")
+    @Column(name = "reset_token", unique = true)
     private String resetToken;
+
+    @Column(name = "reset_token_expires_at")
+    private LocalDateTime resetTokenExpiresAt;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(
-                new SimpleGrantedAuthority("ROLE_" + role.name())
-        );
+        return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
     }
 
     @Override
     public String getUsername() {
         return email;
-    }
-
-    @Override
-    public String getPassword() {
-        return this.password;
     }
 
     @Override
@@ -78,6 +72,6 @@ public class User implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return status;
+        return true;
     }
 }

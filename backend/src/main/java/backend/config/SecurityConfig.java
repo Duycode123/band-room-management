@@ -60,6 +60,12 @@ public class SecurityConfig {
         http
                 .cors(cors -> {})
                 .csrf(csrf -> csrf.disable())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authenticationProvider(authenticationProvider()) // Kích hoạt bộ xác thực liên kết
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/v1/auth/**").permitAll() 
+                        .anyRequest().permitAll()
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
