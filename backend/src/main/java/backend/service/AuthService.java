@@ -8,6 +8,7 @@ import backend.dto.response.AuthResponse;
 public interface AuthService {
     AuthResponse register(RegisterRequest request);
     AuthResponse login(LoginRequest request);
+    AuthResponse refresh(String refreshToken);
     void logout(String accessToken, String refreshToken);
     
     // KHAI BÁO THÊM HÀM NÀY ĐỂ HẾT LỖI COMPILATION ERROR

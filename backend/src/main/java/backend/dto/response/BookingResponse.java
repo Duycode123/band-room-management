@@ -2,6 +2,8 @@ package backend.dto.response;
 
 import backend.entity.Booking;
 import backend.entity.BookingStatus;
+import backend.entity.Customer;
+import backend.entity.User;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -41,10 +43,17 @@ public class BookingResponse {
         this.bookingCode = booking.getBookingCode();
 
         if (booking.getCustomer() != null) {
-            this.customerId = booking.getCustomer().getId();
-            this.customerName = booking.getCustomer().getFullName();
-            this.customerEmail = booking.getCustomer().getEmail();
-            this.customerPhone = booking.getCustomer().getPhone();
+            User customerAccount = booking.getCustomer();
+            this.customerId = customerAccount.getId() != null
+                    ? customerAccount.getId().longValue()
+                    : null;
+            this.customerEmail = customerAccount.getEmail();
+
+            Customer profile = customerAccount.getCustomerProfile();
+            if (profile != null) {
+                this.customerName = profile.getFullName();
+                this.customerPhone = profile.getPhone();
+            }
         }
 
         if (booking.getRoom() != null) {

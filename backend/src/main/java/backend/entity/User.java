@@ -45,6 +45,9 @@ public class User implements UserDetails {
     @Column(name = "reset_token_expires_at")
     private LocalDateTime resetTokenExpiresAt;
 
+    @OneToOne(mappedBy = "account", fetch = FetchType.LAZY)
+    private Customer customerProfile;
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));

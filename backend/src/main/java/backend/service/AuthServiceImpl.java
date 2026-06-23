@@ -13,6 +13,7 @@ import backend.repository.CustomerRepository;
 import backend.security.JwtService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -83,6 +84,47 @@ public class AuthServiceImpl implements AuthService {
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .role(user.getRole() != null ? user.getRole().name() : "CUSTOMER")
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public AuthResponse refresh(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new BadCredentialsException("Không tìm thấy refresh token");
+        }
+        if (tokenRevocationService.isRevoked(refreshToken)) {
+            throw new BadCredentialsException("Refresh token đã bị thu hồi");
+        }
+
+        String email;
+        try {
+            email = jwtService.extractUsername(refreshToken);
+        } catch (RuntimeException ex) {
+            throw new BadCredentialsException("Refresh token không hợp lệ", ex);
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new BadCredentialsException("Tài khoản không còn tồn tại"));
+
+        if (!jwtService.isRefreshTokenValid(refreshToken, user)) {
+            throw new BadCredentialsException("Refresh token không hợp lệ hoặc đã hết hạn");
+        }
+
+        String newAccessToken = jwtService.generateAccessToken(user);
+        String newRefreshToken;
+        try {
+            newRefreshToken = jwtService.rotateRefreshToken(user, refreshToken);
+        } catch (RuntimeException ex) {
+            throw new BadCredentialsException("Phiên đăng nhập đã hết hạn", ex);
+        }
+
+        tokenRevocationService.revoke(refreshToken);
+
+        return AuthResponse.builder()
+                .accessToken(newAccessToken)
+                .refreshToken(newRefreshToken)
+                .role(user.getRole().name())
                 .build();
     }
 

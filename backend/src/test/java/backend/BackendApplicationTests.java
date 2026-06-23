@@ -1,8 +1,13 @@
 package backend;
 
 import backend.entity.Role;
+import backend.entity.Room;
+import backend.entity.RoomStatus;
+import backend.entity.RoomType;
 import backend.entity.User;
 import backend.repository.CustomerRepository;
+import backend.repository.RoomRepository;
+import backend.repository.RoomTypeRepository;
 import backend.repository.UserRepository;
 import backend.security.AuthCookieService;
 import backend.security.CustomUserDetailsService;
@@ -16,7 +21,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpHeaders;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.test.web.servlet.MockMvc;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
@@ -52,6 +62,15 @@ class BackendApplicationTests {
 
     @MockBean
     private CustomerRepository customerRepository;
+
+    @MockBean
+    private RoomRepository roomRepository;
+
+    @MockBean
+    private RoomTypeRepository roomTypeRepository;
+
+    @MockBean
+    private AuthenticationManager authenticationManager;
 
     @Test
     void contextLoads() {
@@ -96,6 +115,94 @@ class BackendApplicationTests {
                         .cookie(new Cookie(AuthCookieService.ACCESS_COOKIE_NAME, accessToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.role").value("CUSTOMER"));
+    }
+
+    @Test
+    void sessionReturnsUnauthorizedWithoutAccessCookie() throws Exception {
+        mockMvc.perform(get("/api/auth/session"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void loginSetsHttpOnlyCookiesWithoutExposingTokensInBody() throws Exception {
+        User user = User.builder()
+                .email("login@example.com")
+                .password("encoded")
+                .role(Role.CUSTOMER)
+                .build();
+        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "email": "login@example.com",
+                                  "password": "secret123"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(cookie().httpOnly(AuthCookieService.ACCESS_COOKIE_NAME, true))
+                .andExpect(cookie().httpOnly(AuthCookieService.REFRESH_COOKIE_NAME, true))
+                .andExpect(jsonPath("$.role").value("CUSTOMER"))
+                .andExpect(jsonPath("$.accessToken").doesNotExist())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist());
+    }
+
+    @Test
+    void refreshRotatesRefreshTokenAndSetsNewHttpOnlyCookies() throws Exception {
+        User user = User.builder()
+                .email("refresh@example.com")
+                .password("encoded")
+                .role(Role.CUSTOMER)
+                .build();
+        String currentRefreshToken = jwtService.generateRefreshToken(user);
+        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+
+        mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(new Cookie(AuthCookieService.REFRESH_COOKIE_NAME, currentRefreshToken)))
+                .andExpect(status().isOk())
+                .andExpect(cookie().httpOnly(AuthCookieService.ACCESS_COOKIE_NAME, true))
+                .andExpect(cookie().httpOnly(AuthCookieService.REFRESH_COOKIE_NAME, true))
+                .andExpect(jsonPath("$.role").value("CUSTOMER"))
+                .andExpect(jsonPath("$.accessToken").doesNotExist())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist());
+
+        assertTrue(tokenRevocationService.isRevoked(currentRefreshToken));
+    }
+
+    @Test
+    void revokedRefreshTokenCannotBeUsedAgain() throws Exception {
+        User user = User.builder()
+                .email("reused-refresh@example.com")
+                .password("encoded")
+                .role(Role.CUSTOMER)
+                .build();
+        String refreshToken = jwtService.generateRefreshToken(user);
+        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+
+        mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(new Cookie(AuthCookieService.REFRESH_COOKIE_NAME, refreshToken)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(new Cookie(AuthCookieService.REFRESH_COOKIE_NAME, refreshToken)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void accessTokenCannotBeUsedAsRefreshToken() throws Exception {
+        User user = User.builder()
+                .email("wrong-token-type@example.com")
+                .password("encoded")
+                .role(Role.CUSTOMER)
+                .build();
+        String accessToken = jwtService.generateAccessToken(user);
+        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+
+        mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(new Cookie(AuthCookieService.REFRESH_COOKIE_NAME, accessToken)))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -153,5 +260,46 @@ class BackendApplicationTests {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void roomsAreAvailableWithoutAuthentication() throws Exception {
+        RoomType roomType = RoomType.builder()
+                .id(1L)
+                .typeName("Standard")
+                .pricePerHour(new BigDecimal("150000"))
+                .capacity(6)
+                .build();
+        Room room = Room.builder()
+                .id(10L)
+                .roomName("Room A")
+                .roomType(roomType)
+                .floor(1)
+                .maxPeople(6)
+                .status(RoomStatus.AVAILABLE)
+                .build();
+        when(roomRepository.findAllByOrderByRoomNameAsc()).thenReturn(List.of(room));
+
+        mockMvc.perform(get("/api/rooms"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].id").value(10))
+                .andExpect(jsonPath("$.data[0].roomType.typeName").value("Standard"));
+    }
+
+    @Test
+    void roomTypesAreAvailableWithoutAuthentication() throws Exception {
+        RoomType roomType = RoomType.builder()
+                .id(1L)
+                .typeName("Standard")
+                .pricePerHour(new BigDecimal("150000"))
+                .capacity(6)
+                .build();
+        when(roomTypeRepository.findAllByOrderByTypeNameAsc()).thenReturn(List.of(roomType));
+
+        mockMvc.perform(get("/api/room-types"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].typeName").value("Standard"));
     }
 }
