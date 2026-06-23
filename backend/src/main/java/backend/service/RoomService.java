@@ -7,11 +7,11 @@ import backend.entity.RoomStatus;
 import java.util.List;
 
 public interface RoomService {
-    List<RoomResponse> getRooms(Long roomTypeId, RoomStatus status);
+    List<RoomResponse> getRooms(Integer roomTypeId, RoomStatus status);
 
-    RoomResponse getRoom(Long id);
+    RoomResponse getRoom(Integer id);
 
     List<RoomTypeResponse> getRoomTypes();
 
-    RoomTypeResponse getRoomType(Long id);
+    RoomTypeResponse getRoomType(Integer id);
 }

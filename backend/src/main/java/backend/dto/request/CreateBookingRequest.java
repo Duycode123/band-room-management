@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import backend.entity.PaymentMethod;
 
 import java.time.LocalDateTime;
 
@@ -13,8 +14,9 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class CreateBookingRequest {
 
-    private Long roomId;
+    private Integer roomId;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
+    private PaymentMethod paymentMethod;
     private String note;
 }

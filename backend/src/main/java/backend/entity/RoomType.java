@@ -12,28 +12,29 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "room_types")
+@Table(name = "hang_phong")
 public class RoomType {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Integer id;
 
-    @Column(name = "type_name", nullable = false, unique = true)
+    @Column(name = "ten_hang", nullable = false, unique = true)
     private String typeName;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "mo_ta", columnDefinition = "TEXT")
     private String description;
 
-    @Column(name = "price_per_hour", nullable = false)
+    @Column(name = "gia_gio", nullable = false, precision = 12, scale = 2)
     private BigDecimal pricePerHour;
 
+    @Transient
     private Integer capacity;
 
-    @Column(name = "created_at")
+    @Transient
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @Transient
     private LocalDateTime updatedAt;
 
     @PrePersist

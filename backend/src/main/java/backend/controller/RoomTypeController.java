@@ -29,7 +29,7 @@ public class RoomTypeController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<RoomTypeResponse>> getRoomType(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<RoomTypeResponse>> getRoomType(@PathVariable Integer id) {
         return ResponseEntity.ok(ApiResponse.<RoomTypeResponse>builder()
                 .success(true)
                 .message("Lấy thông tin loại phòng thành công")

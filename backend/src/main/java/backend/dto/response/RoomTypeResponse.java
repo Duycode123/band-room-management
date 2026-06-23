@@ -11,7 +11,7 @@ import java.math.BigDecimal;
 @Builder
 @AllArgsConstructor
 public class RoomTypeResponse {
-    private Long id;
+    private Integer id;
     private String typeName;
     private String description;
     private BigDecimal pricePerHour;

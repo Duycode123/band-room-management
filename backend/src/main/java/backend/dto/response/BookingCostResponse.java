@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class BookingCostResponse {
 
-    private Long roomId;
+    private Integer roomId;
     private String roomName;
     private String typeName;
 
