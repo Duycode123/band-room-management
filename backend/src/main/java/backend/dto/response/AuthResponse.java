@@ -8,9 +8,9 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AuthResponse {
-    @JsonIgnore
+
     private String accessToken;
     @JsonIgnore
     private String refreshToken;
-    private String role; // Thêm trường này để sửa lỗi .role(java.lang.String)
+    private String role;
 }

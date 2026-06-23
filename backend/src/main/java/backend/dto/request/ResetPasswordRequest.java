@@ -1,15 +1,17 @@
 package backend.dto.request;
 
 import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-@Data
-@Builder
-@AllArgsConstructor
+@Getter
+@Setter
 @NoArgsConstructor
+@AllArgsConstructor
 public class ResetPasswordRequest {
-    private String token;       // Đổi thành nhận token
+
+    private String token;
+
     private String newPassword;
 }

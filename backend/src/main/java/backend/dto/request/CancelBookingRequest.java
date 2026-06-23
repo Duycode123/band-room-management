@@ -9,7 +9,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class RefreshTokenRequest {
+public class CancelBookingRequest {
 
-    private String refreshToken;
+    private String reason;
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import api from '@/lib/api'
+import { useAuth } from '@/contexts/AuthContext'
 
 type UserRole = 'ADMIN' | 'STAFF' | 'CUSTOMER'
 
@@ -13,28 +13,17 @@ interface AuthGuardProps {
 
 export default function AuthGuard({ allowedRoles, children }: AuthGuardProps) {
   const router = useRouter()
-  const [authorized, setAuthorized] = useState(false)
+  const { user } = useAuth()
 
   useEffect(() => {
-    let active = true
-
-    api.get<{ role: UserRole }>('/api/auth/session')
-      .then(({ data }) => {
-        if (!active) return
-        if (!allowedRoles.includes(data.role)) {
-          router.replace('/unauthorized')
-          return
-        }
-        setAuthorized(true)
-      })
-      .catch(() => {
-        if (active) router.replace('/login')
-      })
-
-    return () => {
-      active = false
+    if (!user) {
+      router.replace('/login')
+      return
     }
-  }, [allowedRoles, router])
+    if (!allowedRoles.includes(user.role)) {
+      router.replace('/unauthorized')
+    }
+  }, [user, allowedRoles, router])
 
   return authorized ? <>{children}</> : null
 }

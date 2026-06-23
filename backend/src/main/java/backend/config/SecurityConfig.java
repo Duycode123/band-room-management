@@ -1,9 +1,11 @@
 package backend.config;
 
 import backend.repository.UserRepository;
+import backend.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -16,7 +18,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import backend.security.JwtAuthenticationFilter;
 
 @Configuration
 @RequiredArgsConstructor
@@ -30,14 +31,12 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    // 1. CẤU HÌNH TÌM KIẾM TÀI KHOẢN TỪ POSTGRESQL KHI ĐĂNG NHẬP
     @Bean
     public UserDetailsService userDetailsService() {
         return username -> userRepository.findByEmail(username)
                 .orElseThrow(() -> new UsernameNotFoundException("Không tìm thấy tài khoản với email: " + username));
     }
 
-    // 2. ĐỊNH NGHĨA AUTHENTICATIONMANAGER ĐỂ SỬA LỖI RUNTIME CONSTRUCTOR PARAMETER 3
     @Bean
     public AuthenticationManager authenticationManager(
             AuthenticationConfiguration configuration
@@ -45,7 +44,6 @@ public class SecurityConfig {
         return configuration.getAuthenticationManager();
     }
 
-    // 3. ĐỊNH NGHĨA BỘ XÁC THỰC LÕI KẾT NỐI GIỮA USER DETAILS VÀ PASSWORD ENCODER
     @Bean
     public AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
@@ -68,6 +66,18 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll() 
                         .anyRequest().permitAll()
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+                .authenticationProvider(authenticationProvider())
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/rooms/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/bookings/calculate-cost").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/bookings").authenticated()
+                        .requestMatchers("/api/bookings/**").authenticated()
+                        .requestMatchers("/api/admin/bookings/**").authenticated()
+                        .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

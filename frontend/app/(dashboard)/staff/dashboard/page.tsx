@@ -2,14 +2,15 @@
 
 import { useRouter } from 'next/navigation'
 import AuthGuard from '@/components/AuthGuard'
-import { logoutSession } from '@/lib/auth'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function StaffDashboardPage() {
   const router = useRouter()
+  const { logout } = useAuth()
 
-  const logout = async () => {
-    await logoutSession()
-    router.replace('/login')
+  const handleLogout = () => {
+    logout()
+    router.push('/login')
   }
 
   return (
@@ -22,7 +23,7 @@ export default function StaffDashboardPage() {
               <h1 className="mt-2 text-3xl font-bold text-slate-900">Trang làm việc nhân viên</h1>
               <p className="mt-2 text-slate-500">Duyệt lịch đặt, kiểm tra phòng và hỗ trợ khách hàng trong ca trực.</p>
             </div>
-            <button onClick={logout} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
+            <button onClick={handleLogout} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
               Đăng xuất
             </button>
           </div>
