@@ -1,6 +1,5 @@
 package backend.dto.request;
 
-import backend.entity.Role;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -30,5 +29,4 @@ public class RegisterRequest {
     @NotBlank(message = "Mật khẩu không được để trống")
     private String password;
 
-    private Role role;
 }

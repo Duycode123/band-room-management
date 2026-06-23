@@ -2,13 +2,14 @@
 
 import { useRouter } from 'next/navigation'
 import AuthGuard from '@/components/AuthGuard'
+import { logoutSession } from '@/lib/auth'
 
 export default function AdminDashboardPage() {
   const router = useRouter()
 
-  const logout = () => {
-    localStorage.clear()
-    router.push('/login')
+  const logout = async () => {
+    await logoutSession()
+    router.replace('/login')
   }
 
   return (

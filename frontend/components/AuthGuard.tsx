@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import api from '@/lib/api'
 
 type UserRole = 'ADMIN' | 'STAFF' | 'CUSTOMER'
 
@@ -12,20 +13,28 @@ interface AuthGuardProps {
 
 export default function AuthGuard({ allowedRoles, children }: AuthGuardProps) {
   const router = useRouter()
+  const [authorized, setAuthorized] = useState(false)
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken')
-    const role = localStorage.getItem('role') as UserRole | null
+    let active = true
 
-    if (!token) {
-      router.replace('/login')
-      return
-    }
+    api.get<{ role: UserRole }>('/api/auth/session')
+      .then(({ data }) => {
+        if (!active) return
+        if (!allowedRoles.includes(data.role)) {
+          router.replace('/unauthorized')
+          return
+        }
+        setAuthorized(true)
+      })
+      .catch(() => {
+        if (active) router.replace('/login')
+      })
 
-    if (role && !allowedRoles.includes(role)) {
-      router.replace('/unauthorized')
+    return () => {
+      active = false
     }
   }, [allowedRoles, router])
 
-  return <>{children}</>
+  return authorized ? <>{children}</> : null
 }

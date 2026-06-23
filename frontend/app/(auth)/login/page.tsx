@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import axios from 'axios'
+import api from '@/lib/api'
 
 type UserRole = 'ADMIN' | 'STAFF' | 'CUSTOMER'
 
@@ -25,19 +25,11 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`,
-        formData,
-      )
+      const response = await api.post('/api/auth/login', formData)
       if (response.status === 200 && response.data) {
-        const { accessToken, refreshToken, role } = response.data as {
-          accessToken: string
-          refreshToken: string
+        const { role } = response.data as {
           role: UserRole
         }
-        localStorage.setItem('accessToken', accessToken)
-        localStorage.setItem('refreshToken', refreshToken)
-        localStorage.setItem('role', role)
         alert('Đăng nhập thành công!')
         router.push(dashboardByRole[role] || '/')
       }

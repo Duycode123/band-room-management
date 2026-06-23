@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import axios from 'axios'
+import api from '@/lib/api'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -17,10 +17,7 @@ export default function RegisterPage() {
     e.preventDefault()
     setError('')
     try {
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/register`,
-        formData,
-      )
+      const response = await api.post('/api/auth/register', formData)
       if (response.status === 200 || response.status === 201) {
         alert('Đăng ký thành công!')
         router.push('/login')
