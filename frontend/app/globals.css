@@ -1,17 +1,64 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap');
 
 @import "tailwindcss";
 
 @theme {
+  /* Brand — giữ alias cũ cho login page */
   --color-brand-orange: #FF7518;
   --color-brand-orangeHover: #E6640F;
-  --color-brand-greenDark: #06331A;
+  --color-brand-greenDark: #042A16;
   --color-brand-greenLight: #0A4D27;
-  --color-brand-bgGray: #F8F9FA;
+  --color-brand-bgGray: #F5F2EC;
+
+  /* Surface — warm linen */
+  --color-surface: #F5F2EC;
+  --color-surface-dim: #E8E4DC;
+  --color-surface-container-lowest: #FFFFFF;
+  --color-surface-container-low: #FAF8F4;
+  --color-surface-container: #F0EDE6;
+  --color-surface-container-high: #E8E4DC;
+  --color-on-surface: #1A1C1E;
+  --color-on-surface-variant: #5C5348;
+  --color-outline: #C9C2B6;
+  --color-outline-variant: #E8E4DC;
+
+  /* Semantic */
+  --color-primary: #FF7518;
+  --color-on-primary: #FFFFFF;
+  --color-primary-container: #FFE8D6;
+  --color-on-primary-container: #6B3200;
+  --color-primary-fixed: #FFD4A8;
+  --color-secondary: #042A16;
+  --color-on-secondary: #FFFFFF;
+  --color-secondary-container: #0A4D27;
+  --color-on-secondary-container: #A8D4B8;
+  --color-tertiary: #B45309;
+  --color-tertiary-container: #FEF3C7;
+  --color-on-tertiary-container: #78350F;
+  --color-inverse-surface: #042A16;
+  --color-inverse-on-surface: #E8F5EC;
+  --color-error: #C62828;
+  --color-error-container: #FFEBEE;
+  --color-on-error-container: #8B1A1A;
 
   --font-sans: 'Inter', sans-serif;
+  --font-display: 'Space Grotesk', sans-serif;
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+
+  --shadow-card: 0 4px 24px rgba(26, 28, 30, 0.06);
+  --shadow-elevated: 0 12px 48px rgba(26, 28, 30, 0.12);
 }
 
 body {
   background-color: var(--color-brand-bgGray);
+  color: var(--color-on-surface);
+  font-family: var(--font-sans);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
 }
