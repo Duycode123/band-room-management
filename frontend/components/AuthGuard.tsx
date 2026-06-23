@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
 
 type UserRole = 'ADMIN' | 'STAFF' | 'CUSTOMER'
 
@@ -12,20 +13,17 @@ interface AuthGuardProps {
 
 export default function AuthGuard({ allowedRoles, children }: AuthGuardProps) {
   const router = useRouter()
+  const { user } = useAuth()
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken')
-    const role = localStorage.getItem('role') as UserRole | null
-
-    if (!token) {
+    if (!user) {
       router.replace('/login')
       return
     }
-
-    if (role && !allowedRoles.includes(role)) {
+    if (!allowedRoles.includes(user.role)) {
       router.replace('/unauthorized')
     }
-  }, [allowedRoles, router])
+  }, [user, allowedRoles, router])
 
   return <>{children}</>
 }

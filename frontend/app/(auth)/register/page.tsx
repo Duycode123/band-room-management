@@ -6,8 +6,9 @@ import axios from 'axios'
 
 export default function RegisterPage() {
   const router = useRouter()
-  const [formData, setFormData] = useState({ fullName: '', email: '', phone: '', password: '' })
+  const [formData, setFormData] = useState({ fullName: '', identifier: '', password: '' })
   const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
@@ -16,10 +17,31 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setIsLoading(true)
+
+    const identifier = formData.identifier.trim()
+    const isEmail = identifier.includes('@')
+
+    if (isEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)) {
+      setError('Email không hợp lệ.')
+      setIsLoading(false)
+      return
+    }
+    if (!isEmail && !/^(0|\+84)[0-9]{9}$/.test(identifier)) {
+      setError('Số điện thoại không hợp lệ.')
+      setIsLoading(false)
+      return
+    }
+
     try {
       const response = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/auth/register`,
-        formData,
+        {
+          fullName: formData.fullName.trim(),
+          email: isEmail ? identifier.toLowerCase() : '',
+          phone: isEmail ? '' : identifier,
+          password: formData.password,
+        },
       )
       if (response.status === 200 || response.status === 201) {
         alert('Đăng ký thành công!')
@@ -28,6 +50,8 @@ export default function RegisterPage() {
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } }
       setError(axiosErr.response?.data?.message || 'Đăng ký thất bại, vui lòng thử lại.')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -88,12 +112,11 @@ export default function RegisterPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <FormInput label="Họ và tên" name="fullName" type="text" value={formData.fullName} onChange={handleChange} placeholder="Nguyễn Văn A" icon="user" />
-            <FormInput label="Email" name="email" type="email" value={formData.email} onChange={handleChange} placeholder="name@company.com" icon="email" />
-            <FormInput label="Số điện thoại" name="phone" type="tel" value={formData.phone} onChange={handleChange} placeholder="0912345678" icon="phone" />
+            <FormInput label="Email hoặc Số điện thoại" name="identifier" type="text" value={formData.identifier} onChange={handleChange} placeholder="Nhập email hoặc số điện thoại" icon="user" />
             <FormInput label="Mật khẩu" name="password" type="password" value={formData.password} onChange={handleChange} placeholder="Tối thiểu 6 ký tự" icon="lock" />
 
-            <button type="submit" className="w-full bg-brand-orange hover:bg-brand-orangeHover text-white font-medium py-3 rounded-xl shadow-sm flex items-center justify-center transition-all mt-6 cursor-pointer active:scale-[0.98]">
-              <span className="text-sm">Tạo tài khoản</span>
+            <button type="submit" disabled={isLoading} className="w-full bg-brand-orange hover:bg-brand-orangeHover disabled:bg-gray-300 text-white font-medium py-3 rounded-xl shadow-sm flex items-center justify-center transition-all mt-6 cursor-pointer active:scale-[0.98]">
+              <span className="text-sm">{isLoading ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}</span>
             </button>
           </form>
 
@@ -115,7 +138,7 @@ type FormInputProps = {
   type: string
   value: string
   placeholder: string
-  icon: 'user' | 'email' | 'phone' | 'lock'
+  icon: 'user' | 'lock'
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
 }
 
@@ -136,8 +159,6 @@ function FormInput({ label, name, type, value, placeholder, icon, onChange }: Fo
 function InputIcon({ icon }: { icon: FormInputProps['icon'] }) {
   const paths = {
     user: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
-    email: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 002-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
-    phone: 'M2 5.5C2 4.12 3.12 3 4.5 3h1.13c.74 0 1.38.5 1.56 1.22l.5 2a2 2 0 01-.52 1.89l-.67.67a12 12 0 005.72 5.72l.67-.67a2 2 0 011.89-.52l2 .5A1.6 1.6 0 0118 15.37v1.13c0 1.38-1.12 2.5-2.5 2.5H15C7.82 19 2 13.18 2 6v-.5z',
     lock: 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z',
   }
   return (
