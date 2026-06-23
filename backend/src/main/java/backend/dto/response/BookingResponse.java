@@ -3,7 +3,7 @@ package backend.dto.response;
 import backend.entity.Booking;
 import backend.entity.BookingStatus;
 import backend.entity.Customer;
-import backend.entity.User;
+import backend.entity.PaymentMethod;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -16,15 +16,15 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class BookingResponse {
 
-    private Long bookingId;
+    private Integer bookingId;
     private String bookingCode;
 
-    private Long customerId;
+    private Integer customerId;
     private String customerName;
     private String customerEmail;
     private String customerPhone;
 
-    private Long roomId;
+    private Integer roomId;
     private String roomName;
     private String typeName;
 
@@ -36,23 +36,21 @@ public class BookingResponse {
     private BigDecimal totalAmount;
 
     private BookingStatus status;
-    private LocalDateTime paymentExpiredAt;
+    private PaymentMethod paymentMethod;
 
     public BookingResponse(Booking booking) {
         this.bookingId = booking.getId();
         this.bookingCode = booking.getBookingCode();
 
         if (booking.getCustomer() != null) {
-            User customerAccount = booking.getCustomer();
-            this.customerId = customerAccount.getId() != null
-                    ? customerAccount.getId().longValue()
-                    : null;
-            this.customerEmail = customerAccount.getEmail();
+            Customer customer = booking.getCustomer();
+            this.customerId = customer.getId();
+            this.customerName = customer.getFullName();
+            this.customerPhone = customer.getPhone();
+            this.customerEmail = customer.getEmail();
 
-            Customer profile = customerAccount.getCustomerProfile();
-            if (profile != null) {
-                this.customerName = profile.getFullName();
-                this.customerPhone = profile.getPhone();
+            if (this.customerEmail == null && customer.getAccount() != null) {
+                this.customerEmail = customer.getAccount().getEmail();
             }
         }
 
@@ -71,6 +69,6 @@ public class BookingResponse {
         this.pricePerHour = booking.getPricePerHour();
         this.totalAmount = booking.getTotalAmount();
         this.status = booking.getStatus();
-        this.paymentExpiredAt = booking.getPaymentExpiredAt();
+        this.paymentMethod = booking.getPaymentMethod();
     }
 }

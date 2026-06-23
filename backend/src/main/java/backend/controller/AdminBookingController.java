@@ -37,7 +37,7 @@ public class AdminBookingController {
 
     @GetMapping("/{id}")
     public ResponseEntity<?> getBookingDetail(
-            @PathVariable Long id,
+            @PathVariable Integer id,
             Authentication authentication
     ) {
         String currentUserEmail = authentication.getName();
@@ -49,7 +49,7 @@ public class AdminBookingController {
 
     @PatchMapping("/{id}/status")
     public ResponseEntity<?> updateBookingStatus(
-            @PathVariable Long id,
+            @PathVariable Integer id,
             @RequestParam BookingStatus status,
             Authentication authentication
     ) {
@@ -65,7 +65,7 @@ public class AdminBookingController {
 
     @PutMapping("/{id}/cancel")
     public ResponseEntity<?> cancelBooking(
-            @PathVariable Long id,
+            @PathVariable Integer id,
             @RequestBody(required = false) CancelBookingRequest request,
             Authentication authentication
     ) {

@@ -85,6 +85,28 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ApiResponse<String>> handleForbidden(ForbiddenException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                ApiResponse.<String>builder()
+                        .success(false)
+                        .message(ex.getMessage())
+                        .data(null)
+                        .build()
+        );
+    }
+
+    @ExceptionHandler(BookingConflictException.class)
+    public ResponseEntity<ApiResponse<String>> handleBookingConflict(BookingConflictException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                ApiResponse.<String>builder()
+                        .success(false)
+                        .message(ex.getMessage())
+                        .data(null)
+                        .build()
+        );
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<String>> handleException(Exception ex) {
         return ResponseEntity.internalServerError().body(

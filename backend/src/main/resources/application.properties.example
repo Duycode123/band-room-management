@@ -1,0 +1,26 @@
+spring.application.name=backend
+
+# ===== Database =====
+# Either set the DB_* environment variables, or replace the values after the colon.
+spring.datasource.url=${DB_URL:jdbc:postgresql://localhost:6789/bandlabdb}
+spring.datasource.username=${DB_USERNAME:postgres}
+spring.datasource.password=${DB_PASSWORD:your_postgres_password}
+spring.datasource.driver-class-name=org.postgresql.Driver
+
+spring.jpa.hibernate.ddl-auto=validate
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+
+# ===== Mail (Gmail SMTP) =====
+# Use a Gmail App Password (https://myaccount.google.com/apppasswords), NOT your account password.
+spring.mail.host=smtp.gmail.com
+spring.mail.port=587
+spring.mail.username=your_email@gmail.com
+spring.mail.password=your_gmail_app_password
+spring.mail.properties.mail.smtp.auth=true
+spring.mail.properties.mail.smtp.starttls.enable=true
+
+server.port=8080
+
+# Keep false for local HTTP development; override to true behind HTTPS in production.
+app.cookie.secure=false

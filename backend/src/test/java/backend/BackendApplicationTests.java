@@ -265,18 +265,18 @@ class BackendApplicationTests {
     @Test
     void roomsAreAvailableWithoutAuthentication() throws Exception {
         RoomType roomType = RoomType.builder()
-                .id(1L)
+                .id(1)
                 .typeName("Standard")
                 .pricePerHour(new BigDecimal("150000"))
                 .capacity(6)
                 .build();
         Room room = Room.builder()
-                .id(10L)
+                .id(10)
                 .roomName("Room A")
                 .roomType(roomType)
                 .floor(1)
                 .maxPeople(6)
-                .status(RoomStatus.AVAILABLE)
+                .status(RoomStatus.TRONG)
                 .build();
         when(roomRepository.findAllByOrderByRoomNameAsc()).thenReturn(List.of(room));
 
@@ -290,7 +290,7 @@ class BackendApplicationTests {
     @Test
     void roomTypesAreAvailableWithoutAuthentication() throws Exception {
         RoomType roomType = RoomType.builder()
-                .id(1L)
+                .id(1)
                 .typeName("Standard")
                 .pricePerHour(new BigDecimal("150000"))
                 .capacity(6)

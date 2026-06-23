@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class CalculateBookingCostRequest {
 
-    private Long roomId;
+    private Integer roomId;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
 }

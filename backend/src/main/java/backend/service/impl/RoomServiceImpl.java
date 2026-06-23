@@ -23,7 +23,7 @@ public class RoomServiceImpl implements RoomService {
     private final RoomTypeRepository roomTypeRepository;
 
     @Override
-    public List<RoomResponse> getRooms(Long roomTypeId, RoomStatus status) {
+    public List<RoomResponse> getRooms(Integer roomTypeId, RoomStatus status) {
         List<Room> rooms;
 
         if (roomTypeId != null && status != null) {
@@ -40,7 +40,7 @@ public class RoomServiceImpl implements RoomService {
     }
 
     @Override
-    public RoomResponse getRoom(Long id) {
+    public RoomResponse getRoom(Integer id) {
         Room room = roomRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng tập"));
         return RoomResponse.from(room);
@@ -54,7 +54,7 @@ public class RoomServiceImpl implements RoomService {
     }
 
     @Override
-    public RoomTypeResponse getRoomType(Long id) {
+    public RoomTypeResponse getRoomType(Integer id) {
         return roomTypeRepository.findById(id)
                 .map(RoomTypeResponse::from)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy loại phòng"));

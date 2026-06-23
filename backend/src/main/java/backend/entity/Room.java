@@ -2,6 +2,8 @@ package backend.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -11,39 +13,41 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "rooms")
+@Table(name = "phong")
 public class Room {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Integer id;
 
-    @Column(name = "room_name", nullable = false, unique = true)
+    @Column(name = "ten", nullable = false, unique = true)
     private String roomName;
 
     @ManyToOne
-    @JoinColumn(name = "room_type_id", nullable = false)
+    @JoinColumn(name = "hang_phong_id", nullable = false)
     private RoomType roomType;
 
+    @Transient
     private Integer floor;
 
-    @Column(name = "max_people")
+    @Transient
     private Integer maxPeople;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "trang_thai", nullable = false, columnDefinition = "trang_thai_phong")
     private RoomStatus status;
 
-    @Column(columnDefinition = "TEXT")
+    @Transient
     private String description;
 
-    @Column(name = "image_url")
+    @Transient
     private String imageUrl;
 
-    @Column(name = "created_at")
+    @Transient
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @Transient
     private LocalDateTime updatedAt;
 
     @PrePersist
@@ -52,7 +56,7 @@ public class Room {
         updatedAt = LocalDateTime.now();
 
         if (status == null) {
-            status = RoomStatus.AVAILABLE;
+            status = RoomStatus.TRONG;
         }
     }
 
