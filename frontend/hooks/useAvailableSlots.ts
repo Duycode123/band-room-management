@@ -2,6 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchAvailableSlots } from '@/lib/booking/bookingApi'
+import {
+  applySlotSelection,
+  deselectSlotClick,
+  getSelectedIdsFromSlots,
+  selectSlotClick,
+} from '@/lib/booking/slotSelection'
 import type { TimeSlot } from '@/lib/booking/types'
 
 const POLL_INTERVAL_MS = 15_000
@@ -11,7 +17,7 @@ export function useAvailableSlots(roomId: string | null, date: string) {
   const [isLoading, setIsLoading] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [error, setError] = useState('')
-  const selectedSlotIdRef = useRef<string | null>(null)
+  const selectedIdsRef = useRef<Set<string>>(new Set())
 
   const load = useCallback(async () => {
     if (!roomId || !date) {
@@ -22,14 +28,7 @@ export function useAvailableSlots(roomId: string | null, date: string) {
     setError('')
     try {
       const data = await fetchAvailableSlots(roomId, date)
-      const selectedId = selectedSlotIdRef.current
-      setSlots(
-        data.map((slot) =>
-          slot.id === selectedId && slot.status === 'available'
-            ? { ...slot, status: 'selected' as const }
-            : slot,
-        ),
-      )
+      setSlots(applySlotSelection(data, selectedIdsRef.current))
       setLastUpdated(new Date())
     } catch {
       setError('Không thể tải lịch trống. Thử lại sau.')
@@ -38,20 +37,31 @@ export function useAvailableSlots(roomId: string | null, date: string) {
     }
   }, [roomId, date])
 
-  const selectSlot = useCallback((slotId: string | null) => {
-    selectedSlotIdRef.current = slotId
-    setSlots((prev) =>
-      prev.map((slot) => {
-        if (slot.status === 'past' || slot.status === 'booked') return slot
-        if (slot.id === slotId) return { ...slot, status: 'selected' }
-        if (slot.status === 'selected') return { ...slot, status: 'available' }
-        return slot
-      }),
-    )
+  const selectSlot = useCallback((slotId: string) => {
+    setSlots((prev) => {
+      const current = getSelectedIdsFromSlots(prev)
+      const selectedIds = selectSlotClick(prev, slotId, current)
+      selectedIdsRef.current = selectedIds
+      return applySlotSelection(prev, selectedIds)
+    })
+  }, [])
+
+  const deselectSlot = useCallback((slotId: string) => {
+    setSlots((prev) => {
+      const current = getSelectedIdsFromSlots(prev)
+      const selectedIds = deselectSlotClick(prev, slotId, current)
+      selectedIdsRef.current = selectedIds
+      return applySlotSelection(prev, selectedIds)
+    })
+  }, [])
+
+  const clearSelection = useCallback(() => {
+    selectedIdsRef.current = new Set()
+    setSlots((prev) => applySlotSelection(prev, new Set()))
   }, [])
 
   useEffect(() => {
-    selectedSlotIdRef.current = null
+    selectedIdsRef.current = new Set()
     load()
   }, [load])
 
@@ -61,5 +71,14 @@ export function useAvailableSlots(roomId: string | null, date: string) {
     return () => clearInterval(timer)
   }, [roomId, date, load])
 
-  return { slots, isLoading, lastUpdated, error, refresh: load, selectSlot }
+  return {
+    slots,
+    isLoading,
+    lastUpdated,
+    error,
+    refresh: load,
+    selectSlot,
+    deselectSlot,
+    clearSelection,
+  }
 }
