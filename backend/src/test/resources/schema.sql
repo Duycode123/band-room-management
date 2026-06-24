@@ -1,0 +1,10 @@
+CREATE TYPE IF NOT EXISTS vai_tro AS ENUM ('CUSTOMER', 'STAFF', 'ADMIN');
+CREATE TYPE IF NOT EXISTS trang_thai_phong AS ENUM ('TRONG', 'DANG_DUNG', 'BAO_TRI');
+CREATE TYPE IF NOT EXISTS trang_thai_dat_phong AS ENUM (
+    'CHO_THANH_TOAN',
+    'DA_THANH_TOAN',
+    'DA_CHECKIN',
+    'HOAN_TAT',
+    'DA_HUY'
+);
+CREATE TYPE IF NOT EXISTS phuong_thuc_thanh_toan AS ENUM ('TIEN_MAT', 'ONLINE');

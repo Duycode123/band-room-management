@@ -75,3 +75,4 @@ next-env.d.ts
 *.tar.gz
 *.rar
 backend/src/main/resources/application.properties
+task.md

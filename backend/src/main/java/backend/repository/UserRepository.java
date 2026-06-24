@@ -6,11 +6,8 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
-public interface UserRepository extends JpaRepository<User, Long> {
+public interface UserRepository extends JpaRepository<User, Integer> {
     Optional<User> findByEmail(String email);
-    boolean existsByEmail(String email);
-    boolean existsByPhone(String phone);
-    
-    // THÊM HÀM NÀY ĐỂ TRA CỨU TÀI KHOẢN QUA MÃ TOKEN TRÊN URL
     Optional<User> findByResetToken(String resetToken);
+    boolean existsByEmail(String email);
 }

@@ -7,13 +7,18 @@ import backend.dto.response.AuthResponse;
 import backend.entity.User;
 import backend.repository.UserRepository;
 import backend.service.AuthService;
+import backend.security.AuthCookieService;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
-import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,24 +26,65 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 import java.util.UUID;
+import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping({"/api/auth", "/api/v1/auth"})
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:3000")
 public class AuthController {
     private final AuthService authService;
+    private final AuthCookieService authCookieService;
     private final UserRepository userRepository;
     private final JavaMailSender mailSender;
 
     @PostMapping("/register")
-    public AuthResponse register(@RequestBody @Valid RegisterRequest request) {
-        return authService.register(request);
+    public ResponseEntity<AuthResponse> register(@RequestBody @Valid RegisterRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(authService.register(request));
     }
 
     @PostMapping("/login")
-    public AuthResponse login(@RequestBody @Valid LoginRequest request) {
-        return authService.login(request);
+    public ResponseEntity<AuthResponse> login(@RequestBody @Valid LoginRequest request) {
+        AuthResponse response = authService.login(request);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, authCookieService.accessCookie(response.getAccessToken()).toString())
+                .header(HttpHeaders.SET_COOKIE, authCookieService.refreshCookie(response.getRefreshToken()).toString())
+                .body(response);
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refresh(
+            @CookieValue(value = AuthCookieService.REFRESH_COOKIE_NAME, required = false) String refreshToken
+    ) {
+        AuthResponse response = authService.refresh(refreshToken);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, authCookieService.accessCookie(response.getAccessToken()).toString())
+                .header(HttpHeaders.SET_COOKIE, authCookieService.refreshCookie(response.getRefreshToken()).toString())
+                .body(response);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Map<String, String>> logout(
+            @CookieValue(value = AuthCookieService.ACCESS_COOKIE_NAME, required = false) String accessToken,
+            @CookieValue(value = AuthCookieService.REFRESH_COOKIE_NAME, required = false) String refreshToken
+    ) {
+        authService.logout(accessToken, refreshToken);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, authCookieService.clearAccessCookie().toString())
+                .header(HttpHeaders.SET_COOKIE, authCookieService.clearRefreshCookie().toString())
+                .body(Map.of("message", "Đăng xuất thành công"));
+    }
+
+    @GetMapping("/session")
+    public ResponseEntity<Map<String, String>> session(Authentication authentication) {
+        if (authentication == null
+                || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof User user)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Phiên đăng nhập không hợp lệ"));
+        }
+
+        return ResponseEntity.ok(Map.of("role", user.getRole().name()));
     }
 
     @PostMapping("/forgot-password")
@@ -55,6 +101,7 @@ public class AuthController {
 
         String token = UUID.randomUUID().toString();
         user.setResetToken(token);
+        user.setResetTokenExpiresAt(LocalDateTime.now().plusMinutes(30));
         userRepository.save(user);
 
         String resetLink = "http://localhost:3000/reset-password?token=" + token;
