@@ -24,3 +24,14 @@ server.port=8080
 
 # Keep false for local HTTP development; override to true behind HTTPS in production.
 app.cookie.secure=false
+
+# ===== VNPay =====
+# Keep credentials in environment variables for local development and production.
+payment.vnpay.tmn-code=${VNPAY_TMN_CODE:}
+payment.vnpay.hash-secret=${VNPAY_HASH_SECRET:}
+payment.vnpay.payment-url=${VNPAY_PAYMENT_URL:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+payment.vnpay.return-url=${VNPAY_RETURN_URL:http://localhost:3000/payment/return}
+payment.vnpay.version=2.1.0
+payment.vnpay.command=pay
+payment.vnpay.currency-code=VND
+payment.vnpay.locale=vn
