@@ -1,38 +1,41 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import AuthGuard from '@/components/AuthGuard'
+import BookingDatePicker from '@/components/booking/BookingDatePicker'
 import RoomCard from '@/components/booking/RoomCard'
 import TimeSlotGrid from '@/components/booking/TimeSlotGrid'
 import { useAvailableSlots } from '@/hooks/useAvailableSlots'
-import { createBooking, fetchRooms, formatPrice, getDateOptions } from '@/lib/booking/bookingApi'
+import { createBooking, fetchRooms, formatPrice } from '@/lib/booking/bookingApi'
+import { formatDateLong, getTodayKey } from '@/lib/booking/dateUtils'
+import { formatSlotRange, getSelectedSlots } from '@/lib/booking/slotSelection'
 import type { PracticeRoom } from '@/lib/booking/types'
 
 export default function CustomerBookingPage() {
   const router = useRouter()
   const { logout } = useAuth()
-  const dateOptions = useMemo(() => getDateOptions(), [])
-
   const [rooms, setRooms] = useState<PracticeRoom[]>([])
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null)
-  const [selectedDate, setSelectedDate] = useState(dateOptions[0]?.value ?? '')
+  const [selectedDate, setSelectedDate] = useState(getTodayKey)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState('')
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId) ?? null
 
-  const { slots, isLoading, lastUpdated, error, refresh, selectSlot } = useAvailableSlots(
-    selectedRoomId,
-    selectedDate,
-  )
+  const { slots, isLoading, lastUpdated, error, refresh, selectSlot, deselectSlot, clearSelection } =
+    useAvailableSlots(selectedRoomId, selectedDate)
 
-  const selectedSlot = slots.find((s) => s.status === 'selected') ?? null
+  const selectedSlots = getSelectedSlots(slots)
+  const selectedHours = selectedSlots.length
 
   useEffect(() => {
-    fetchRooms().then(setRooms)
+    fetchRooms().then((data) => {
+      setRooms(data)
+      setSelectedRoomId((current) => current ?? data[0]?.id ?? null)
+    })
   }, [])
 
   const handleLogout = useCallback(async () => {
@@ -41,8 +44,8 @@ export default function CustomerBookingPage() {
   }, [logout, router])
 
   const handleConfirm = useCallback(async () => {
-    if (!selectedRoomId || !selectedSlot) {
-      setMessage('Vui lòng chọn phòng và khung giờ.')
+    if (!selectedRoomId || selectedSlots.length === 0) {
+      setMessage('Vui lòng chọn phòng và ít nhất một khung giờ.')
       return
     }
     setIsSubmitting(true)
@@ -50,17 +53,17 @@ export default function CustomerBookingPage() {
     const result = await createBooking({
       roomId: selectedRoomId,
       date: selectedDate,
-      slotId: selectedSlot.id,
+      slotIds: selectedSlots.map((s) => s.id),
     })
     setIsSubmitting(false)
     setMessage(result.message)
     if (result.success) {
-      selectSlot(null)
+      clearSelection()
       refresh()
     } else {
       refresh()
     }
-  }, [selectedRoomId, selectedSlot, selectedDate, refresh, selectSlot])
+  }, [selectedRoomId, selectedSlots, selectedDate, refresh, clearSelection])
 
   return (
     <AuthGuard allowedRoles={['CUSTOMER']}>
@@ -120,7 +123,7 @@ export default function CustomerBookingPage() {
                 <div>
                   <h2 className="font-display text-lg font-semibold text-on-surface">2. Chọn ngày & khung giờ</h2>
                   <p className="mt-1 text-sm text-on-surface-variant">
-                    Lịch trống cập nhật theo thời gian thực mỗi 15 giây.
+                    Lịch trống cập nhật theo thời gian thực mỗi 15 giây. Có thể chọn nhiều giờ liên tiếp.
                   </p>
                 </div>
                 {lastUpdated && (
@@ -148,25 +151,14 @@ export default function CustomerBookingPage() {
                 )}
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                {dateOptions.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => {
-                      setSelectedDate(opt.value)
-                      setMessage('')
-                    }}
-                    className={[
-                      'rounded-lg border px-3 py-2 font-display text-xs font-medium transition-all',
-                      selectedDate === opt.value
-                        ? 'border-brand-orange bg-brand-orange text-white'
-                        : 'border-outline bg-white text-on-surface-variant hover:border-brand-orange/50',
-                    ].join(' ')}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+              <div className="mt-5">
+                <BookingDatePicker
+                  value={selectedDate}
+                  onChange={(dateKey) => {
+                    setSelectedDate(dateKey)
+                    setMessage('')
+                  }}
+                />
               </div>
 
               {error && (
@@ -179,8 +171,20 @@ export default function CustomerBookingPage() {
                 <TimeSlotGrid
                   slots={slots}
                   isLoading={isLoading}
+                  selectedCount={selectedHours}
+                  onClearSelection={clearSelection}
+                  emptyMessage={
+                    selectedRoomId
+                      ? 'Đang tải lịch trống...'
+                      : '← Chọn phòng ở bước 1 để xem khung giờ.'
+                  }
+                  hint="Click 1 lần vào khung trống để chọn (click liền kề để thêm giờ). Double-click khung cam để bỏ chọn giờ đó."
                   onSelect={(id) => {
                     selectSlot(id)
+                    setMessage('')
+                  }}
+                  onDeselect={(id) => {
+                    deselectSlot(id)
                     setMessage('')
                   }}
                 />
@@ -214,26 +218,26 @@ export default function CustomerBookingPage() {
               <div>
                 <dt className="text-xs uppercase tracking-wider text-on-surface-variant">Ngày</dt>
                 <dd className="mt-0.5 font-medium text-on-surface">
-                  {selectedDate
-                    ? new Date(`${selectedDate}T00:00:00`).toLocaleDateString('vi-VN', {
-                        weekday: 'long',
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                      })
-                    : '—'}
+                  {selectedDate ? formatDateLong(selectedDate) : '—'}
                 </dd>
               </div>
               <div>
                 <dt className="text-xs uppercase tracking-wider text-on-surface-variant">Khung giờ</dt>
                 <dd className="mt-0.5 font-medium text-on-surface">
-                  {selectedSlot ? `${selectedSlot.start} – ${selectedSlot.end}` : '—'}
+                  {selectedSlots.length > 0 ? formatSlotRange(selectedSlots) : '—'}
                 </dd>
+                {selectedHours > 0 && (
+                  <dd className="mt-0.5 text-xs text-on-surface-variant">
+                    {selectedHours} giờ × {selectedRoom ? formatPrice(selectedRoom.pricePerHour) : '—'}/giờ
+                  </dd>
+                )}
               </div>
               <div className="border-t border-outline-variant pt-3">
                 <dt className="text-xs uppercase tracking-wider text-on-surface-variant">Tổng tiền</dt>
                 <dd className="mt-0.5 font-display text-xl font-bold text-brand-orange">
-                  {selectedRoom ? formatPrice(selectedRoom.pricePerHour) : '—'}
+                  {selectedRoom && selectedHours > 0
+                    ? formatPrice(selectedRoom.pricePerHour * selectedHours)
+                    : '—'}
                 </dd>
               </div>
             </dl>
@@ -253,7 +257,7 @@ export default function CustomerBookingPage() {
 
             <button
               type="button"
-              disabled={!selectedRoom || !selectedSlot || isSubmitting}
+              disabled={!selectedRoom || selectedHours === 0 || isSubmitting}
               onClick={handleConfirm}
               className="mt-5 flex h-12 w-full cursor-pointer items-center justify-center rounded-lg bg-brand-orange font-display text-sm font-medium text-white transition-all hover:bg-brand-orangeHover active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
             >

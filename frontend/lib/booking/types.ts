@@ -21,8 +21,9 @@ export type BookingDraft = {
   roomId: string
   roomName: string
   date: string
-  slotId: string
+  slotIds: string[]
   start: string
   end: string
+  hours: number
   pricePerHour: number
 }
