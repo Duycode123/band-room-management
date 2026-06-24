@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -13,9 +13,11 @@ interface AuthGuardProps {
 
 export default function AuthGuard({ allowedRoles, children }: AuthGuardProps) {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, isLoading } = useAuth()
 
   useEffect(() => {
+    if (isLoading) return
+
     if (!user) {
       router.replace('/login')
       return
@@ -23,7 +25,10 @@ export default function AuthGuard({ allowedRoles, children }: AuthGuardProps) {
     if (!allowedRoles.includes(user.role)) {
       router.replace('/unauthorized')
     }
-  }, [user, allowedRoles, router])
+  }, [user, allowedRoles, isLoading, router])
 
+  if (isLoading || !user) return null
+
+  const authorized = allowedRoles.includes(user.role)
   return authorized ? <>{children}</> : null
 }

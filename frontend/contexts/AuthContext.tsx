@@ -1,51 +1,59 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
-
-type UserRole = 'ADMIN' | 'STAFF' | 'CUSTOMER'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { getSessionRole, logoutSession, type UserRole } from '@/lib/auth'
 
 interface AuthUser {
-  accessToken: string
-  refreshToken: string
   role: UserRole
 }
 
 interface AuthContextType {
   user: AuthUser | null
-  login: (data: AuthUser) => void
-  logout: () => void
+  login: (role: UserRole) => void
+  logout: () => Promise<void>
   isAuthenticated: boolean
+  isLoading: boolean
+  refreshSession: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
-  useEffect(() => {
-    const accessToken = localStorage.getItem('accessToken')
-    const refreshToken = localStorage.getItem('refreshToken')
-    const role = localStorage.getItem('role') as UserRole | null
-
-    if (accessToken && refreshToken && role) {
-      setUser({ accessToken, refreshToken, role })
+  const refreshSession = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const role = await getSessionRole()
+      setUser({ role })
+    } catch {
+      setUser(null)
+    } finally {
+      setIsLoading(false)
     }
   }, [])
 
-  const login = (data: AuthUser) => {
-    localStorage.setItem('accessToken', data.accessToken)
-    localStorage.setItem('refreshToken', data.refreshToken)
-    localStorage.setItem('role', data.role)
-    setUser(data)
+  useEffect(() => {
+    void refreshSession()
+  }, [refreshSession])
+
+  const login = (role: UserRole) => {
+    setUser({ role })
+    setIsLoading(false)
   }
 
-  const logout = () => {
-    localStorage.clear()
-    setUser(null)
+  const logout = async () => {
+    try {
+      await logoutSession()
+    } finally {
+      setUser(null)
+      setIsLoading(false)
+    }
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user, isLoading, refreshSession }}>
       {children}
     </AuthContext.Provider>
   )

@@ -2,9 +2,8 @@
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import api from '@/lib/api'
-import axios from 'axios'
 import { useAuth } from '@/contexts/AuthContext'
+import { loginSession, type UserRole } from '@/lib/auth'
 import AuthBanner from '@/components/auth/AuthBanner'
 import AuthTabs from '@/components/auth/AuthTabs'
 import {
@@ -15,8 +14,6 @@ import {
   AuthShell,
   AuthSubmitButton,
 } from '@/components/auth/AuthField'
-
-type UserRole = 'ADMIN' | 'STAFF' | 'CUSTOMER'
 
 const dashboardByRole: Record<UserRole, string> = {
   ADMIN: '/admin/dashboard',
@@ -40,23 +37,13 @@ export default function LoginPage() {
     e.preventDefault()
     setIsLoading(true)
     setError('')
+
     try {
-      const response = await api.post('/api/auth/login', formData)
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`,
-        {
-          email: formData.identifier.trim(),
-          password: formData.password,
-        },
-      )
-      if (response.status === 200 && response.data) {
-        const { role } = response.data as {
-          role: UserRole
-        }
-        alert('Đăng nhập thành công!')
-        login({ accessToken, refreshToken, role })
-        router.push(dashboardByRole[role] || '/')
-      }
+      const role = await loginSession(formData.identifier.trim(), formData.password)
+
+      alert('Đăng nhập thành công!')
+      login(role)
+      router.push(dashboardByRole[role] || '/')
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } }
       setError(axiosErr.response?.data?.message || 'Đăng nhập thất bại, vui lòng kiểm tra lại tài khoản.')
@@ -82,11 +69,11 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <AuthField
-            label="Email hoặc Số điện thoại"
+            label="Email"
             name="identifier"
             value={formData.identifier}
             onChange={handleChange}
-            placeholder="Nhập email hoặc số điện thoại"
+            placeholder="Nhập email của bạn"
             icon="user"
           />
 

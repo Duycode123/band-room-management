@@ -35,6 +35,11 @@ export default function CustomerBookingPage() {
     fetchRooms().then(setRooms)
   }, [])
 
+  const handleLogout = useCallback(async () => {
+    await logout()
+    router.push('/login')
+  }, [logout, router])
+
   const handleConfirm = useCallback(async () => {
     if (!selectedRoomId || !selectedSlot) {
       setMessage('Vui lòng chọn phòng và khung giờ.')
@@ -79,10 +84,7 @@ export default function CustomerBookingPage() {
               </Link>
               <button
                 type="button"
-                onClick={() => {
-                  logout()
-                  router.push('/login')
-                }}
+                onClick={() => void handleLogout()}
                 className="rounded-lg bg-inverse-surface px-4 py-2 font-display text-sm font-medium text-inverse-on-surface"
               >
                 Đăng xuất
