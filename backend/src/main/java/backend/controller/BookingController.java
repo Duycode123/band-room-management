@@ -4,12 +4,16 @@ import backend.dto.request.CalculateBookingCostRequest;
 import backend.dto.request.CreateBookingRequest;
 import backend.dto.response.BookingCostResponse;
 import backend.dto.response.BookingResponse;
+import backend.dto.response.PagedResponse;
+import backend.entity.BookingStatus;
 import backend.service.BookingService;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.LinkedHashMap;
+import java.time.LocalDateTime;
 import java.util.Map;
 
 @RestController
@@ -39,6 +43,26 @@ public class BookingController {
         BookingResponse data = bookingService.createBooking(request, customerEmail);
 
         return ResponseEntity.ok(success("Đặt lịch thành công, vui lòng thanh toán", data));
+    }
+
+    @GetMapping("/my/history")
+    public ResponseEntity<?> getMyBookingHistory(
+            Authentication authentication,
+            @RequestParam(required = false) BookingStatus status,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String direction
+    ) {
+        PagedResponse<BookingResponse> data = bookingService.getMyBookingHistory(
+                authentication.getName(), status, from, to, page, size, sortBy, direction
+        );
+
+        return ResponseEntity.ok(success("Lấy lịch sử đặt phòng thành công", data));
     }
 
     private Map<String, Object> success(String message, Object data) {

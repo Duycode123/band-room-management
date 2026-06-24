@@ -6,6 +6,7 @@ import backend.dto.request.CreateBookingRequest;
 import backend.dto.request.UpdateBookingStatusRequest;
 import backend.dto.response.BookingCostResponse;
 import backend.dto.response.BookingResponse;
+import backend.dto.response.PagedResponse;
 import backend.dto.response.RoomAvailabilityResponse;
 import backend.dto.response.TimeSlotResponse;
 import backend.entity.Booking;
@@ -24,6 +25,10 @@ import backend.repository.UserRepository;
 import backend.service.BookingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +38,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import jakarta.persistence.criteria.Predicate;
 
 @Service
 @RequiredArgsConstructor
@@ -112,6 +118,71 @@ public class BookingServiceImpl implements BookingService {
         }
 
         return new BookingResponse(savedBooking);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PagedResponse<BookingResponse> getMyBookingHistory(
+            String customerEmail,
+            BookingStatus status,
+            LocalDateTime from,
+            LocalDateTime to,
+            int page,
+            int size,
+            String sortBy,
+            String direction
+    ) {
+        if (page < 0) {
+            throw new IllegalArgumentException("Trang không được nhỏ hơn 0");
+        }
+        if (size < 1 || size > 100) {
+            throw new IllegalArgumentException("Kích thước trang phải từ 1 đến 100");
+        }
+        if (from != null && to != null && from.isAfter(to)) {
+            throw new IllegalArgumentException("Thời gian bắt đầu không được sau thời gian kết thúc");
+        }
+
+        Customer customer = customerRepository.findByAccount_Email(customerEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ khách hàng"));
+
+        Sort.Direction sortDirection;
+        try {
+            sortDirection = Sort.Direction.fromString(direction);
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("direction chỉ nhận asc hoặc desc");
+        }
+
+        String sortProperty = switch (sortBy) {
+            case "createdAt", "startTime", "endTime", "totalAmount", "status" -> sortBy;
+            default -> throw new IllegalArgumentException(
+                    "sortBy chỉ nhận createdAt, startTime, endTime, totalAmount hoặc status"
+            );
+        };
+
+        Specification<Booking> historySpecification = (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(criteriaBuilder.equal(root.get("customer").get("id"), customer.getId()));
+
+            if (status != null) {
+                predicates.add(criteriaBuilder.equal(root.<BookingStatus>get("status"), status));
+            }
+            if (from != null) {
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.<LocalDateTime>get("startTime"), from));
+            }
+            if (to != null) {
+                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.<LocalDateTime>get("startTime"), to));
+            }
+
+            return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
+        };
+
+        Page<BookingResponse> bookingPage = bookingRepository.findAll(
+                        historySpecification,
+                        PageRequest.of(page, size, Sort.by(sortDirection, sortProperty))
+                )
+                .map(BookingResponse::new);
+
+        return PagedResponse.from(bookingPage);
     }
 
     @Override

@@ -14,6 +14,8 @@ import java.util.Optional;
 
 public interface RoomRepository extends JpaRepository<Room, Integer> {
 
+    boolean existsByRoomName(String roomName);
+
     @EntityGraph(attributePaths = "roomType")
     List<Room> findAllByOrderByRoomNameAsc();
 
