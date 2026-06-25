@@ -12,7 +12,7 @@ import type { TimeSlot } from '@/lib/booking/types'
 
 const POLL_INTERVAL_MS = 15_000
 
-export function useAvailableSlots(roomId: string | null, date: string) {
+export function useAvailableSlots(roomId: number | null, date: string) {
   const [slots, setSlots] = useState<TimeSlot[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)

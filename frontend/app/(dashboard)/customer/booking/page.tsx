@@ -18,7 +18,7 @@ export default function CustomerBookingPage() {
   const router = useRouter()
   const { logout } = useAuth()
   const [rooms, setRooms] = useState<PracticeRoom[]>([])
-  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null)
+  const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null)
   const [selectedDate, setSelectedDate] = useState(getTodayKey)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState('')
@@ -52,8 +52,7 @@ export default function CustomerBookingPage() {
     setMessage('')
     const result = await createBooking({
       roomId: selectedRoomId,
-      date: selectedDate,
-      slotIds: selectedSlots.map((s) => s.id),
+      selectedSlots,
     })
     setIsSubmitting(false)
     setMessage(result.message)
@@ -63,7 +62,7 @@ export default function CustomerBookingPage() {
     } else {
       refresh()
     }
-  }, [selectedRoomId, selectedSlots, selectedDate, refresh, clearSelection])
+  }, [selectedRoomId, selectedSlots, refresh, clearSelection])
 
   return (
     <AuthGuard allowedRoles={['CUSTOMER']}>

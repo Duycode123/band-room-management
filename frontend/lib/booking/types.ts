@@ -1,16 +1,20 @@
 export type SlotStatus = 'available' | 'booked' | 'past' | 'selected'
 
 export type PracticeRoom = {
-  id: string
+  id: number
   name: string
-  capacity: number
+  typeName: string
+  capacity?: number | null
   pricePerHour: number
   equipment: string[]
+  status: string
+  description?: string | null
   isVip?: boolean
 }
 
 export type TimeSlot = {
   id: string
+  dateKey: string
   start: string
   end: string
   label: string
@@ -18,7 +22,7 @@ export type TimeSlot = {
 }
 
 export type BookingDraft = {
-  roomId: string
+  roomId: number
   roomName: string
   date: string
   slotIds: string[]

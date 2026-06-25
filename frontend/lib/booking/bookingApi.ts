@@ -1,151 +1,190 @@
-import { PRACTICE_ROOMS } from './mockData'
+import axios from 'axios'
+import api from '@/lib/api'
 import type { PracticeRoom, SlotStatus, TimeSlot } from './types'
 
-const BOOKINGS_KEY = 'bandhub_local_bookings'
 const OPEN_HOUR = 8
 const CLOSE_HOUR = 22
 
-function hashCode(value: string): number {
-  let hash = 0
-  for (let i = 0; i < value.length; i++) {
-    hash = (hash << 5) - hash + value.charCodeAt(i)
-    hash |= 0
+type ApiResponse<T> = {
+  success: boolean
+  message: string
+  data: T
+}
+
+type BackendRoomResponse = {
+  id: number
+  roomName: string
+  roomType: {
+    id: number
+    typeName: string
+    description?: string | null
+    pricePerHour: number | string
+    capacity?: number | null
   }
-  return Math.abs(hash)
+  floor?: number | null
+  maxPeople?: number | null
+  status: string
+  description?: string | null
+  imageUrl?: string | null
+  equipment?: string[]
+}
+
+type BackendAvailableSlot = {
+  startTime: string
+  endTime: string
+}
+
+type BackendAvailabilityResponse = {
+  roomId: number
+  roomName: string
+  from: string
+  to: string
+  operational: boolean
+  availableSlots: BackendAvailableSlot[]
+}
+
+type BackendBookingResponse = {
+  bookingId: number
+  bookingCode: string
 }
 
 function pad(n: number) {
   return n.toString().padStart(2, '0')
 }
 
-function parseSlotStart(date: string, start: string): Date {
-  const [year, month, day] = date.split('-').map(Number)
-  const [hour, minute] = start.split(':').map(Number)
+function parseLocalDateTime(value: string): Date {
+  const [datePart, timePart = '00:00:00'] = value.split('T')
+  const [year, month, day] = datePart.split('-').map(Number)
+  const [hour, minute, second] = timePart.split(':').map(Number)
+  return new Date(year, month - 1, day, hour, minute, second || 0, 0)
+}
+
+function parseSlotTime(dateKey: string, time: string): Date {
+  const [year, month, day] = dateKey.split('-').map(Number)
+  const [hour, minute] = time.split(':').map(Number)
   return new Date(year, month - 1, day, hour, minute, 0, 0)
 }
 
-type StoredBooking = {
-  roomId: string
-  date: string
-  slotIds: string[]
-}
-
-function readLocalBookings(): StoredBooking[] {
-  if (typeof window === 'undefined') return []
-  try {
-    const raw = JSON.parse(localStorage.getItem(BOOKINGS_KEY) || '[]') as Array<
-      StoredBooking & { slotId?: string }
-    >
-    return raw.map((b) => ({
-      roomId: b.roomId,
-      date: b.date,
-      slotIds: b.slotIds ?? (b.slotId ? [b.slotId] : []),
-    }))
-  } catch {
-    return []
-  }
-}
-
-function writeLocalBooking(entry: StoredBooking) {
-  const current = readLocalBookings()
-  current.push(entry)
-  localStorage.setItem(BOOKINGS_KEY, JSON.stringify(current))
-}
-
-function buildHourSlots(date: string): Omit<TimeSlot, 'status'>[] {
+function buildHourSlots(dateKey: string): Omit<TimeSlot, 'status'>[] {
   const slots: Omit<TimeSlot, 'status'>[] = []
+
   for (let hour = OPEN_HOUR; hour < CLOSE_HOUR; hour++) {
     const start = `${pad(hour)}:00`
     const end = `${pad(hour + 1)}:00`
+
     slots.push({
-      id: `${date}-${start}`,
+      id: `${dateKey}-${start}`,
+      dateKey,
       start,
       end,
-      label: `${start} – ${end}`,
+      label: `${start} - ${end}`,
     })
   }
+
   return slots
 }
 
 function resolveSlotStatus(
-  roomId: string,
-  date: string,
   slot: Omit<TimeSlot, 'status'>,
   now: Date,
+  operational: boolean,
+  availableWindows: Array<{ start: Date; end: Date }>,
 ): SlotStatus {
-  const slotStart = parseSlotStart(date, slot.start)
+  const slotStart = parseSlotTime(slot.dateKey, slot.start)
+  const slotEnd = parseSlotTime(slot.dateKey, slot.end)
+
   if (slotStart.getTime() <= now.getTime()) return 'past'
+  if (!operational) return 'booked'
 
-  const localBooked = readLocalBookings().some(
-    (b) => b.roomId === roomId && b.date === date && b.slotIds.includes(slot.id),
+  const isAvailable = availableWindows.some(
+    (window) => slotStart.getTime() >= window.start.getTime() && slotEnd.getTime() <= window.end.getTime(),
   )
-  if (localBooked) return 'booked'
 
-  // Mô phỏng người khác đặt — thay đổi theo phút (real-time feel)
-  const epochMinute = Math.floor(now.getTime() / 60_000)
-  const seed = hashCode(`${roomId}-${date}-${slot.id}-${epochMinute}`)
-  if (seed % 6 === 0) return 'booked'
-
-  return 'available'
+  return isAvailable ? 'available' : 'booked'
 }
 
 export async function fetchRooms(): Promise<PracticeRoom[]> {
-  await delay(200)
-  return PRACTICE_ROOMS
+  const response = await api.get<ApiResponse<BackendRoomResponse[]>>('/api/rooms')
+
+  return response.data.data.map((room) => ({
+    id: room.id,
+    name: room.roomName,
+    typeName: room.roomType.typeName,
+    capacity: room.maxPeople ?? room.roomType.capacity ?? null,
+    pricePerHour: Number(room.roomType.pricePerHour),
+    equipment: room.equipment ?? [],
+    status: room.status,
+    description: room.description ?? room.roomType.description ?? null,
+    isVip: room.roomType.typeName.toLowerCase().includes('vip'),
+  }))
 }
 
-export async function fetchAvailableSlots(roomId: string, date: string): Promise<TimeSlot[]> {
-  await delay(300)
-  const now = new Date()
-  const baseSlots = buildHourSlots(date)
+export async function fetchAvailableSlots(roomId: number, dateKey: string): Promise<TimeSlot[]> {
+  const from = `${dateKey}T${pad(OPEN_HOUR)}:00:00`
+  const to = `${dateKey}T${pad(CLOSE_HOUR)}:00:00`
+  const response = await api.get<ApiResponse<BackendAvailabilityResponse>>(
+    `/api/rooms/${roomId}/available-slots`,
+    {
+      params: { from, to },
+    },
+  )
 
-  return baseSlots.map((slot) => ({
+  const availability = response.data.data
+  const now = new Date()
+  const availableWindows = availability.availableSlots.map((slot) => ({
+    start: parseLocalDateTime(slot.startTime),
+    end: parseLocalDateTime(slot.endTime),
+  }))
+
+  return buildHourSlots(dateKey).map((slot) => ({
     ...slot,
-    status: resolveSlotStatus(roomId, date, slot, now),
+    status: resolveSlotStatus(slot, now, availability.operational, availableWindows),
   }))
 }
 
 export async function createBooking(draft: {
-  roomId: string
-  date: string
-  slotIds: string[]
-}): Promise<{ success: boolean; message: string }> {
-  await delay(400)
-
-  if (draft.slotIds.length === 0) {
-    return { success: false, message: 'Vui lòng chọn ít nhất một khung giờ.' }
+  roomId: number
+  selectedSlots: TimeSlot[]
+  note?: string
+}): Promise<{ success: boolean; message: string; bookingId?: number; bookingCode?: string }> {
+  if (draft.selectedSlots.length === 0) {
+    return { success: false, message: 'Vui long chon it nhat mot khung gio.' }
   }
 
-  const slots = await fetchAvailableSlots(draft.roomId, draft.date)
-  const unavailable = draft.slotIds.filter((id) => {
-    const slot = slots.find((s) => s.id === id)
-    return !slot || slot.status !== 'available'
-  })
+  const selectedSlots = [...draft.selectedSlots].sort((a, b) => a.start.localeCompare(b.start))
+  const firstSlot = selectedSlots[0]
+  const lastSlot = selectedSlots[selectedSlots.length - 1]
 
-  if (unavailable.length > 0) {
+  try {
+    const response = await api.post<ApiResponse<BackendBookingResponse>>('/api/bookings', {
+      roomId: draft.roomId,
+      startTime: `${firstSlot.dateKey}T${firstSlot.start}:00`,
+      endTime: `${lastSlot.dateKey}T${lastSlot.end}:00`,
+      paymentMethod: 'ONLINE',
+      note: draft.note?.trim() || null,
+    })
+
+    return {
+      success: true,
+      message: response.data.message,
+      bookingId: response.data.data.bookingId,
+      bookingCode: response.data.data.bookingCode,
+    }
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const message = error.response?.data?.message
+      if (typeof message === 'string' && message.length > 0) {
+        return { success: false, message }
+      }
+    }
+
     return {
       success: false,
-      message: 'Một hoặc nhiều khung giờ vừa được đặt. Vui lòng chọn lại.',
+      message: 'Khong the tao booking luc nay. Thu lai sau.',
     }
-  }
-
-  writeLocalBooking({
-    roomId: draft.roomId,
-    date: draft.date,
-    slotIds: draft.slotIds,
-  })
-
-  const hours = draft.slotIds.length
-  return {
-    success: true,
-    message: hours > 1 ? `Đặt phòng thành công (${hours} giờ)!` : 'Đặt phòng thành công!',
   }
 }
 
 export function formatPrice(amount: number) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount)
-}
-
-function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
 }

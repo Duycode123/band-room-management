@@ -6,6 +6,8 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Setter
@@ -26,6 +28,11 @@ public class Room {
     @ManyToOne
     @JoinColumn(name = "hang_phong_id", nullable = false)
     private RoomType roomType;
+
+    @Builder.Default
+    @OneToMany(mappedBy = "room", fetch = FetchType.LAZY)
+    @OrderBy("name ASC")
+    private List<Equipment> equipment = new ArrayList<>();
 
     @Transient
     private Integer floor;

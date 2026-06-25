@@ -16,17 +16,21 @@ public interface RoomRepository extends JpaRepository<Room, Integer> {
 
     boolean existsByRoomName(String roomName);
 
-    @EntityGraph(attributePaths = "roomType")
+    @EntityGraph(attributePaths = {"roomType", "equipment"})
     List<Room> findAllByOrderByRoomNameAsc();
 
-    @EntityGraph(attributePaths = "roomType")
+    @EntityGraph(attributePaths = {"roomType", "equipment"})
     List<Room> findByStatusOrderByRoomNameAsc(RoomStatus status);
 
-    @EntityGraph(attributePaths = "roomType")
+    @EntityGraph(attributePaths = {"roomType", "equipment"})
     List<Room> findByRoomType_IdOrderByRoomNameAsc(Integer roomTypeId);
 
-    @EntityGraph(attributePaths = "roomType")
+    @EntityGraph(attributePaths = {"roomType", "equipment"})
     List<Room> findByRoomType_IdAndStatusOrderByRoomNameAsc(Integer roomTypeId, RoomStatus status);
+
+    @Override
+    @EntityGraph(attributePaths = {"roomType", "equipment"})
+    Optional<Room> findById(Integer id);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @EntityGraph(attributePaths = "roomType")
