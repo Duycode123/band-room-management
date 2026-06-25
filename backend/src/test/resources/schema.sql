@@ -8,3 +8,11 @@ CREATE TYPE IF NOT EXISTS trang_thai_dat_phong AS ENUM (
     'DA_HUY'
 );
 CREATE TYPE IF NOT EXISTS phuong_thuc_thanh_toan AS ENUM ('TIEN_MAT', 'ONLINE');
+CREATE TYPE IF NOT EXISTS cong_thanh_toan AS ENUM ('VNPAY', 'SEPAY');
+CREATE TYPE IF NOT EXISTS trang_thai_giao_dich AS ENUM (
+    'KHOI_TAO',
+    'CHO_THANH_TOAN',
+    'THANH_CONG',
+    'THAT_BAI',
+    'DA_HUY'
+);

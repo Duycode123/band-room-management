@@ -1,0 +1,6 @@
+DO $$
+BEGIN
+  ALTER TYPE cong_thanh_toan ADD VALUE IF NOT EXISTS 'SEPAY';
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;

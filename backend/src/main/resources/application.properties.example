@@ -35,3 +35,18 @@ payment.vnpay.version=2.1.0
 payment.vnpay.command=pay
 payment.vnpay.currency-code=VND
 payment.vnpay.locale=vn
+
+# ===== SePay Payment Gateway =====
+# Use the merchant credentials provided by SePay Payment Gateway.
+payment.sepay.environment=${SEPAY_ENVIRONMENT:sandbox}
+payment.sepay.checkout-url=${SEPAY_CHECKOUT_URL:}
+payment.sepay.merchant-id=${SEPAY_MERCHANT_ID:}
+payment.sepay.secret-key=${SEPAY_SECRET_KEY:}
+payment.sepay.success-url=${SEPAY_SUCCESS_URL:http://localhost:3000/payment/success}
+payment.sepay.error-url=${SEPAY_ERROR_URL:http://localhost:3000/payment/error}
+payment.sepay.cancel-url=${SEPAY_CANCEL_URL:http://localhost:3000/payment/cancel}
+payment.sepay.ipn-secret=${SEPAY_IPN_SECRET:}
+payment.sepay.operation=PURCHASE
+payment.sepay.method=BANK_TRANSFER
+payment.sepay.transaction-type=PAYMENT
+payment.sepay.currency=VND

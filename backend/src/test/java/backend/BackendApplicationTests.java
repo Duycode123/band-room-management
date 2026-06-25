@@ -12,6 +12,7 @@ import backend.repository.UserRepository;
 import backend.security.AuthCookieService;
 import backend.security.CustomUserDetailsService;
 import backend.security.JwtService;
+import backend.service.PaymentService;
 import backend.service.TokenRevocationService;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
@@ -71,6 +72,9 @@ class BackendApplicationTests {
 
     @MockBean
     private AuthenticationManager authenticationManager;
+
+    @MockBean
+    private PaymentService paymentService;
 
     @Test
     void contextLoads() {
@@ -301,5 +305,26 @@ class BackendApplicationTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data[0].typeName").value("Standard"));
+    }
+
+    @Test
+    void sePayIpnIsAccessibleWithoutAuthentication() throws Exception {
+        when(paymentService.handleSePayIpn(any())).thenReturn("Payment confirmed");
+
+        mockMvc.perform(post("/api/webhooks/sepay/ipn")
+                        .header("X-Secret-Key", "test-ipn-secret")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "notification_id": "1",
+                                  "notification_type": "ORDER_PAID",
+                                  "order": {
+                                    "order_invoice_number": "BR00000001-SP1ABCD123"
+                                  }
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Payment confirmed"));
     }
 }
