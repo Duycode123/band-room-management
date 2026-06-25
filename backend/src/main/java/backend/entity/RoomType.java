@@ -28,7 +28,7 @@ public class RoomType {
     @Column(name = "gia_gio", nullable = false, precision = 12, scale = 2)
     private BigDecimal pricePerHour;
 
-    @Transient
+    @Column(name = "suc_chua")
     private Integer capacity;
 
     @Transient

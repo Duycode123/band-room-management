@@ -15,6 +15,7 @@ public class VNPayProperties {
     private String hashSecret;
     private String paymentUrl;
     private String returnUrl;
+    private String ipnUrl;
     private String version = "2.1.0";
     private String command = "pay";
     private String currencyCode = "VND";

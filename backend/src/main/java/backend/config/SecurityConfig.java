@@ -81,7 +81,10 @@ public class SecurityConfig {
                                 "/api/v1/auth/refresh",
                                 "/api/v1/auth/logout",
                                 "/api/v1/auth/forgot-password",
-                                "/api/v1/auth/reset-password"
+                                "/api/v1/auth/reset-password",
+                                "/api/payments/vnpay/ipn",
+                                "/api/ai/chat",
+                                "/api/ai/suggested-questions"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/rooms/**", "/api/room-types/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/bookings/calculate-cost").permitAll()
