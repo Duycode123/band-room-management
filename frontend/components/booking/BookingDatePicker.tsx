@@ -3,22 +3,26 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   addDays,
+  canShiftWindowBack,
+  canShiftWindowForward,
+  canViewNextMonth,
+  clampToBookableRange,
+  formatCalendarTitle,
   formatDateLong,
   formatDayNumber,
   formatMonthYear,
   formatWeekdayShort,
+  getBookableWindowKeys,
   getCalendarMonthCells,
+  getInitialWindowStart,
   getTodayKey,
-  getWeekDayKeys,
   isDateSelectable,
   isToday,
   MAX_BOOKING_DAYS_AHEAD,
   parseDateKey,
-  startOfWeek,
-  toDateKey,
 } from '@/lib/booking/dateUtils'
 
-const WEEKDAY_HEADERS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
+const WEEKDAY_HEADERS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'Cn']
 
 type BookingDatePickerProps = {
   value: string
@@ -27,7 +31,7 @@ type BookingDatePickerProps = {
 
 export default function BookingDatePicker({ value, onChange }: BookingDatePickerProps) {
   const todayKey = getTodayKey()
-  const [weekStart, setWeekStart] = useState(() => startOfWeek(parseDateKey(value || todayKey)))
+  const [windowStart, setWindowStart] = useState(getInitialWindowStart)
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [viewMonth, setViewMonth] = useState(() => {
     const base = value ? parseDateKey(value) : parseDateKey(todayKey)
@@ -35,14 +39,20 @@ export default function BookingDatePicker({ value, onChange }: BookingDatePicker
   })
   const calendarRef = useRef<HTMLDivElement>(null)
 
-  const weekKeys = useMemo(() => getWeekDayKeys(weekStart), [weekStart])
+  const weekKeys = useMemo(() => getBookableWindowKeys(windowStart, 7), [windowStart])
   const monthCells = useMemo(() => getCalendarMonthCells(viewMonth), [viewMonth])
 
   useEffect(() => {
     if (!value) return
-    const selected = parseDateKey(value)
-    setWeekStart(startOfWeek(selected))
+    const clamped = clampToBookableRange(value)
+    if (clamped !== value) {
+      onChange(clamped)
+      return
+    }
+    const selected = parseDateKey(clamped)
+    setWindowStart(selected)
     setViewMonth(new Date(selected.getFullYear(), selected.getMonth(), 1))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync window when value changes only
   }, [value])
 
   useEffect(() => {
@@ -58,12 +68,9 @@ export default function BookingDatePicker({ value, onChange }: BookingDatePicker
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [calendarOpen])
 
-  const shiftWeek = (delta: number) => {
-    setWeekStart((current) => addDays(current, delta * 7))
+  const shiftWindow = (delta: number) => {
+    setWindowStart((current) => addDays(current, delta * 7))
   }
-
-  const canGoPrevWeek = weekStart > startOfWeek(new Date())
-  const canGoNextWeek = isDateSelectable(toDateKey(addDays(weekStart, 7)))
 
   const selectDate = (key: string) => {
     if (!isDateSelectable(key)) return
@@ -91,8 +98,8 @@ export default function BookingDatePicker({ value, onChange }: BookingDatePicker
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => shiftWeek(-1)}
-            disabled={!canGoPrevWeek}
+            onClick={() => shiftWindow(-1)}
+            disabled={!canShiftWindowBack(windowStart)}
             aria-label="Tuần trước"
             className="flex h-9 w-9 items-center justify-center rounded-lg border border-outline bg-white text-on-surface-variant transition-colors hover:bg-surface-container disabled:cursor-not-allowed disabled:opacity-40"
           >
@@ -110,8 +117,8 @@ export default function BookingDatePicker({ value, onChange }: BookingDatePicker
           </button>
           <button
             type="button"
-            onClick={() => shiftWeek(1)}
-            disabled={!canGoNextWeek}
+            onClick={() => shiftWindow(1)}
+            disabled={!canShiftWindowForward(windowStart)}
             aria-label="Tuần sau"
             className="flex h-9 w-9 items-center justify-center rounded-lg border border-outline bg-white text-on-surface-variant transition-colors hover:bg-surface-container disabled:cursor-not-allowed disabled:opacity-40"
           >
@@ -120,21 +127,10 @@ export default function BookingDatePicker({ value, onChange }: BookingDatePicker
         </div>
       </div>
 
-      {/* Week strip — 7 equal columns */}
+      {/* Rolling window — only bookable days from today */}
       <div className="overflow-hidden rounded-xl border border-outline-variant bg-white">
-        <div className="grid grid-cols-7 border-b border-outline-variant bg-surface-container-low">
-          {WEEKDAY_HEADERS.map((label) => (
-            <div
-              key={label}
-              className="py-2 text-center font-display text-[10px] font-medium uppercase tracking-wider text-on-surface-variant"
-            >
-              {label}
-            </div>
-          ))}
-        </div>
-        <div className="grid grid-cols-7 divide-x divide-outline-variant">
+        <div className="flex divide-x divide-outline-variant">
           {weekKeys.map((key) => {
-            const selectable = isDateSelectable(key)
             const selected = value === key
             const today = isToday(key)
 
@@ -142,17 +138,14 @@ export default function BookingDatePicker({ value, onChange }: BookingDatePicker
               <button
                 key={key}
                 type="button"
-                disabled={!selectable}
                 onClick={() => selectDate(key)}
                 aria-label={formatDateLong(key)}
                 aria-pressed={selected}
                 className={[
-                  'flex min-h-[4.5rem] flex-col items-center justify-center gap-0.5 py-3 transition-all',
+                  'flex min-h-[4.5rem] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-3 transition-all',
                   selected
                     ? 'bg-brand-orange text-white'
-                    : selectable
-                      ? 'bg-white text-on-surface hover:bg-primary-container/15'
-                      : 'cursor-not-allowed bg-surface-container-low text-on-surface-variant/35',
+                    : 'bg-white text-on-surface hover:bg-primary-container/15',
                 ].join(' ')}
               >
                 <span
@@ -181,89 +174,96 @@ export default function BookingDatePicker({ value, onChange }: BookingDatePicker
       {calendarOpen && (
         <div
           ref={calendarRef}
-          className="rounded-xl border border-outline-variant bg-white p-4 shadow-[var(--shadow-elevated)]"
+          className="overflow-hidden rounded-xl border border-outline-variant bg-white shadow-[var(--shadow-elevated)]"
           role="dialog"
           aria-label="Lịch chọn ngày"
         >
-          <div className="mb-4 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => shiftMonth(-1)}
-              aria-label="Tháng trước"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-low"
-            >
-              <ChevronLeft />
-            </button>
-            <p className="font-display text-sm font-semibold capitalize text-on-surface">
-              {formatMonthYear(viewMonth)}
-            </p>
-            <button
-              type="button"
-              onClick={() => shiftMonth(1)}
-              aria-label="Tháng sau"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-low"
-            >
-              <ChevronRight />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-7 gap-1">
-            {WEEKDAY_HEADERS.map((label) => (
-              <div
-                key={`cal-${label}`}
-                className="py-1 text-center font-display text-[10px] font-medium text-on-surface-variant"
+          {/* Header — dark bar like mockup */}
+          <div className="flex items-center justify-between bg-secondary px-4 py-3">
+            <p className="font-display text-sm font-semibold text-white">{formatCalendarTitle(viewMonth)}</p>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => shiftMonth(-1)}
+                aria-label="Tháng trước"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-white/90 transition-colors hover:bg-white/10"
               >
-                {label}
-              </div>
-            ))}
-            {monthCells.map((cell) => {
-              const selected = value === cell.key
-              return (
-                <button
-                  key={cell.key}
-                  type="button"
-                  disabled={!cell.selectable}
-                  onClick={() => selectDate(cell.key)}
-                  aria-label={formatDateLong(cell.key)}
-                  aria-pressed={selected}
-                  className={[
-                    'flex h-9 w-full items-center justify-center rounded-lg font-display text-sm transition-colors',
-                    selected
-                      ? 'bg-brand-orange font-semibold text-white'
-                      : cell.selectable
-                        ? cell.inMonth
-                          ? 'text-on-surface hover:bg-primary-container/20'
-                          : 'text-on-surface-variant/50 hover:bg-surface-container-low'
-                        : 'cursor-not-allowed text-on-surface-variant/25',
-                    isToday(cell.key) && !selected ? 'ring-1 ring-brand-orange/50' : '',
-                  ].join(' ')}
-                >
-                  {cell.day}
-                </button>
-              )
-            })}
+                <ChevronLeft className="text-white" />
+              </button>
+              <button
+                type="button"
+                onClick={() => shiftMonth(1)}
+                disabled={!canViewNextMonth(viewMonth)}
+                aria-label="Tháng sau"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-white/90 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronRight className="text-white" />
+              </button>
+            </div>
           </div>
 
-          <p className="mt-3 text-center text-[11px] text-on-surface-variant">
-            Có thể đặt trước tối đa {MAX_BOOKING_DAYS_AHEAD} ngày
-          </p>
+          <div className="p-4">
+            <div className="grid grid-cols-7 gap-y-1">
+              {WEEKDAY_HEADERS.map((label) => (
+                <div
+                  key={`cal-${label}`}
+                  className="py-2 text-center font-display text-xs font-medium text-on-surface-variant"
+                >
+                  {label}
+                </div>
+              ))}
+              {monthCells.map((cell) => {
+                const selected = value === cell.key
+
+                return (
+                  <button
+                    key={cell.key}
+                    type="button"
+                    disabled={!cell.selectable}
+                    onClick={() => selectDate(cell.key)}
+                    aria-label={formatDateLong(cell.key)}
+                    aria-pressed={selected}
+                    className={[
+                      'mx-auto flex h-10 w-10 items-center justify-center font-display text-sm transition-colors',
+                      selected
+                        ? 'rounded-full bg-brand-orange font-semibold text-white'
+                        : cell.selectable
+                          ? 'rounded-full text-on-surface hover:bg-primary-container/30'
+                          : 'cursor-not-allowed rounded-full text-on-surface-variant/35',
+                      !selected && !cell.inMonth ? 'text-on-surface-variant/30' : '',
+                      !selected && cell.isPast && cell.inMonth ? 'text-on-surface-variant/35' : '',
+                      isToday(cell.key) && !selected && cell.selectable
+                        ? 'font-semibold text-brand-orange'
+                        : '',
+                    ].join(' ')}
+                  >
+                    {cell.day}
+                  </button>
+                )
+              })}
+            </div>
+
+            <p className="mt-4 text-center text-[11px] text-on-surface-variant">
+              Có thể đặt trước tối đa {MAX_BOOKING_DAYS_AHEAD} ngày
+            </p>
+          </div>
         </div>
       )}
     </div>
   )
 }
 
-function ChevronLeft() {
+function ChevronLeft({ className }: { className?: string }) {
   return (
-    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden>
+    <svg className={className ?? 'h-4 w-4'} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
     </svg>
   )
 }
 
-function ChevronRight() {
+function ChevronRight({ className }: { className?: string }) {
   return (
-    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden>
+    <svg className={className ?? 'h-4 w-4'} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
     </svg>
   )

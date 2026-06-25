@@ -20,13 +20,6 @@ const statusStyles: Record<TimeSlot['status'], string> = {
   past: 'border-outline-variant bg-surface-container-low text-on-surface-variant/40 cursor-not-allowed',
 }
 
-const statusLabel: Record<TimeSlot['status'], string> = {
-  available: 'Trống',
-  selected: 'Đã chọn',
-  booked: 'Đã đặt',
-  past: 'Đã qua',
-}
-
 export default function TimeSlotGrid({
   slots,
   isLoading,
@@ -79,19 +72,21 @@ export default function TimeSlotGrid({
               key={slot.id}
               type="button"
               disabled={disabled}
-              onClick={() => !disabled && onSelect(slot.id)}
-              onDoubleClick={(e) => {
-                e.preventDefault()
-                if (slot.status === 'selected') onDeselect(slot.id)
+              onClick={() => {
+                if (disabled) return
+                if (slot.status === 'selected') {
+                  onDeselect(slot.id)
+                  return
+                }
+                onSelect(slot.id)
               }}
               aria-pressed={slot.status === 'selected'}
               className={[
-                'rounded-lg border px-3 py-3 text-left transition-all select-none',
+                'flex items-center justify-center rounded-lg border px-3 py-3 transition-all select-none',
                 statusStyles[slot.status],
               ].join(' ')}
             >
               <p className="font-display text-sm font-semibold">{slot.start}</p>
-              <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-80">{statusLabel[slot.status]}</p>
             </button>
           )
         })}

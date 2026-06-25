@@ -3,7 +3,7 @@ import type { PracticeRoom, SlotStatus, TimeSlot } from './types'
 
 const BOOKINGS_KEY = 'bandhub_local_bookings'
 const OPEN_HOUR = 8
-const CLOSE_HOUR = 22
+const CLOSE_HOUR = 24
 
 function hashCode(value: string): number {
   let hash = 0

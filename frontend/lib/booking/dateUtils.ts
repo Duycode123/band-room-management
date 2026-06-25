@@ -1,5 +1,5 @@
-/** Maximum days ahead a customer can book (industry-standard advance window). */
-export const MAX_BOOKING_DAYS_AHEAD = 90
+/** Maximum days ahead a customer can book. */
+export const MAX_BOOKING_DAYS_AHEAD = 30
 
 const pad = (n: number) => n.toString().padStart(2, '0')
 
@@ -51,6 +51,55 @@ export function getWeekDayKeys(weekStart: Date): string[] {
   return Array.from({ length: 7 }, (_, i) => toDateKey(addDays(weekStart, i)))
 }
 
+export function isDatePast(key: string): boolean {
+  return parseDateKey(key) < startOfDay(new Date())
+}
+
+/** Consecutive bookable day keys from windowStart (clamped to today), up to count. */
+export function getBookableWindowKeys(windowStart: Date, count = 7): string[] {
+  const today = startOfDay(new Date())
+  const max = getMaxBookableDate()
+  let cursor = startOfDay(windowStart)
+  if (cursor < today) cursor = today
+
+  const keys: string[] = []
+  while (keys.length < count && cursor <= max) {
+    keys.push(toDateKey(cursor))
+    cursor = addDays(cursor, 1)
+  }
+  return keys
+}
+
+export function getInitialWindowStart(): Date {
+  return startOfDay(new Date())
+}
+
+export function canShiftWindowBack(windowStart: Date): boolean {
+  return startOfDay(windowStart) > startOfDay(new Date())
+}
+
+export function canShiftWindowForward(windowStart: Date): boolean {
+  const nextStart = addDays(startOfDay(windowStart), 7)
+  return isDateSelectable(toDateKey(nextStart))
+}
+
+export function canViewPreviousMonth(viewMonth: Date): boolean {
+  const today = startOfDay(new Date())
+  const monthStart = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1)
+  const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+  return monthStart > currentMonthStart
+}
+
+export function canViewNextMonth(viewMonth: Date): boolean {
+  const nextMonthStart = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1)
+  return nextMonthStart <= getMaxBookableDate()
+}
+
+export function clampToBookableRange(key: string): string {
+  if (isDateSelectable(key)) return key
+  return getTodayKey()
+}
+
 export function formatDateLong(key: string): string {
   return parseDateKey(key).toLocaleDateString('vi-VN', {
     weekday: 'long',
@@ -62,6 +111,11 @@ export function formatDateLong(key: string): string {
 
 export function formatMonthYear(date: Date): string {
   return date.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' })
+}
+
+/** Calendar header label, e.g. "Tháng 6-2026". */
+export function formatCalendarTitle(date: Date): string {
+  return `Tháng ${date.getMonth() + 1}-${date.getFullYear()}`
 }
 
 export function formatWeekdayShort(key: string): string {
@@ -81,7 +135,11 @@ export type CalendarCell = {
   day: number
   inMonth: boolean
   selectable: boolean
+  isPast: boolean
 }
+
+const CALENDAR_ROWS = 5
+const CALENDAR_COLS = 7
 
 export function getCalendarMonthCells(viewMonth: Date): CalendarCell[] {
   const year = viewMonth.getFullYear()
@@ -89,15 +147,18 @@ export function getCalendarMonthCells(viewMonth: Date): CalendarCell[] {
   const firstOfMonth = new Date(year, month, 1)
   const start = startOfWeek(firstOfMonth)
   const cells: CalendarCell[] = []
+  const totalCells = CALENDAR_ROWS * CALENDAR_COLS
 
-  for (let i = 0; i < 42; i++) {
+  for (let i = 0; i < totalCells; i++) {
     const date = addDays(start, i)
     const key = toDateKey(date)
+    const past = isDatePast(key)
     cells.push({
       key,
       day: date.getDate(),
       inMonth: date.getMonth() === month,
       selectable: isDateSelectable(key),
+      isPast: past,
     })
   }
 
