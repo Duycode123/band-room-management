@@ -10,7 +10,7 @@ export default function AdminDashboardPage() {
 
   const handleLogout = async () => {
     await logout()
-    router.push('/login')
+    router.replace('/')
   }
 
   return (

@@ -4,25 +4,32 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, type ReactNode } from 'react'
+import BookingRoomCard from '@/components/booking/BookingRoomCard'
+import BookingQuickModal from '@/components/booking/BookingQuickModal'
+import RoomDetailModal from '@/components/booking/RoomDetailModal'
+import AccountMenu from '@/components/layout/AccountMenu'
+import {
+  bookingRooms,
+  findBookingRoom,
+  roomCategories,
+  type BookingRoom,
+  type RoomCategory,
+} from '@/components/booking/booking-data'
 import { useAuth } from '@/contexts/AuthContext'
-
-const roleDisplayNames = {
-  ADMIN: 'Quản trị viên',
-  STAFF: 'Nhân viên',
-  CUSTOMER: 'Khách hàng',
-}
+import { useHomepageLiveData } from '@/hooks/useHomepageLiveData'
+import {
+  formatRelativeTime,
+  formatSlotDateLabel,
+  getActivityActionLabel,
+  maskCustomerName,
+  type AvailabilityTone,
+} from '@/lib/homepage-live-service'
 
 const navItems = [
   { label: 'Phòng tập', href: '#rooms' },
   { label: 'Thiết bị', href: '#features' },
   { label: 'Bảng giá', href: '#rooms' },
   { label: 'Về chúng tôi', href: '#about' },
-]
-
-const liveFeed = [
-  { user: 'Minh Anh', room: 'Studio A', time: '2 phút trước' },
-  { user: 'The Waves', room: 'The Vault', time: '11 phút trước' },
-  { user: 'Gia Huy', room: 'Pod C', time: '18 phút trước' },
 ]
 
 const stats = [
@@ -54,48 +61,9 @@ const features = [
   },
 ] as const
 
-const rooms = [
-  {
-    id: 'studio-a',
-    name: 'Studio A - Phòng Đỏ',
-    type: 'Tập band đầy đủ',
-    capacity: 'Tối đa 10 người',
-    equipments: ['Trống Tama', 'Marshall Stack', 'Mixer 16 kênh'],
-    pricePerHour: 350000,
-    rating: 4.9,
-    badge: 'Phổ biến nhất',
-    image: '/images/band-room-hero.png',
-    imageClassName: 'object-[62%_center]',
-  },
-  {
-    id: 'the-vault',
-    name: 'The Vault - Thu âm',
-    type: 'Thu demo và mix nhạc',
-    capacity: 'Tối đa 6 người',
-    equipments: ['Console SSL', 'Genelec Monitor', 'Vocal Booth'],
-    pricePerHour: 500000,
-    rating: 4.8,
-    badge: 'Cao cấp',
-    image: '/images/band-room-hero.png',
-    imageClassName: 'object-[74%_center]',
-  },
-  {
-    id: 'practice-pod-c',
-    name: 'Practice Pod C',
-    type: 'Luyện tập cá nhân',
-    capacity: 'Tối đa 2 người',
-    equipments: ['Roland Kit', 'Fender Amp', 'AKG C414'],
-    pricePerHour: 150000,
-    rating: 4.7,
-    badge: 'Tiết kiệm',
-    image: '/images/band-room-hero.png',
-    imageClassName: 'object-[45%_center]',
-  },
-] as const
+const rooms = bookingRooms
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('vi-VN').format(value) + 'đ'
-}
+type RoomCatalogFilter = 'all' | RoomCategory
 
 const steps = [
   {
@@ -184,15 +152,67 @@ function Icon({ name, className = 'h-5 w-5' }: { name: IconName; className?: str
   )
 }
 
+type QuickBookingState = {
+  room: BookingRoom
+  initialDate?: string
+  initialStartTime?: string
+  initialDuration?: number
+}
+
+function getAvailabilityBadgeClassName(tone: AvailabilityTone) {
+  const toneClassName = {
+    success: 'border-brand-orange/40 bg-white/10 text-primary-fixed hover:bg-white/15',
+    warning: 'border-[#FF7518]/60 bg-[#FF7518]/15 text-[#FFD8B8] hover:bg-[#FF7518]/20',
+    muted: 'border-white/20 bg-white/10 text-white/65 hover:bg-white/15',
+  }
+
+  return [
+    'mb-8 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-left font-display text-sm font-semibold transition',
+    toneClassName[tone],
+  ].join(' ')
+}
+
+function getAvailabilityDotClassName(tone: AvailabilityTone) {
+  const toneClassName = {
+    success: 'bg-brand-orange shadow-[0_0_0_5px_rgba(255,117,24,0.16)]',
+    warning: 'bg-[#FFB15F] shadow-[0_0_0_5px_rgba(255,177,95,0.16)]',
+    muted: 'bg-white/45',
+  }
+
+  return ['h-2 w-2 rounded-full', toneClassName[tone]].join(' ')
+}
+
 export default function HomePage() {
   const router = useRouter()
-  const { user, isAuthenticated, isLoading, logout } = useAuth()
+  const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth()
+  const {
+    availabilityStatus,
+    recentActivities,
+    nextAvailableSlot,
+    isLoading: isLiveDataLoading,
+    error: liveDataError,
+  } = useHomepageLiveData()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [availabilityHintVisible, setAvailabilityHintVisible] = useState(false)
+  const [quickBooking, setQuickBooking] = useState<QuickBookingState | null>(null)
+  const [selectedRoomDetail, setSelectedRoomDetail] = useState<BookingRoom | null>(null)
+  const [activeRoomCategory, setActiveRoomCategory] = useState<RoomCatalogFilter>('all')
+  const visibleRooms =
+    activeRoomCategory === 'all' ? rooms : rooms.filter((room) => room.category === activeRoomCategory)
+  const roomCategoryFilters = [{ id: 'all' as const, label: 'Tất cả', count: rooms.length }, ...roomCategories.map((category) => ({
+    id: category.id,
+    label: category.label,
+    count: rooms.filter((room) => room.category === category.id).length,
+  }))]
+
+  const scrollToRooms = () => {
+    document.getElementById('rooms')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   const handleBookingClick = () => {
     setMenuOpen(false)
 
-    if (isLoading) return
+    if (isAuthLoading) return
     if (!isAuthenticated) {
       router.push('/login')
       return
@@ -201,14 +221,42 @@ export default function HomePage() {
     router.push('/customer/booking')
   }
 
-  const handleLogout = async () => {
-    setMenuOpen(false)
-    await logout()
-    router.replace('/')
+  const handleAvailabilityBadgeClick = () => {
+    if (availabilityStatus.status === 'CLOSED') {
+      setAvailabilityHintVisible(true)
+      return
+    }
+
+    if (availabilityStatus.count > 0) {
+      scrollToRooms()
+    }
   }
 
-  const userDisplayName = user ? roleDisplayNames[user.role] : ''
-  const avatarInitial = userDisplayName.trim().charAt(0).toUpperCase() || 'U'
+  const handleNextSlotBooking = () => {
+    if (!nextAvailableSlot) {
+      scrollToRooms()
+      return
+    }
+
+    const room = findBookingRoom(nextAvailableSlot.roomId)
+
+    if (!room) {
+      handleBookingClick()
+      return
+    }
+
+    setQuickBooking({
+      room,
+      initialDate: nextAvailableSlot.date,
+      initialStartTime: nextAvailableSlot.startTime,
+      initialDuration: nextAvailableSlot.duration,
+    })
+  }
+
+  const handleDetailBooking = (room: BookingRoom) => {
+    setSelectedRoomDetail(null)
+    setQuickBooking({ room })
+  }
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-brand-bgGray text-on-surface">
@@ -235,23 +283,7 @@ export default function HomePage() {
 
           <div className="hidden items-center gap-3 md:flex">
             {isAuthenticated && user ? (
-              <>
-                <div className="flex items-center gap-2 rounded-lg border border-outline bg-white/70 px-3 py-2">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-orange font-display text-xs font-bold text-white">
-                    {avatarInitial}
-                  </span>
-                  <span className="max-w-[160px] truncate font-display text-sm font-semibold text-on-surface">
-                    {userDisplayName}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => void handleLogout()}
-                  className="rounded-lg bg-inverse-surface px-5 py-2.5 font-display text-sm font-semibold text-inverse-on-surface transition-colors hover:bg-secondary-container"
-                >
-                  Đăng xuất
-                </button>
-              </>
+              <AccountMenu />
             ) : (
               <>
                 <Link
@@ -263,7 +295,7 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={handleBookingClick}
-                  disabled={isLoading}
+                  disabled={isAuthLoading}
                   className="rounded-lg bg-brand-orange px-5 py-2.5 font-display text-sm font-semibold text-white shadow-[0_10px_28px_rgba(255,117,24,0.28)] transition-all hover:bg-brand-orangeHover active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
                 >
                   Đặt phòng
@@ -298,20 +330,8 @@ export default function HomePage() {
               ))}
             </nav>
             {isAuthenticated && user ? (
-              <div className="mt-4 space-y-3">
-                <div className="flex items-center gap-3 rounded-lg border border-outline bg-white px-4 py-3">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-orange font-display text-sm font-bold text-white">
-                    {avatarInitial}
-                  </span>
-                  <span className="truncate font-display text-sm font-semibold text-on-surface">{userDisplayName}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => void handleLogout()}
-                  className="w-full rounded-lg bg-inverse-surface px-4 py-3 font-display text-sm font-semibold text-inverse-on-surface"
-                >
-                  Đăng xuất
-                </button>
+              <div className="mt-4 flex justify-end">
+                <AccountMenu align="full" onNavigate={() => setMenuOpen(false)} />
               </div>
             ) : (
               <div className="mt-4 grid grid-cols-2 gap-3">
@@ -325,7 +345,7 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={handleBookingClick}
-                  disabled={isLoading}
+                  disabled={isAuthLoading}
                   className="rounded-lg bg-brand-orange px-4 py-3 font-display text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-70"
                 >
                   Đặt phòng
@@ -350,10 +370,21 @@ export default function HomePage() {
 
         <div className="relative mx-auto grid w-full max-w-7xl items-center gap-12 px-5 pb-20 sm:px-8 lg:grid-cols-[1fr_380px]">
           <div className="max-w-3xl">
-            <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-brand-orange/40 bg-white/10 px-4 py-2 font-display text-sm font-semibold text-primary-fixed">
-              <span className="h-2 w-2 rounded-full bg-brand-orange" />
-              Đang mở - 7 phòng còn trống hôm nay
-            </div>
+            <button
+              type="button"
+              onClick={handleAvailabilityBadgeClick}
+              className={getAvailabilityBadgeClassName(availabilityStatus.tone)}
+              aria-live="polite"
+            >
+              <span className={getAvailabilityDotClassName(availabilityStatus.tone)} />
+              <span>{isLiveDataLoading ? 'Đang cập nhật lịch phòng...' : availabilityStatus.label}</span>
+            </button>
+
+            {availabilityHintVisible && availabilityStatus.status === 'CLOSED' && (
+              <p className="-mt-5 mb-8 max-w-md text-sm text-white/55">
+                Bạn vẫn có thể đặt lịch cho ngày tiếp theo.
+              </p>
+            )}
 
             <h1 className="font-display text-5xl font-bold leading-none text-white sm:text-6xl lg:text-7xl">
               Không gian của bạn.
@@ -370,18 +401,11 @@ export default function HomePage() {
             <div className="mt-10 flex flex-wrap gap-4">
               <button
                 type="button"
-                onClick={handleBookingClick}
-                disabled={isLoading}
-                className="rounded-lg bg-brand-orange px-6 py-3.5 font-display text-sm font-semibold text-white shadow-[0_14px_36px_rgba(255,117,24,0.35)] transition-all hover:bg-brand-orangeHover active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
-              >
-                Đặt phòng ngay
-              </button>
-              <a
-                href="#rooms"
-                className="rounded-lg border border-white/30 bg-white/10 px-6 py-3.5 font-display text-sm font-semibold text-white transition-colors hover:bg-white/15"
+                onClick={scrollToRooms}
+                className="rounded-lg bg-brand-orange px-6 py-3.5 font-display text-sm font-semibold text-white shadow-[0_14px_36px_rgba(255,117,24,0.35)] transition-all hover:bg-brand-orangeHover active:scale-[0.98]"
               >
                 Khám phá phòng
-              </a>
+              </button>
             </div>
 
             <div className="mt-14 grid max-w-2xl grid-cols-3 gap-5">
@@ -401,34 +425,56 @@ export default function HomePage() {
                 <span className="h-2 w-2 rounded-full bg-brand-orange" />
               </div>
               <div className="space-y-3">
-                {liveFeed.map((item) => (
-                  <div key={`${item.user}-${item.room}`} className="flex items-center justify-between gap-3 text-sm">
-                    <p>
-                      <span className="font-semibold text-white">{item.user}</span>
-                      <span className="text-white/45"> đã đặt </span>
-                      <span className="font-semibold text-primary-fixed">{item.room}</span>
-                    </p>
-                    <span className="shrink-0 text-xs text-white/35">{item.time}</span>
-                  </div>
-                ))}
+                {recentActivities.length > 0 ? (
+                  recentActivities.map((activity) => (
+                    <div key={activity.id} className="flex items-center justify-between gap-3 text-sm">
+                      <p>
+                        <span className="font-semibold text-white">{maskCustomerName(activity.customerName)}</span>
+                        <span className="text-white/45"> {getActivityActionLabel(activity.action)} </span>
+                        <span className="font-semibold text-primary-fixed">{activity.roomName}</span>
+                      </p>
+                      <span className="shrink-0 text-xs text-white/35">{formatRelativeTime(activity.createdAt)}</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-white/45">Chưa có hoạt động mới</p>
+                )}
               </div>
+              {liveDataError && <p className="mt-4 text-xs text-white/40">{liveDataError}</p>}
             </div>
 
             <div className="rounded-xl border border-white/15 bg-secondary/80 p-5 shadow-[0_18px_48px_rgba(0,0,0,0.28)]">
               <p className="font-display text-xs font-semibold uppercase text-on-secondary-container">Khung giờ tiếp theo</p>
-              <div className="mt-3 flex items-end justify-between gap-4">
-                <div>
-                  <p className="font-display text-lg font-bold text-white">Studio A</p>
-                  <p className="mt-1 text-sm text-white/45">Hôm nay - 19:00 đến 22:00</p>
+              {nextAvailableSlot ? (
+                <div className="mt-3 flex items-end justify-between gap-4">
+                  <div>
+                    <p className="font-display text-lg font-bold text-white">{nextAvailableSlot.roomName}</p>
+                    <p className="mt-1 text-sm text-white/45">
+                      {formatSlotDateLabel(nextAvailableSlot.date)} · {nextAvailableSlot.startTime} đến{' '}
+                      {nextAvailableSlot.endTime}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleNextSlotBooking}
+                    className="rounded-lg bg-brand-orange px-4 py-2 font-display text-xs font-semibold text-white hover:bg-brand-orangeHover"
+                  >
+                    Đặt
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleBookingClick}
-                  className="rounded-lg bg-brand-orange px-4 py-2 font-display text-xs font-semibold text-white hover:bg-brand-orangeHover"
-                >
-                  Đặt
-                </button>
-              </div>
+              ) : (
+                <div className="mt-3">
+                  <p className="font-display text-lg font-bold text-white">Hôm nay đã kín lịch</p>
+                  <p className="mt-1 text-sm text-white/45">Vui lòng chọn ngày khác để đặt phòng.</p>
+                  <button
+                    type="button"
+                    onClick={handleNextSlotBooking}
+                    className="mt-4 rounded-lg border border-white/20 px-4 py-2 font-display text-xs font-semibold text-white/80 hover:bg-white/10"
+                  >
+                    Chọn ngày khác
+                  </button>
+                </div>
+              )}
             </div>
           </aside>
         </div>
@@ -462,87 +508,82 @@ export default function HomePage() {
 
       <section id="rooms" className="bg-brand-bgGray py-20 sm:py-24">
         <div className="mx-auto max-w-7xl px-5 sm:px-8">
-          <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
-            <div>
-              <p className="font-display text-sm font-semibold uppercase text-brand-orange">Không gian của chúng tôi</p>
+          <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+            <div className="max-w-3xl">
+              <p className="font-display text-sm font-semibold uppercase text-brand-orange">Room Catalog</p>
               <h2 className="mt-3 font-display text-3xl font-bold leading-tight text-on-surface sm:text-4xl">
-                Phòng phổ biến
+                Khám phá phòng tập
               </h2>
+              <p className="mt-4 text-base leading-7 text-on-surface-variant">
+                Chọn không gian phù hợp với buổi tập, thu âm hoặc sản xuất âm nhạc của bạn.
+              </p>
+            </div>
+
+            <div className="grid w-full gap-3 sm:grid-cols-3 lg:w-auto">
+              {[
+                ['4', 'Hạng phòng'],
+                ['12', 'Phòng tập'],
+                ['Live', 'Cập nhật lịch trống'],
+              ].map(([value, label]) => (
+                <div key={label} className="rounded-xl border border-outline-variant bg-white px-4 py-3 shadow-[var(--shadow-card)]">
+                  <p className="font-display text-xl font-bold text-brand-orange">{value}</p>
+                  <p className="mt-1 text-xs font-semibold uppercase text-on-surface-variant">{label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-8 flex flex-wrap gap-2">
+            {roomCategoryFilters.map((filter) => {
+              const active = activeRoomCategory === filter.id
+
+              return (
+                <button
+                  key={filter.id}
+                  type="button"
+                  onClick={() => setActiveRoomCategory(filter.id)}
+                  className={[
+                    'rounded-full border px-4 py-2 font-display text-sm font-semibold transition',
+                    active
+                      ? 'border-brand-orange bg-brand-orange text-white shadow-[0_10px_26px_rgba(255,117,24,0.24)]'
+                      : 'border-outline bg-white text-on-surface-variant hover:bg-primary-container hover:text-on-surface',
+                  ].join(' ')}
+                >
+                  {filter.label}
+                  <span className={active ? 'ml-2 text-white/75' : 'ml-2 text-on-surface-variant'}>
+                    {filter.count}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="mt-8 flex flex-col justify-between gap-3 rounded-xl border border-outline-variant bg-white px-5 py-4 shadow-[var(--shadow-card)] sm:flex-row sm:items-center">
+            <div>
+              <p className="font-display text-sm font-bold text-on-surface">
+                {activeRoomCategory === 'all' ? 'Tất cả hạng phòng' : roomCategories.find((category) => category.id === activeRoomCategory)?.label}
+              </p>
+              <p className="mt-1 text-sm text-on-surface-variant">
+                Đang hiển thị {visibleRooms.length} phòng phù hợp.
+              </p>
             </div>
             <button
               type="button"
-              onClick={handleBookingClick}
+              onClick={scrollToRooms}
               className="w-fit rounded-lg border border-outline bg-white px-5 py-3 font-display text-sm font-semibold text-brand-orange transition-colors hover:bg-primary-container"
             >
               Xem lịch đặt phòng
             </button>
           </div>
 
-          <div className="mt-10 grid gap-5 md:grid-cols-3">
-            {rooms.map((room) => (
-              <article
+          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {visibleRooms.map((room) => (
+              <BookingRoomCard
                 key={room.id}
-                className="overflow-hidden rounded-xl border border-outline-variant bg-white shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-elevated)]"
-              >
-                <div className="relative aspect-[16/10] overflow-hidden bg-surface-container">
-                  <Image
-                    src={room.image}
-                    alt={room.name}
-                    fill
-                    sizes="(min-width: 768px) 33vw, 100vw"
-                    className={`object-cover transition-transform duration-300 hover:scale-[1.03] ${room.imageClassName}`}
-                  />
-                  <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(4,42,22,0.55),transparent_58%)]" />
-                  <span className="absolute left-3 top-3 rounded-full bg-primary-container px-3 py-1 font-display text-xs font-semibold text-on-primary-container">
-                    {room.badge}
-                  </span>
-                  <span className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 font-display text-xs font-semibold text-on-surface">
-                    <Icon name="star" className="h-3.5 w-3.5 text-tertiary" />
-                    {room.rating}
-                  </span>
-                </div>
-
-                <div className="p-6">
-                  <p className="font-display text-xs font-semibold uppercase text-on-surface-variant">{room.type}</p>
-                  <h3 className="mt-1.5 font-display text-xl font-bold text-on-surface">{room.name}</h3>
-
-                  <div className="mt-4 flex flex-wrap gap-4 text-xs text-on-surface-variant">
-                    <span className="flex items-center gap-1.5">
-                      <Icon name="users" className="h-3.5 w-3.5" />
-                      {room.capacity}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <Icon name="clock" className="h-3.5 w-3.5" />
-                      Tính theo giờ
-                    </span>
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {room.equipments.map((gear) => (
-                      <span
-                        key={gear}
-                        className="rounded-lg border border-outline-variant bg-surface-container px-2.5 py-1 font-display text-xs font-medium text-on-surface-variant"
-                      >
-                        {gear}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="mt-5 flex items-center justify-between border-t border-outline-variant pt-4">
-                    <div>
-                      <span className="font-display text-2xl font-bold text-on-surface">{formatCurrency(room.pricePerHour)}</span>
-                      <span className="text-xs text-on-surface-variant"> / giờ</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleBookingClick}
-                      className="rounded-lg bg-brand-orange px-4 py-2.5 font-display text-xs font-semibold text-white transition-colors hover:bg-brand-orangeHover"
-                    >
-                      Đặt ngay
-                    </button>
-                  </div>
-                </div>
-              </article>
+                room={room}
+                renderIcon={(name, className) => <Icon name={name} className={className} />}
+                onOpenDetail={setSelectedRoomDetail}
+              />
             ))}
           </div>
         </div>
@@ -618,34 +659,135 @@ export default function HomePage() {
         </div>
       </section>
 
-      <footer className="bg-secondary py-12 text-white">
-        <div className="mx-auto flex max-w-7xl flex-col gap-8 px-5 sm:px-8 md:flex-row md:items-center md:justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-orange text-white">
-                <Icon name="music" className="h-5 w-5" />
-              </span>
-              <span className="font-display text-lg font-bold">Band Room</span>
+      <footer className="bg-secondary text-white">
+        <div className="mx-auto max-w-7xl px-5 py-14 sm:px-8 sm:py-16">
+          <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.25fr_0.8fr_0.9fr_1.05fr]">
+            <div>
+              <Link href="/" className="inline-flex items-center gap-3" aria-label="Band Room homepage">
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-orange text-white shadow-[0_12px_30px_rgba(255,117,24,0.24)]">
+                  <Icon name="music" className="h-5 w-5" />
+                </span>
+                <span className="font-display text-xl font-bold text-white">Band Room</span>
+              </Link>
+              <p className="mt-4 max-w-sm text-sm leading-6 text-white/62">
+                Đặt phòng tập nhạc trực tuyến dành cho ban nhạc, nghệ sĩ và người sáng tạo.
+              </p>
+              <div className="mt-6 flex gap-3" aria-label="Band Room social links">
+                {['IG', 'FB', 'YT'].map((item) => (
+                  <span
+                    key={item}
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/5 font-display text-xs font-bold text-white/70"
+                  >
+                    {item}
+                  </span>
+                ))}
+              </div>
             </div>
-            <p className="mt-3 max-w-md text-sm text-white/55">
-              Đặt phòng tập nhạc trực tuyến dễ dàng cho ban nhạc, nghệ sĩ và người sáng tạo.
-            </p>
+
+            <div>
+              <h3 className="font-display text-sm font-bold uppercase tracking-[0.08em] text-white">Khám phá</h3>
+              <nav className="mt-5 grid gap-3 text-sm text-white/62" aria-label="Footer khám phá">
+                <a href="#rooms" className="transition-colors hover:text-brand-orange">
+                  Phòng tập
+                </a>
+                <a href="#features" className="transition-colors hover:text-brand-orange">
+                  Thiết bị
+                </a>
+                <a href="#rooms" className="transition-colors hover:text-brand-orange">
+                  Bảng giá
+                </a>
+                <a href="#about" className="transition-colors hover:text-brand-orange">
+                  Về chúng tôi
+                </a>
+              </nav>
+            </div>
+
+            <div>
+              <h3 className="font-display text-sm font-bold uppercase tracking-[0.08em] text-white">Hỗ trợ</h3>
+              <nav className="mt-5 grid gap-3 text-sm text-white/62" aria-label="Footer hỗ trợ">
+                <a href="#about" className="transition-colors hover:text-brand-orange">
+                  Trung tâm hỗ trợ
+                </a>
+                <a href="#rooms" className="transition-colors hover:text-brand-orange">
+                  Chính sách đặt phòng
+                </a>
+                <a href="#rooms" className="transition-colors hover:text-brand-orange">
+                  Chính sách hủy lịch
+                </a>
+                <a href="mailto:support@bandroom.local" className="transition-colors hover:text-brand-orange">
+                  Liên hệ
+                </a>
+              </nav>
+            </div>
+
+            <div>
+              <h3 className="font-display text-sm font-bold uppercase tracking-[0.08em] text-white">Liên hệ</h3>
+              <div className="mt-5 space-y-3 text-sm leading-6 text-white/62">
+                <p>
+                  <span className="text-white/85">Hotline:</span> 0900 000 000
+                </p>
+                <p>
+                  <span className="text-white/85">Email:</span>{' '}
+                  <a href="mailto:support@bandroom.local" className="hover:text-brand-orange">
+                    support@bandroom.local
+                  </a>
+                </p>
+                <p>
+                  <span className="text-white/85">Địa chỉ:</span> Hà Nội, Việt Nam
+                </p>
+              </div>
+
+              <div className="mt-6 flex flex-wrap gap-3">
+                {!isAuthenticated && (
+                  <Link
+                    href="/login"
+                    className="rounded-lg border border-white/15 px-4 py-2.5 font-display text-sm font-semibold text-white/82 transition-colors hover:bg-white/10 hover:text-white"
+                  >
+                    Đăng nhập
+                  </Link>
+                )}
+                <button
+                  type="button"
+                  onClick={scrollToRooms}
+                  className="rounded-lg bg-brand-orange px-4 py-2.5 font-display text-sm font-semibold text-white transition-colors hover:bg-brand-orangeHover"
+                >
+                  Khám phá phòng
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <Link href="/login" className="rounded-lg border border-white/20 px-4 py-2 font-display text-sm font-semibold text-white/80 hover:bg-white/10">
-              Đăng nhập
-            </Link>
-            <button
-              type="button"
-              onClick={handleBookingClick}
-              className="rounded-lg bg-brand-orange px-4 py-2 font-display text-sm font-semibold text-white hover:bg-brand-orangeHover"
-            >
-              Đặt phòng
-            </button>
+          <div className="mt-12 flex flex-col gap-4 border-t border-white/10 pt-6 text-sm text-white/50 sm:flex-row sm:items-center sm:justify-between">
+            <p>© 2026 Band Room. All rights reserved.</p>
+            <div className="flex flex-wrap gap-x-5 gap-y-2">
+              <a href="#about" className="transition-colors hover:text-brand-orange">
+                Điều khoản sử dụng
+              </a>
+              <a href="#about" className="transition-colors hover:text-brand-orange">
+                Chính sách bảo mật
+              </a>
+            </div>
           </div>
         </div>
       </footer>
+
+      <RoomDetailModal
+        room={selectedRoomDetail}
+        open={Boolean(selectedRoomDetail)}
+        onClose={() => setSelectedRoomDetail(null)}
+        onBook={handleDetailBooking}
+      />
+
+      {quickBooking && (
+        <BookingQuickModal
+          room={quickBooking.room}
+          open
+          initialDate={quickBooking.initialDate}
+          initialStartTime={quickBooking.initialStartTime}
+          initialDuration={quickBooking.initialDuration}
+          onClose={() => setQuickBooking(null)}
+        />
+      )}
     </main>
   )
 }
