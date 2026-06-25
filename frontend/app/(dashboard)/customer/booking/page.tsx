@@ -178,7 +178,7 @@ export default function CustomerBookingPage() {
                       ? 'Đang tải lịch trống...'
                       : '← Chọn phòng ở bước 1 để xem khung giờ.'
                   }
-                  hint="Click 1 lần vào khung trống để chọn (click liền kề để thêm giờ). Double-click khung cam để bỏ chọn giờ đó."
+                  hint="Click 1 lần vào khung trống để chọn (click liền kề để thêm giờ). Click lại để bỏ chọn; chỉ bỏ được khung ở đầu hoặc cuối dải đã chọn."
                   onSelect={(id) => {
                     selectSlot(id)
                     setMessage('')
