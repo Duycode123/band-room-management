@@ -11,7 +11,7 @@ export default function CustomerDashboardPage() {
 
   const handleLogout = async () => {
     await logout()
-    router.push('/login')
+    router.replace('/')
   }
 
   return (
