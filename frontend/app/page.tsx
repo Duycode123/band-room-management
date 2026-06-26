@@ -27,8 +27,6 @@ import {
 
 const navItems = [
   { label: 'Phòng tập', href: '#rooms' },
-  { label: 'Thiết bị', href: '#features' },
-  { label: 'Bảng giá', href: '#rooms' },
   { label: 'Về chúng tôi', href: '#about' },
 ]
 
@@ -269,7 +267,7 @@ export default function HomePage() {
             <span className="font-display text-lg font-bold">Band Room</span>
           </Link>
 
-          <nav className="mx-auto hidden items-center gap-1 md:flex">
+          <nav className="mx-auto hidden items-center gap-6 md:flex">
             {navItems.map((item) => (
               <a
                 key={item.label}

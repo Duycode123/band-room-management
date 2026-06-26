@@ -6,8 +6,6 @@ import { useAuth } from '@/contexts/AuthContext'
 
 const navItems = [
   { label: 'Phòng tập', href: '/#rooms' },
-  { label: 'Thiết bị', href: '/#features' },
-  { label: 'Bảng giá', href: '/#rooms' },
   { label: 'Về chúng tôi', href: '/#about' },
 ]
 
@@ -24,7 +22,7 @@ export default function BandRoomHeader() {
           <span className="font-display text-xl font-bold tracking-wide text-[#1A1C1E]">Band Room</span>
         </Link>
 
-        <nav className="hidden items-center gap-10 font-display text-sm font-medium text-[#5C5348] md:flex">
+        <nav className="hidden items-center gap-12 font-display text-sm font-medium text-[#5C5348] md:flex">
           {navItems.map((item) => (
             <Link key={item.label} href={item.href} className="transition hover:text-[#1A1C1E]">
               {item.label}

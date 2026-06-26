@@ -130,13 +130,13 @@ export default function CustomerProfileClient() {
       return
     }
 
-    const nextPreview = URL.createObjectURL(file)
-    setAvatarPreview((currentPreview) => {
-      if (currentPreview?.startsWith('blob:')) {
-        URL.revokeObjectURL(currentPreview)
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setAvatarPreview(reader.result)
       }
-      return nextPreview
-    })
+    }
+    reader.readAsDataURL(file)
     setProfileMessage(null)
   }
 

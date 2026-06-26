@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useMemo, useState } from 'react'
 import BandRoomHeader from '@/components/layout/BandRoomHeader'
 import {
@@ -28,6 +28,7 @@ import {
 } from '@/components/booking/booking-data'
 
 export default function BookingConfirmationClient() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const roomId = searchParams.get('roomId')
   const room = getBookingRoomOrFallback(roomId)
@@ -61,7 +62,21 @@ export default function BookingConfirmationClient() {
     }
 
     setConfirmError('')
-    setBookingConfirmed(true)
+    setBookingConfirmed(false)
+
+    const params = new URLSearchParams({
+      bookingId: room.code,
+      roomId: room.id,
+      date,
+      startTime,
+      endTime,
+      duration: String(duration),
+      addons: selectedAddonIds.join(','),
+      note: note === EMPTY_NOTE_TEXT ? '' : note,
+      method: paymentMethod,
+    })
+
+    router.push(`/customer/checkout?${params.toString()}`)
   }
 
   return (

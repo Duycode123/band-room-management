@@ -471,7 +471,17 @@ export function formatCurrency(value: number) {
 }
 
 export function getReviewsByRoomId(roomId: string) {
-  return roomReviews
+  let storedReviews: RoomReview[] = []
+
+  if (typeof window !== 'undefined') {
+    try {
+      storedReviews = JSON.parse(window.localStorage.getItem('bandroom_room_reviews') || '[]') as RoomReview[]
+    } catch {
+      storedReviews = []
+    }
+  }
+
+  return [...roomReviews, ...storedReviews]
     .filter((review) => review.roomId === roomId)
     .sort((firstReview, secondReview) => Date.parse(secondReview.createdAt) - Date.parse(firstReview.createdAt))
 }
