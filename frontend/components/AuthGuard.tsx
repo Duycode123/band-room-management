@@ -13,10 +13,10 @@ interface AuthGuardProps {
 
 export default function AuthGuard({ allowedRoles, children }: AuthGuardProps) {
   const router = useRouter()
-  const { user, isLoading } = useAuth()
+  const { user, isLoading, isLoggingOut } = useAuth()
 
   useEffect(() => {
-    if (isLoading) return
+    if (isLoading || isLoggingOut) return
 
     if (!user) {
       router.replace('/login')
@@ -25,9 +25,9 @@ export default function AuthGuard({ allowedRoles, children }: AuthGuardProps) {
     if (!allowedRoles.includes(user.role)) {
       router.replace('/unauthorized')
     }
-  }, [user, allowedRoles, isLoading, router])
+  }, [user, allowedRoles, isLoading, isLoggingOut, router])
 
-  if (isLoading || !user) return null
+  if (isLoading || isLoggingOut || !user) return null
 
   const authorized = allowedRoles.includes(user.role)
   return authorized ? <>{children}</> : null
