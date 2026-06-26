@@ -1,6 +1,9 @@
 /** Maximum days ahead a customer can book. */
 export const MAX_BOOKING_DAYS_AHEAD = 30
 
+/** How many months ahead the calendar can be browsed (view only, not book). */
+export const MAX_CALENDAR_VIEW_MONTHS_AHEAD = 12
+
 const pad = (n: number) => n.toString().padStart(2, '0')
 
 export function toDateKey(date: Date): string {
@@ -55,6 +58,10 @@ export function isDatePast(key: string): boolean {
   return parseDateKey(key) < startOfDay(new Date())
 }
 
+export function isDateBeyondBookingWindow(key: string): boolean {
+  return parseDateKey(key) > getMaxBookableDate()
+}
+
 /** Consecutive bookable day keys from windowStart (clamped to today), up to count. */
 export function getBookableWindowKeys(windowStart: Date, count = 7): string[] {
   const today = startOfDay(new Date())
@@ -91,8 +98,14 @@ export function canViewPreviousMonth(viewMonth: Date): boolean {
 }
 
 export function canViewNextMonth(viewMonth: Date): boolean {
+  const today = startOfDay(new Date())
+  const maxViewMonth = new Date(
+    today.getFullYear(),
+    today.getMonth() + MAX_CALENDAR_VIEW_MONTHS_AHEAD,
+    1,
+  )
   const nextMonthStart = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1)
-  return nextMonthStart <= getMaxBookableDate()
+  return nextMonthStart <= maxViewMonth
 }
 
 export function clampToBookableRange(key: string): string {
@@ -136,6 +149,7 @@ export type CalendarCell = {
   inMonth: boolean
   selectable: boolean
   isPast: boolean
+  isBeyondBookingWindow: boolean
 }
 
 const CALENDAR_ROWS = 5
@@ -153,12 +167,14 @@ export function getCalendarMonthCells(viewMonth: Date): CalendarCell[] {
     const date = addDays(start, i)
     const key = toDateKey(date)
     const past = isDatePast(key)
+    const beyond = isDateBeyondBookingWindow(key)
     cells.push({
       key,
       day: date.getDate(),
       inMonth: date.getMonth() === month,
       selectable: isDateSelectable(key),
       isPast: past,
+      isBeyondBookingWindow: beyond,
     })
   }
 

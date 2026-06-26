@@ -10,7 +10,6 @@ import {
   formatCalendarTitle,
   formatDateLong,
   formatDayNumber,
-  formatMonthYear,
   formatWeekdayShort,
   getBookableWindowKeys,
   getCalendarMonthCells,
@@ -231,7 +230,9 @@ export default function BookingDatePicker({ value, onChange }: BookingDatePicker
                           ? 'rounded-full text-on-surface hover:bg-primary-container/30'
                           : 'cursor-not-allowed rounded-full text-on-surface-variant/35',
                       !selected && !cell.inMonth ? 'text-on-surface-variant/30' : '',
-                      !selected && cell.isPast && cell.inMonth ? 'text-on-surface-variant/35' : '',
+                      !selected && (cell.isPast || cell.isBeyondBookingWindow) && cell.inMonth
+                        ? 'text-on-surface-variant/35'
+                        : '',
                       isToday(cell.key) && !selected && cell.selectable
                         ? 'font-semibold text-brand-orange'
                         : '',
