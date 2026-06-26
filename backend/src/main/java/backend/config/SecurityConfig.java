@@ -89,7 +89,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/rooms/**", "/api/room-types/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/bookings/calculate-cost").permitAll()
                         .requestMatchers("/api/auth/session", "/api/v1/auth/session").authenticated()
-                        .requestMatchers("/api/bookings/**", "/api/admin/bookings/**").authenticated()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/bookings/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

@@ -371,4 +371,20 @@ COMMENT ON COLUMN "lich_su_trang_thai_dat_phong"."thuc_hien_boi" IS 'tai_khoan.i
 COMMENT ON COLUMN "danh_gia"."diem" IS '1-5';
 COMMENT ON COLUMN "ca_lam"."diem_chat_luong" IS 'Admin đánh giá ca, 1-5';
 
+-- -------------------------------------------------------------
+-- 7. Tai khoan admin mac dinh cho moi truong local/dev
+--    Email: admin@bandlab.local
+--    Password: Admin@123
+-- -------------------------------------------------------------
+INSERT INTO "tai_khoan" ("email", "mat_khau_hash", "vai_tro")
+VALUES (
+  'admin@bandlab.local',
+  '$2a$10$GvWVKahyW48qvHRAsjGbYOXoFz3b/cDSykbxByfHGnCFw/oIvOuZS',
+  'ADMIN'
+)
+ON CONFLICT ("email") DO UPDATE
+SET
+  "mat_khau_hash" = EXCLUDED."mat_khau_hash",
+  "vai_tro" = EXCLUDED."vai_tro";
+
 COMMIT;
