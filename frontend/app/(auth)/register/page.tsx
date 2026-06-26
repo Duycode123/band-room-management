@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import AuthBanner from '@/components/auth/AuthBanner'
@@ -20,11 +20,30 @@ const REGISTER_BULLETS = [
   { title: 'Hỗ trợ 24/7', desc: 'Đội ngũ vận hành sẵn sàng khi bạn cần.' },
 ]
 
+function todayIsoDate() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function minBirthDateIso() {
+  const d = new Date()
+  d.setFullYear(d.getFullYear() - 100)
+  return d.toISOString().slice(0, 10)
+}
+
 export default function RegisterPage() {
   const router = useRouter()
-  const [formData, setFormData] = useState({ fullName: '', email: '', phone: '', password: '' })
+  const [formData, setFormData] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    dateOfBirth: '',
+    password: '',
+  })
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+
+  const maxBirthDate = useMemo(() => todayIsoDate(), [])
+  const minBirthDate = useMemo(() => minBirthDateIso(), [])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
@@ -38,6 +57,7 @@ export default function RegisterPage() {
     const fullName = formData.fullName.trim()
     const email = formData.email.trim().toLowerCase()
     const phone = formData.phone.trim()
+    const dateOfBirth = formData.dateOfBirth
     const password = formData.password
 
     if (!fullName) {
@@ -65,6 +85,16 @@ export default function RegisterPage() {
       setIsLoading(false)
       return
     }
+    if (!dateOfBirth) {
+      setError('Ngày sinh không được để trống.')
+      setIsLoading(false)
+      return
+    }
+    if (dateOfBirth > maxBirthDate) {
+      setError('Ngày sinh không hợp lệ.')
+      setIsLoading(false)
+      return
+    }
     if (password.length < 6) {
       setError('Mật khẩu phải có ít nhất 6 ký tự.')
       setIsLoading(false)
@@ -72,13 +102,15 @@ export default function RegisterPage() {
     }
 
     try {
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/register`,
-        { fullName, email, phone, password },
-      )
+      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/register`, {
+        fullName,
+        email,
+        phone,
+        dateOfBirth,
+        password,
+      })
       if (response.status === 200 || response.status === 201) {
-        alert('Đăng ký thành công!')
-        router.push('/login')
+        router.push('/login?registered=1')
       }
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } }
@@ -132,6 +164,17 @@ export default function RegisterPage() {
             onChange={handleChange}
             placeholder="Nhập số điện thoại của bạn"
             icon="user"
+          />
+          <AuthField
+            label="Ngày sinh"
+            name="dateOfBirth"
+            type="date"
+            value={formData.dateOfBirth}
+            onChange={handleChange}
+            placeholder=""
+            icon="calendar"
+            max={maxBirthDate}
+            min={minBirthDate}
           />
           <AuthField
             label="Mật khẩu"
