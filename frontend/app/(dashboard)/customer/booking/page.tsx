@@ -198,7 +198,7 @@ export default function CustomerBookingPage() {
                   <span className="h-3 w-3 rounded bg-brand-orange" /> Đã chọn
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="h-3 w-3 rounded bg-surface-container line-through" /> Đã đặt
+                  <span className="h-3 w-3 rounded bg-surface-container opacity-60" /> Đã đặt
                 </span>
               </div>
             </section>
