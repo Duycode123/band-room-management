@@ -1,0 +1,213 @@
+'use client'
+
+import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useEffect, useMemo, useState } from 'react'
+import CheckoutBookingInfo from '@/components/checkout/CheckoutBookingInfo'
+import CheckoutPaymentMethods from '@/components/checkout/CheckoutPaymentMethods'
+import CheckoutSummary from '@/components/checkout/CheckoutSummary'
+import BandRoomHeader from '@/components/layout/BandRoomHeader'
+import {
+  calculateCheckoutSummary,
+  getCheckoutBookingFromParams,
+  type CheckoutBooking,
+} from '@/lib/checkout-data'
+import { createPaymentSession, type PaymentMethod } from '@/lib/payment-service'
+
+export default function CheckoutPageClient() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const initialPaymentMethod = getInitialPaymentMethod(searchParams.get('method'))
+  const [booking, setBooking] = useState<CheckoutBooking | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(initialPaymentMethod)
+  const [isPaying, setIsPaying] = useState(false)
+  const [paymentError, setPaymentError] = useState('')
+
+  useEffect(() => {
+    let mounted = true
+
+    async function loadBooking() {
+      setIsLoading(true)
+      setError('')
+
+      try {
+        const loadedBooking = await getCheckoutBookingFromParams(new URLSearchParams(searchParams.toString()))
+        if (!mounted) return
+
+        if (!searchParams.get('bookingId')) {
+          setError('Thiếu mã đặt phòng. Vui lòng quay lại bước xác nhận đặt phòng.')
+          setBooking(null)
+          return
+        }
+
+        if (!loadedBooking) {
+          setError('Không tìm thấy thông tin đặt phòng.')
+          setBooking(null)
+          return
+        }
+
+        setBooking(loadedBooking)
+      } catch {
+        if (mounted) {
+          setError('Không thể tải thông tin thanh toán. Vui lòng thử lại.')
+        }
+      } finally {
+        if (mounted) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    void loadBooking()
+
+    return () => {
+      mounted = false
+    }
+  }, [searchParams])
+
+  const summary = useMemo(() => (booking ? calculateCheckoutSummary(booking) : null), [booking])
+
+  const handlePay = async () => {
+    if (!booking || !summary) {
+      setPaymentError('Không tìm thấy thông tin đặt phòng để thanh toán.')
+      return
+    }
+
+    if (!paymentMethod) {
+      setPaymentError('Vui lòng chọn phương thức thanh toán.')
+      return
+    }
+
+    setIsPaying(true)
+    setPaymentError('')
+
+    try {
+      const session = await createPaymentSession({
+        bookingId: booking.bookingId,
+        amount: summary.total,
+        method: paymentMethod,
+      })
+
+      router.push(session.paymentUrl)
+    } catch (paymentSessionError) {
+      setPaymentError(
+        paymentSessionError instanceof Error
+          ? paymentSessionError.message
+          : 'Không thể tạo giao dịch. Vui lòng thử lại.',
+      )
+    } finally {
+      setIsPaying(false)
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-[#F5F2EC] text-[#1A1C1E]">
+      <BandRoomHeader />
+
+      <section className="mx-auto max-w-7xl px-6 py-8">
+        <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-end">
+          <div>
+            <div className="mb-2 flex flex-wrap items-center gap-2 font-display text-sm text-[#5C5348]">
+              <Link href="/" className="hover:text-[#1A1C1E]">Trang chủ</Link>
+              <span>/</span>
+              <Link href="/customer/booking" className="hover:text-[#1A1C1E]">Xác nhận đặt phòng</Link>
+              <span>/</span>
+              <span className="text-[#1A1C1E]">Thanh toán</span>
+            </div>
+            <h1 className="font-display text-4xl font-bold tracking-tight">Thanh toán đặt phòng</h1>
+            <p className="mt-2 text-[#5C5348]">
+              Hoàn tất thanh toán để giữ lịch đặt phòng của bạn.
+            </p>
+          </div>
+          <span className="w-fit rounded-full bg-[#FFE8D6] px-4 py-2 font-display text-sm font-bold text-[#6B3200]">
+            Bước thanh toán cuối cùng
+          </span>
+        </div>
+
+        {isLoading && (
+          <div className="rounded-[24px] border border-[#E8E4DC] bg-white p-6 shadow-[0_4px_24px_rgba(26,28,30,0.06)]">
+            <p className="font-display text-lg font-semibold">Đang tải thông tin thanh toán...</p>
+          </div>
+        )}
+
+        {!isLoading && error && (
+          <div className="rounded-[24px] border border-[#C62828]/20 bg-white p-6 shadow-[0_4px_24px_rgba(26,28,30,0.06)]">
+            <h2 className="font-display text-xl font-bold text-[#C62828]">Không thể mở checkout</h2>
+            <p className="mt-2 text-[#5C5348]">{error}</p>
+            <Link
+              href="/#rooms"
+              className="mt-5 inline-flex h-12 items-center justify-center rounded-2xl bg-[#FF7518] px-6 font-display font-semibold text-white transition hover:bg-[#E6640F]"
+            >
+              Quay lại chọn phòng
+            </Link>
+          </div>
+        )}
+
+        {!isLoading && booking && summary && (
+          <div className="grid gap-6 lg:grid-cols-[1fr_420px]">
+            <CheckoutBookingInfo booking={booking} />
+
+            <aside className="h-fit rounded-[24px] border border-[#E8E4DC] bg-white p-6 shadow-[0_4px_24px_rgba(26,28,30,0.06)] lg:sticky lg:top-6">
+              <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="font-display text-xs font-bold uppercase tracking-wider text-[#5C5348]">Tóm tắt thanh toán</p>
+                  <h2 className="mt-1 font-display text-xl font-bold">Thanh toán</h2>
+                </div>
+                <span className="rounded-full bg-[#E8F5EC] px-3 py-1 font-display text-xs font-bold text-[#0A4D27]">
+                  Thanh toán an toàn
+                </span>
+              </div>
+
+              <CheckoutSummary booking={booking} />
+
+              <div className="mt-5 grid gap-2 text-sm text-[#5C5348]">
+                <p className="rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] px-4 py-3">
+                  Thông tin giao dịch được bảo vệ.
+                </p>
+                <p className="rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] px-4 py-3">
+                  Lịch được giữ trong 30 phút.
+                </p>
+              </div>
+
+              <div className="mt-6">
+                <CheckoutPaymentMethods
+                  bookingId={booking.bookingId}
+                  method={paymentMethod}
+                  onChange={(method) => {
+                    setPaymentMethod(method)
+                    setPaymentError('')
+                  }}
+                />
+              </div>
+
+              {paymentError && (
+                <p className="mt-4 rounded-2xl border border-[#C62828]/20 bg-[#FFEBEE] px-4 py-3 text-sm text-[#C62828]">
+                  {paymentError}
+                </p>
+              )}
+
+              <button
+                type="button"
+                onClick={handlePay}
+                disabled={isPaying}
+                className="mt-6 h-12 w-full rounded-2xl bg-[#FF7518] font-display font-semibold text-white transition hover:bg-[#E6640F] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isPaying ? 'Đang tạo giao dịch...' : 'Thanh toán ngay'}
+              </button>
+            </aside>
+          </div>
+        )}
+      </section>
+    </main>
+  )
+}
+
+function getInitialPaymentMethod(value: string | null): PaymentMethod {
+  if (value === 'bank_transfer' || value === 'e_wallet' || value === 'cash') {
+    return value
+  }
+
+  return 'bank_transfer'
+}

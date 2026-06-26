@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useMemo, useState } from 'react'
 import BandRoomHeader from '@/components/layout/BandRoomHeader'
 import {
@@ -21,13 +21,11 @@ import {
   getSelectedAddOns,
   normalizeDuration,
   parseAddonIds,
-  paymentMethods,
   type BookingAddOn,
-  type PaymentMethod,
-  type PaymentMethodId,
 } from '@/components/booking/booking-data'
 
 export default function BookingConfirmationClient() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const roomId = searchParams.get('roomId')
   const room = getBookingRoomOrFallback(roomId)
@@ -42,26 +40,37 @@ export default function BookingConfirmationClient() {
   const roomSubtotal = getRoomSubtotal(room, duration)
   const total = getBookingTotal(room, duration, addOnsTotal)
   const note = searchParams.get('note')?.trim() || EMPTY_NOTE_TEXT
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId>('bank_transfer')
   const [confirmError, setConfirmError] = useState('')
-  const [bookingConfirmed, setBookingConfirmed] = useState(false)
-  const activePaymentMethod = paymentMethods.find((method) => method.id === paymentMethod) ?? paymentMethods[0]
 
   const handleConfirm = () => {
     if (!roomId || roomMissing) {
       setConfirmError('Vui lòng quay lại homepage và chọn một phòng hợp lệ.')
-      setBookingConfirmed(false)
       return
     }
 
-    if (!date || !startTime || !duration || !paymentMethod) {
-      setConfirmError('Vui lòng kiểm tra ngày đặt, giờ bắt đầu, thời lượng và phương thức thanh toán.')
-      setBookingConfirmed(false)
+    if (!date || !startTime || !duration) {
+      setConfirmError('Vui lòng kiểm tra ngày đặt, giờ bắt đầu và thời lượng.')
       return
     }
 
     setConfirmError('')
-    setBookingConfirmed(true)
+    const checkoutParams = new URLSearchParams({
+      bookingId: room.code,
+      roomId: room.id,
+      date,
+      startTime,
+      duration: String(duration),
+    })
+
+    if (selectedAddonIds.length > 0) {
+      checkoutParams.set('addons', selectedAddonIds.join(','))
+    }
+
+    if (note !== EMPTY_NOTE_TEXT) {
+      checkoutParams.set('note', note)
+    }
+
+    router.push(`/customer/checkout?${checkoutParams.toString()}`)
   }
 
   return (
@@ -85,7 +94,7 @@ export default function BookingConfirmationClient() {
 
             <h1 className="font-display text-4xl font-bold tracking-tight">Xác nhận đặt phòng</h1>
             <p className="mt-2 text-[#5C5348]">
-              Vui lòng kiểm tra lại thông tin trước khi hoàn tất đặt phòng.
+              Kiểm tra lại thông tin trước khi tạo lịch đặt.
             </p>
           </div>
 
@@ -148,12 +157,12 @@ export default function BookingConfirmationClient() {
             <div className="mb-5 flex items-center justify-between gap-3">
               <div>
                 <p className="font-display text-xs font-bold uppercase tracking-wider text-[#5C5348]">
-                  Tóm tắt thanh toán
+                  Tạm tính chi phí
                 </p>
                 <p className="mt-1 font-display font-semibold">Mã đặt phòng: {room.code}</p>
               </div>
               <span className="rounded-full bg-[#FFE8D6] px-3 py-1 font-display text-xs font-bold text-[#6B3200]">
-                Chờ thanh toán
+                Chờ xác nhận
               </span>
             </div>
 
@@ -168,42 +177,15 @@ export default function BookingConfirmationClient() {
 
             <div className="my-5 rounded-2xl bg-[#FAF8F4] p-4">
               <div className="flex items-center justify-between gap-4">
-                <span className="font-display text-lg font-bold">Tổng thanh toán</span>
+                <span className="font-display text-lg font-bold">Tổng tạm tính</span>
                 <span className="font-display text-3xl font-bold text-[#FF7518]">{formatCurrency(total)}</span>
               </div>
             </div>
-
-            <h3 className="font-display text-lg font-bold">Phương thức thanh toán</h3>
-            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-1">
-              {paymentMethods.map((method) => (
-                <PaymentMethodOption
-                  key={method.id}
-                  method={method}
-                  active={paymentMethod === method.id}
-                  onSelect={() => {
-                    setPaymentMethod(method.id)
-                    setConfirmError('')
-                    setBookingConfirmed(false)
-                  }}
-                />
-              ))}
-            </div>
-
-            <PaymentInstruction method={activePaymentMethod} />
 
             {confirmError && (
               <p className="mt-4 rounded-2xl border border-[#C62828]/20 bg-[#FFEBEE] px-4 py-3 text-sm text-[#C62828]">
                 {confirmError}
               </p>
-            )}
-
-            {bookingConfirmed && (
-              <div className="mt-4 rounded-2xl border border-[#0A4D27]/25 bg-[#F1F8F2] px-4 py-3 text-sm text-[#0A4D27]">
-                <p className="font-display font-bold">Đặt phòng thành công</p>
-                <p className="mt-1">Mã đặt phòng: {room.code}</p>
-                <p className="mt-1">Phương thức thanh toán: {activePaymentMethod.label}</p>
-                <p className="mt-1">Vui lòng giữ mã đặt phòng để check-in.</p>
-              </div>
             )}
 
             <button
@@ -311,71 +293,6 @@ function PaymentRow({ label, value, green = false }: { label: string; value: str
       <span className={['font-semibold', green ? 'text-[#0A4D27]' : 'text-[#1A1C1E]'].join(' ')}>
         {value}
       </span>
-    </div>
-  )
-}
-
-function PaymentMethodOption({
-  method,
-  active,
-  onSelect,
-}: {
-  method: PaymentMethod
-  active: boolean
-  onSelect: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={[
-        'min-h-16 rounded-2xl px-3 text-left font-display text-xs font-semibold transition',
-        active
-          ? 'border border-[#FF7518] bg-[#FFE8D6] text-[#6B3200]'
-          : 'border border-[#E8E4DC] bg-white text-[#5C5348] hover:bg-[#FAF8F4]',
-      ].join(' ')}
-      aria-pressed={active}
-    >
-      <span className="flex items-center justify-between gap-2">
-        <span>{method.label}</span>
-        {active && <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#FF7518] text-xs text-white">✓</span>}
-      </span>
-    </button>
-  )
-}
-
-function PaymentInstruction({ method }: { method: PaymentMethod }) {
-  if (method.id === 'bank_transfer') {
-    return (
-      <div className="mt-5 text-center">
-        <p className="mb-2 text-sm font-semibold text-[#5C5348]">Quét mã để thanh toán</p>
-        <QrPattern />
-      </div>
-    )
-  }
-
-  return (
-    <div className="mt-5 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4 text-sm text-[#5C5348]">
-      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FFE8D6] font-display text-lg font-bold text-[#FF7518]">
-        {method.id === 'e_wallet' ? 'Ví' : '₫'}
-      </div>
-      <p>{method.description}</p>
-    </div>
-  )
-}
-
-function QrPattern() {
-  const filledBlocks = new Set([0, 1, 2, 4, 5, 7, 9, 10, 13, 15, 17, 18, 20, 21, 22, 24])
-
-  return (
-    <div className="mx-auto grid h-28 w-28 grid-cols-5 gap-1 rounded-2xl border border-dashed border-[#FF7518] bg-[#FAF8F4] p-3">
-      {Array.from({ length: 25 }).map((_, index) => (
-        <span
-          key={index}
-          className={filledBlocks.has(index) ? 'rounded-sm bg-[#042A16]' : 'rounded-sm bg-[#E8E4DC]'}
-        />
-      ))}
-      <span className="sr-only">QR CODE</span>
     </div>
   )
 }
