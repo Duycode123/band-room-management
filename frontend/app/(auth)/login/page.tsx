@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { loginSession } from '@/lib/auth'
+import { getPostLoginPath, loginSession } from '@/lib/auth'
 import AuthBanner from '@/components/auth/AuthBanner'
 import AuthTabs from '@/components/auth/AuthTabs'
 import {
@@ -37,7 +37,7 @@ export default function LoginPage() {
 
       alert('Đăng nhập thành công!')
       login(sessionUser)
-      router.replace('/')
+      router.replace(getPostLoginPath(sessionUser.role))
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } }
       setError(axiosErr.response?.data?.message || 'Đăng nhập thất bại, vui lòng kiểm tra lại tài khoản.')

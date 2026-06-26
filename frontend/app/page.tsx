@@ -253,7 +253,7 @@ export default function HomePage() {
     })
   }
 
-  const handleDetailBooking = (room: BookingRoom) => {
+  const handleBookRoom = (room: BookingRoom) => {
     setSelectedRoomDetail(null)
     setQuickBooking({ room })
   }
@@ -558,7 +558,7 @@ export default function HomePage() {
             })}
           </div>
 
-          <div className="mt-8 flex flex-col justify-between gap-3 rounded-xl border border-outline-variant bg-white px-5 py-4 shadow-[var(--shadow-card)] sm:flex-row sm:items-center">
+          <div className="mt-8 rounded-xl border border-outline-variant bg-white px-5 py-4 shadow-[var(--shadow-card)]">
             <div>
               <p className="font-display text-sm font-bold text-on-surface">
                 {activeRoomCategory === 'all' ? 'Tất cả hạng phòng' : roomCategories.find((category) => category.id === activeRoomCategory)?.label}
@@ -567,13 +567,6 @@ export default function HomePage() {
                 Đang hiển thị {visibleRooms.length} phòng phù hợp.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={scrollToRooms}
-              className="w-fit rounded-lg border border-outline bg-white px-5 py-3 font-display text-sm font-semibold text-brand-orange transition-colors hover:bg-primary-container"
-            >
-              Xem lịch đặt phòng
-            </button>
           </div>
 
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -583,6 +576,7 @@ export default function HomePage() {
                 room={room}
                 renderIcon={(name, className) => <Icon name={name} className={className} />}
                 onOpenDetail={setSelectedRoomDetail}
+                onBook={handleBookRoom}
               />
             ))}
           </div>
@@ -631,13 +625,6 @@ export default function HomePage() {
               Band Room kết hợp lịch đặt phòng trực tuyến, dữ liệu phòng trống và đội ngũ studio tại chỗ để ban nhạc
               tập trung vào phần quan trọng nhất: chơi nhạc thật tốt.
             </p>
-            <button
-              type="button"
-              onClick={handleBookingClick}
-              className="mt-8 rounded-lg bg-brand-orange px-6 py-3.5 font-display text-sm font-semibold text-white shadow-[0_12px_32px_rgba(255,117,24,0.25)] transition-colors hover:bg-brand-orangeHover"
-            >
-              Bắt đầu đặt phòng
-            </button>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -775,7 +762,7 @@ export default function HomePage() {
         room={selectedRoomDetail}
         open={Boolean(selectedRoomDetail)}
         onClose={() => setSelectedRoomDetail(null)}
-        onBook={handleDetailBooking}
+        onBook={handleBookRoom}
       />
 
       {quickBooking && (

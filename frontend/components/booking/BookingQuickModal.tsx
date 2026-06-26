@@ -2,20 +2,20 @@
 
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import BookingSchedulePicker from '@/components/booking/BookingSchedulePicker'
 import {
-  BOOKING_DURATION_OPTIONS,
-  DEFAULT_BOOKING_DATE,
   DEFAULT_DURATION,
-  DEFAULT_START_TIME,
   bookingAddOns,
   formatCurrency,
+  getTodayDateString,
   getAddOnsTotal,
   getRoomSubtotal,
   getSelectedAddOns,
   normalizeDuration,
   type BookingRoom,
 } from '@/components/booking/booking-data'
+import type { BookingScheduleValue } from '@/components/booking/booking-time-utils'
 
 type BookingQuickModalProps = {
   room: BookingRoom
@@ -26,8 +26,6 @@ type BookingQuickModalProps = {
   onClose: () => void
 }
 
-const startTimeOptions = ['08:00', '09:00', '10:00', '13:00', '15:00', '17:00', '19:00', '20:00']
-
 export default function BookingQuickModal({
   room,
   open,
@@ -37,9 +35,12 @@ export default function BookingQuickModal({
   onClose,
 }: BookingQuickModalProps) {
   const router = useRouter()
-  const [date, setDate] = useState(initialDate || DEFAULT_BOOKING_DATE)
-  const [startTime, setStartTime] = useState(initialStartTime || DEFAULT_START_TIME)
-  const [duration, setDuration] = useState(normalizeDuration(initialDuration ?? DEFAULT_DURATION))
+  const hasInitialTime = Boolean(initialStartTime && initialDuration && initialDuration > 0)
+  const [date, setDate] = useState(initialDate || getTodayDateString())
+  const [startTime, setStartTime] = useState(hasInitialTime ? initialStartTime || '' : '')
+  const [duration, setDuration] = useState(hasInitialTime ? normalizeDuration(initialDuration ?? DEFAULT_DURATION) : 0)
+  const [endTime, setEndTime] = useState('')
+  const [selectedSlots, setSelectedSlots] = useState<string[]>([])
   const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([])
   const [note, setNote] = useState('')
   const [error, setError] = useState('')
@@ -52,9 +53,12 @@ export default function BookingQuickModal({
   useEffect(() => {
     if (!open) return
 
-    setDate(initialDate || DEFAULT_BOOKING_DATE)
-    setStartTime(initialStartTime || DEFAULT_START_TIME)
-    setDuration(normalizeDuration(initialDuration ?? DEFAULT_DURATION))
+    setDate(initialDate || getTodayDateString())
+    const shouldPrefillTime = Boolean(initialStartTime && initialDuration && initialDuration > 0)
+    setStartTime(shouldPrefillTime ? initialStartTime || '' : '')
+    setDuration(shouldPrefillTime ? normalizeDuration(initialDuration ?? DEFAULT_DURATION) : 0)
+    setEndTime('')
+    setSelectedSlots([])
     setSelectedAddonIds([])
     setNote('')
     setError('')
@@ -71,11 +75,18 @@ export default function BookingQuickModal({
     setError('')
   }
 
-  const handleContinue = () => {
-    const normalizedDuration = normalizeDuration(duration)
+  const handleScheduleChange = useCallback((value: BookingScheduleValue) => {
+    setDate(value.date)
+    setStartTime(value.startTime)
+    setEndTime(value.endTime)
+    setDuration(value.duration)
+    setSelectedSlots(value.selectedSlots)
+    setError('')
+  }, [])
 
-    if (!date || !startTime || normalizedDuration < 1) {
-      setError('Vui lòng chọn ngày, giờ bắt đầu và thời lượng hợp lệ.')
+  const handleContinue = () => {
+    if (!date || !startTime || !endTime || duration < 1 || selectedSlots.length === 0) {
+      setError('Vui lòng chọn khung giờ đặt phòng.')
       return
     }
 
@@ -83,7 +94,9 @@ export default function BookingQuickModal({
       roomId: room.id,
       date,
       startTime,
-      duration: String(normalizedDuration),
+      endTime,
+      duration: String(duration),
+      slots: selectedSlots.join(','),
       addons: selectedAddonIds.join(','),
       note,
     })
@@ -92,8 +105,8 @@ export default function BookingQuickModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/55 px-4 py-6">
-      <div className="max-h-[calc(100vh-48px)] w-full max-w-[760px] overflow-y-auto rounded-[24px] border border-[#E8E4DC] bg-white p-6 shadow-[0_24px_70px_rgba(26,28,30,0.22)]">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 px-4 py-6">
+      <div className="max-h-[90vh] w-full max-w-[620px] overflow-y-auto rounded-[24px] border border-[#E8E4DC] bg-white p-6 shadow-[0_12px_48px_rgba(26,28,30,0.18)]">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <p className="font-display text-xs font-bold uppercase tracking-[0.18em] text-[#FF7518]">Đặt phòng</p>
@@ -152,51 +165,15 @@ export default function BookingQuickModal({
           ))}
         </div>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-3">
-          <Field label="Ngày đặt">
-            <input
-              type="date"
-              value={date}
-              onChange={(event) => {
-                setDate(event.target.value)
-                setError('')
-              }}
-              className="h-12 w-full rounded-2xl border border-[#C9C2B6] bg-white px-3 text-sm text-[#1A1C1E] outline-none transition focus:border-[#FF7518] focus:ring-2 focus:ring-[#FF7518]/20"
-            />
-          </Field>
-          <Field label="Giờ bắt đầu">
-            <select
-              value={startTime}
-              onChange={(event) => {
-                setStartTime(event.target.value)
-                setError('')
-              }}
-              className="h-12 w-full rounded-2xl border border-[#C9C2B6] bg-white px-3 text-sm text-[#1A1C1E] outline-none transition focus:border-[#FF7518] focus:ring-2 focus:ring-[#FF7518]/20"
-            >
-              {startTimeOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Thời lượng">
-            <select
-              value={duration}
-              onChange={(event) => {
-                setDuration(normalizeDuration(event.target.value))
-                setError('')
-              }}
-              className="h-12 w-full rounded-2xl border border-[#C9C2B6] bg-white px-3 text-sm text-[#1A1C1E] outline-none transition focus:border-[#FF7518] focus:ring-2 focus:ring-[#FF7518]/20"
-            >
-              {BOOKING_DURATION_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option} giờ
-                </option>
-              ))}
-            </select>
-          </Field>
-        </div>
+        <BookingSchedulePicker
+          key={`${room.id}-${initialDate ?? 'today'}-${initialStartTime ?? 'empty'}-${initialDuration ?? 0}`}
+          roomId={room.id}
+          initialDate={date}
+          initialStartTime={startTime}
+          initialDuration={duration}
+          onChange={handleScheduleChange}
+          className="mt-6"
+        />
 
         <section className="mt-6">
           <div className="mb-3 flex items-end justify-between gap-4">
@@ -251,7 +228,8 @@ export default function BookingQuickModal({
 
         <div className="mt-5 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4">
           <SummaryRow label="Giá phòng" value={`${formatCurrency(room.pricePerHour)} / giờ`} />
-          <SummaryRow label="Thời lượng" value={`${duration} giờ`} />
+          <SummaryRow label="Thời lượng" value={duration > 0 ? `${duration} giờ` : 'Chưa chọn'} />
+          <SummaryRow label="Khung giờ" value={startTime && endTime ? `${startTime} - ${endTime}` : 'Chưa chọn'} />
           <SummaryRow label="Tiền phòng" value={formatCurrency(roomSubtotal)} />
           <SummaryRow label="Dịch vụ thuê thêm" value={formatCurrency(addOnsTotal)} />
           <div className="my-3 h-px bg-[#E8E4DC]" />
@@ -279,7 +257,8 @@ export default function BookingQuickModal({
           <button
             type="button"
             onClick={handleContinue}
-            className="h-12 rounded-2xl bg-[#FF7518] font-display font-semibold text-white transition hover:bg-[#E6640F] active:scale-[0.98]"
+            disabled={duration < 1 || selectedSlots.length === 0}
+            className="h-12 rounded-2xl bg-[#FF7518] font-display font-semibold text-white transition hover:bg-[#E6640F] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
             Tiếp tục đặt phòng
           </button>

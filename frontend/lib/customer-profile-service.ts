@@ -1,22 +1,44 @@
-import type { AuthUser } from '@/lib/auth'
+import axios from 'axios'
+import api from '@/lib/api'
+import { normalizeAuthUser, type AuthUser, type UserRole } from '@/lib/auth'
 
 export type CustomerProfile = {
+  id?: string | number
   fullName: string
   email: string
   phone: string
-  role: 'CUSTOMER'
+  avatarUrl?: string
+  role: UserRole
 }
 
 export type UpdateCustomerProfilePayload = {
   fullName: string
   email: string
   phone: string
+  avatarUrl?: string
 }
 
 export type ChangeCustomerPasswordPayload = {
   currentPassword: string
   newPassword: string
   confirmPassword: string
+}
+
+type ApiErrorResponse = {
+  message?: string
+  data?: unknown
+}
+
+function getApiErrorMessage(error: unknown, fallback: string) {
+  if (axios.isAxiosError<ApiErrorResponse>(error)) {
+    const message = error.response?.data?.message
+
+    if (message) {
+      return message
+    }
+  }
+
+  return fallback
 }
 
 function waitForMockApi(delay = 260) {
@@ -28,33 +50,68 @@ export function getInitials(name?: string, email?: string) {
   return source.charAt(0).toUpperCase()
 }
 
-export function getCustomerDisplayName(user?: AuthUser | null) {
-  return user?.fullName || user?.name || user?.email || 'Khách hàng'
+export function getCustomerDisplayName(user?: AuthUser | CustomerProfile | null) {
+  const fullName = user?.fullName?.trim()
+  const name = 'name' in (user ?? {}) ? (user as AuthUser).name?.trim() : ''
+  const email = user?.email?.trim()
+
+  if (fullName) return fullName
+  if (name) return name
+  if (email) return email.split('@')[0] || email
+
+  return 'Khách hàng'
+}
+
+type CurrentUserApiResponse = Partial<CustomerProfile & AuthUser> & {
+  role?: string
+  vaiTro?: string
+}
+
+function normalizeCurrentUser(currentUser: CurrentUserApiResponse, fallback?: AuthUser | null): CustomerProfile {
+  const normalizedUser = normalizeAuthUser(currentUser, fallback)
+
+  return {
+    id: currentUser.id || fallback?.id,
+    fullName:
+      currentUser.fullName ||
+      currentUser.name ||
+      fallback?.fullName ||
+      fallback?.name ||
+      getCustomerDisplayName({ email: currentUser.email || fallback?.email, role: normalizedUser.role }) ||
+      'Khách hàng',
+    email: currentUser.email || fallback?.email || '',
+    phone: currentUser.phone || fallback?.phone || '',
+    avatarUrl: currentUser.avatarUrl || fallback?.avatarUrl,
+    role: normalizedUser.role,
+  }
 }
 
 export async function fetchCurrentUser(user?: AuthUser | null): Promise<CustomerProfile> {
-  // Replace this mock with GET /api/users/me when the backend endpoint is ready.
-  await waitForMockApi()
-
-  return {
-    fullName: user?.fullName || user?.name || 'Khách hàng',
-    email: user?.email || '',
-    phone: '',
-    role: 'CUSTOMER',
+  try {
+    const response = await api.get<CurrentUserApiResponse>('/api/users/me')
+    return normalizeCurrentUser(response.data, user)
+  } catch {
+    await waitForMockApi(120)
+    return normalizeCurrentUser({}, user)
   }
 }
 
 export async function updateCustomerProfile(payload: UpdateCustomerProfilePayload): Promise<CustomerProfile> {
-  // Replace this mock with PATCH /api/users/me when the backend endpoint is ready.
-  await waitForMockApi()
-
-  return {
-    ...payload,
-    role: 'CUSTOMER',
+  try {
+    const response = await api.put<CustomerProfile>('/api/users/me', payload)
+    return normalizeCurrentUser(response.data, {
+      role: response.data.role,
+      avatarUrl: payload.avatarUrl,
+    })
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Không thể cập nhật thông tin. Vui lòng thử lại.'))
   }
 }
 
-export async function changeCustomerPassword(_payload: ChangeCustomerPasswordPayload): Promise<void> {
-  // Replace this mock with POST /api/users/me/change-password when the backend endpoint is ready.
-  await waitForMockApi()
+export async function changeCustomerPassword(payload: ChangeCustomerPasswordPayload): Promise<void> {
+  try {
+    await api.put('/api/users/me/password', payload)
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Không thể cập nhật mật khẩu. Vui lòng thử lại.'))
+  }
 }

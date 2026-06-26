@@ -53,9 +53,17 @@ export type PaymentMethod = {
   description: string
 }
 
-export const DEFAULT_BOOKING_DATE = '2026-06-28'
-export const DEFAULT_START_TIME = '19:00'
-export const DEFAULT_DURATION = 3
+export function getTodayDateString() {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+export const DEFAULT_BOOKING_DATE = getTodayDateString()
+export const DEFAULT_START_TIME = ''
+export const DEFAULT_DURATION = 0
 export const BOOKING_DURATION_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8] as const
 export const MEMBER_DISCOUNT = 50000
 export const EMPTY_NOTE_TEXT = 'Không có ghi chú thêm.'
@@ -514,7 +522,7 @@ export function getBookingRoomOrFallback(roomId: string | null) {
 
 export function normalizeDuration(value: string | number | null) {
   const duration = Number(value)
-  return Number.isInteger(duration) && duration >= 1 && duration <= 8 ? duration : DEFAULT_DURATION
+  return Number.isInteger(duration) && duration >= 0 && duration <= 8 ? duration : DEFAULT_DURATION
 }
 
 export function getRoomSubtotal(room: BookingRoom, duration: number) {

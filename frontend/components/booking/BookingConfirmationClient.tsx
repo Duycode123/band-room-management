@@ -35,7 +35,7 @@ export default function BookingConfirmationClient() {
   const date = searchParams.get('date') || DEFAULT_BOOKING_DATE
   const startTime = searchParams.get('startTime') || DEFAULT_START_TIME
   const duration = normalizeDuration(searchParams.get('duration'))
-  const endTime = calculateEndTime(startTime, duration)
+  const endTime = searchParams.get('endTime') || calculateEndTime(startTime, duration)
   const selectedAddonIds = useMemo(() => parseAddonIds(searchParams.get('addons')), [searchParams])
   const selectedAddOns = useMemo(() => getSelectedAddOns(selectedAddonIds), [selectedAddonIds])
   const addOnsTotal = useMemo(() => getAddOnsTotal(selectedAddOns), [selectedAddOns])

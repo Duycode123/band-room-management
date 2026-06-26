@@ -1,19 +1,24 @@
 'use client'
 
 import Image from 'next/image'
-import type { KeyboardEvent, ReactNode } from 'react'
-import BookingButton from '@/components/booking/BookingButton'
+import type { KeyboardEvent, MouseEvent, ReactNode } from 'react'
 import { formatCurrency, type BookingRoom } from '@/components/booking/booking-data'
 
 type BookingRoomCardProps = {
   room: BookingRoom
   renderIcon: (name: 'star' | 'users' | 'clock', className?: string) => ReactNode
   onOpenDetail?: (room: BookingRoom) => void
+  onBook?: (room: BookingRoom) => void
 }
 
-export default function BookingRoomCard({ room, renderIcon, onOpenDetail }: BookingRoomCardProps) {
+export default function BookingRoomCard({ room, renderIcon, onOpenDetail, onBook }: BookingRoomCardProps) {
   const openDetail = () => {
     onOpenDetail?.(room)
+  }
+
+  const handleBook = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation()
+    onBook?.(room)
   }
 
   const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
@@ -100,13 +105,13 @@ export default function BookingRoomCard({ room, renderIcon, onOpenDetail }: Book
             <span className="font-display text-2xl font-bold text-on-surface">{formatCurrency(room.pricePerHour)}</span>
             <span className="text-xs text-on-surface-variant"> / giờ</span>
           </div>
-          <BookingButton
-            room={room}
-            stopPropagation
+          <button
+            type="button"
+            onClick={handleBook}
             className="rounded-lg bg-brand-orange px-4 py-2.5 font-display text-xs font-semibold text-white shadow-[0_10px_26px_rgba(255,117,24,0.22)] transition-all duration-300 hover:bg-brand-orangeHover group-hover:shadow-[0_14px_32px_rgba(255,117,24,0.3)]"
           >
             {room.isAvailable ? 'Đặt ngay' : 'Chọn ngày khác'}
-          </BookingButton>
+          </button>
         </div>
       </div>
     </article>

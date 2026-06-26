@@ -22,17 +22,20 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpHeaders;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 import static org.mockito.ArgumentMatchers.any;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -53,6 +56,9 @@ class BackendApplicationTests {
 
     @Autowired
     private TokenRevocationService tokenRevocationService;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @MockBean
     private CustomUserDetailsService userDetailsService;
@@ -122,6 +128,61 @@ class BackendApplicationTests {
         mockMvc.perform(get("/api/auth/session"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void changePasswordEncodesNewPasswordForAuthenticatedUser() throws Exception {
+        User user = User.builder()
+                .email("change-password@example.com")
+                .password(passwordEncoder.encode("oldSecret123"))
+                .role(Role.CUSTOMER)
+                .build();
+        when(userDetailsService.loadUserByUsername(user.getEmail())).thenReturn(user);
+        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+        String accessToken = jwtService.generateAccessToken(user);
+
+        mockMvc.perform(put("/api/users/me/password")
+                        .cookie(new Cookie(AuthCookieService.ACCESS_COOKIE_NAME, accessToken))
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "currentPassword": "oldSecret123",
+                                  "newPassword": "newSecret123",
+                                  "confirmPassword": "newSecret123"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Cập nhật mật khẩu thành công"));
+
+        assertTrue(passwordEncoder.matches("newSecret123", user.getPassword()));
+        assertFalse("newSecret123".equals(user.getPassword()));
+    }
+
+    @Test
+    void changePasswordRejectsWrongCurrentPassword() throws Exception {
+        User user = User.builder()
+                .email("wrong-current@example.com")
+                .password(passwordEncoder.encode("oldSecret123"))
+                .role(Role.CUSTOMER)
+                .build();
+        when(userDetailsService.loadUserByUsername(user.getEmail())).thenReturn(user);
+        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+        String accessToken = jwtService.generateAccessToken(user);
+
+        mockMvc.perform(put("/api/users/me/password")
+                        .cookie(new Cookie(AuthCookieService.ACCESS_COOKIE_NAME, accessToken))
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "currentPassword": "wrongSecret123",
+                                  "newPassword": "newSecret123",
+                                  "confirmPassword": "newSecret123"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Mật khẩu hiện tại không đúng"));
     }
 
     @Test
