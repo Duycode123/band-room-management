@@ -1,13 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import AuthGuard from '@/components/AuthGuard'
+import AdminPageHeader from '@/components/admin/AdminPageHeader'
+import AdminShell from '@/components/admin/AdminShell'
+import AdminStatCard from '@/components/admin/AdminStatCard'
+import { IconBookings } from '@/components/admin/AdminIcons'
 import BookingDetailPanel from '@/components/admin/bookings/BookingDetailPanel'
 import BookingFiltersBar from '@/components/admin/bookings/BookingFiltersBar'
 import BookingTable from '@/components/admin/bookings/BookingTable'
-import { useAuth } from '@/contexts/AuthContext'
 import { fetchAdminBookings, updateAdminBookingStatus } from '@/lib/admin/adminBookingApi'
 import type { AdminBooking, BookingFilters, BookingStatus } from '@/lib/admin/types'
 
@@ -19,8 +20,6 @@ const DEFAULT_FILTERS: BookingFilters = {
 }
 
 export default function AdminBookingsPage() {
-  const router = useRouter()
-  const { logout } = useAuth()
   const [filters, setFilters] = useState<BookingFilters>(DEFAULT_FILTERS)
   const [bookings, setBookings] = useState<AdminBooking[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -60,50 +59,38 @@ export default function AdminBookingsPage() {
     setSelected(updated)
   }
 
-  const handleLogout = async () => {
-    await logout()
-    router.push('/login')
-  }
-
   return (
     <AuthGuard allowedRoles={['ADMIN']}>
-      <main className="min-h-screen bg-brand-bgGray">
-        <header className="border-b border-outline-variant bg-white">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-4">
-            <div>
-              <p className="font-display text-xs font-medium uppercase tracking-[0.2em] text-brand-orange">
-                Quản trị
-              </p>
-              <h1 className="font-display text-2xl font-bold tracking-tight text-on-surface">
-                Quản lý đơn đặt phòng
-              </h1>
-              <p className="mt-1 text-sm text-on-surface-variant">
-                Theo dõi booking, trạng thái thanh toán và thông tin khách hàng.
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <Link
-                href="/admin/dashboard"
-                className="rounded-lg border border-outline px-4 py-2 font-display text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container-low"
-              >
-                Dashboard
-              </Link>
-              <button
-                type="button"
-                onClick={() => void handleLogout()}
-                className="rounded-lg bg-inverse-surface px-4 py-2 font-display text-sm font-medium text-inverse-on-surface"
-              >
-                Đăng xuất
-              </button>
-            </div>
-          </div>
-        </header>
+      <AdminShell>
+        <AdminPageHeader
+          eyebrow="Đơn đặt phòng"
+          title="Quản lý booking"
+          description="Theo dõi đơn đặt, trạng thái thanh toán và thông tin khách hàng."
+          breadcrumbs={[
+            { label: 'Tổng quan', href: '/admin/dashboard' },
+            { label: 'Booking' },
+          ]}
+        />
 
-        <div className="mx-auto max-w-7xl space-y-5 p-6">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <StatCard label="Kết quả lọc" value={String(stats.total)} />
-            <StatCard label="Đang sử dụng" value={String(stats.active)} accent="secondary" />
-            <StatCard label="Chờ thanh toán" value={String(stats.pending)} accent="tertiary" />
+        <div className="mx-auto max-w-7xl space-y-6 px-5 py-6 sm:px-8">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <AdminStatCard
+              label="Kết quả lọc"
+              value={stats.total}
+              icon={<IconBookings className="h-5 w-5" />}
+            />
+            <AdminStatCard
+              label="Đang sử dụng"
+              value={stats.active}
+              accent="secondary"
+              icon={<span className="text-base">◉</span>}
+            />
+            <AdminStatCard
+              label="Chờ thanh toán"
+              value={stats.pending}
+              accent="tertiary"
+              icon={<span className="text-base">⏳</span>}
+            />
           </div>
 
           <BookingFiltersBar filters={filters} onChange={setFilters} resultCount={bookings.length} />
@@ -115,8 +102,8 @@ export default function AdminBookingsPage() {
             onSelect={setSelected}
           />
 
-          <p className="text-center text-[11px] text-on-surface-variant">
-            * Demo FE — dữ liệu mock, sẽ kết nối API `/api/admin/bookings` khi tích hợp backend.
+          <p className="pb-4 text-center text-[11px] text-on-surface-variant">
+            * Demo FE — dữ liệu mock, sẽ kết nối API khi tích hợp backend.
           </p>
         </div>
 
@@ -125,33 +112,7 @@ export default function AdminBookingsPage() {
           onClose={() => setSelected(null)}
           onStatusChange={handleStatusChange}
         />
-      </main>
+      </AdminShell>
     </AuthGuard>
-  )
-}
-
-function StatCard({
-  label,
-  value,
-  accent,
-}: {
-  label: string
-  value: string
-  accent?: 'secondary' | 'tertiary'
-}) {
-  const valueClass =
-    accent === 'secondary'
-      ? 'text-secondary'
-      : accent === 'tertiary'
-        ? 'text-tertiary'
-        : 'text-on-surface'
-
-  return (
-    <div className="rounded-xl border border-outline-variant bg-white p-4 shadow-[var(--shadow-card)]">
-      <p className="font-display text-[10px] font-medium uppercase tracking-wider text-on-surface-variant">
-        {label}
-      </p>
-      <p className={['mt-1 font-display text-2xl font-bold', valueClass].join(' ')}>{value}</p>
-    </div>
   )
 }
