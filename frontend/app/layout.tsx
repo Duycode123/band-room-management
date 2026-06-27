@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import AccessibilityClientProvider from '@/components/accessibility/AccessibilityClientProvider'
 import { AuthProvider } from '@/contexts/AuthContext'
 import './globals.css'
 
@@ -12,6 +13,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="vi">
       <body className="font-sans antialiased">
+        <AccessibilityClientProvider />
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
