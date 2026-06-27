@@ -1,14 +1,17 @@
+import {
+  clearReviewDraft,
+  getBookingReviewByBookingId,
+  loadReviewDraft,
+  saveReviewDraft,
+  submitReview,
+  type BookingReview,
+  type ReviewDraft,
+  type SubmitBookingReviewPayload,
+} from '@/lib/review-service'
+
 export type CustomerBookingStatus = 'PENDING_PAYMENT' | 'PAID' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED'
 
-export type BookingReview = {
-  id: string
-  bookingId: string
-  roomId: string
-  customerName?: string
-  rating: number
-  comment: string
-  createdAt: string
-}
+export type { BookingReview, ReviewDraft, SubmitBookingReviewPayload }
 
 export type BookingHistoryItem = {
   bookingId: string
@@ -24,17 +27,6 @@ export type BookingHistoryItem = {
   note?: string
   review?: BookingReview
 }
-
-export type SubmitBookingReviewPayload = {
-  bookingId: string
-  roomId: string
-  customerName?: string
-  rating: number
-  comment: string
-}
-
-const BOOKING_REVIEWS_KEY = 'bandroom_booking_reviews'
-export const ROOM_REVIEWS_KEY = 'bandroom_room_reviews'
 
 const mockBookings: BookingHistoryItem[] = [
   {
@@ -68,7 +60,10 @@ const mockBookings: BookingHistoryItem[] = [
       roomId: 'the-vault',
       customerName: 'Minh Anh',
       rating: 5,
-      comment: 'Phong sach, thiet bi tot, am thanh on dinh.',
+      title: 'Phong sach, am thanh tot',
+      content: 'Phong sach, thiet bi tot, am thanh on dinh, phu hop thu vocal demo.',
+      tags: ['Phòng sạch', 'Thiết bị ổn', 'Âm thanh rõ'],
+      images: [],
       createdAt: '2026-06-26T15:30:00',
     },
   },
@@ -102,51 +97,6 @@ function waitForMockApi(delay = 220) {
   return new Promise((resolve) => globalThis.setTimeout(resolve, delay))
 }
 
-function readStoredReviews() {
-  if (typeof window === 'undefined') return []
-
-  try {
-    return JSON.parse(window.localStorage.getItem(BOOKING_REVIEWS_KEY) || '[]') as BookingReview[]
-  } catch {
-    return []
-  }
-}
-
-function writeStoredReviews(reviews: BookingReview[]) {
-  if (typeof window === 'undefined') return
-
-  window.localStorage.setItem(BOOKING_REVIEWS_KEY, JSON.stringify(reviews))
-}
-
-function writeRoomReview(review: BookingReview) {
-  if (typeof window === 'undefined') return
-
-  try {
-    const current = JSON.parse(window.localStorage.getItem(ROOM_REVIEWS_KEY) || '[]') as Array<
-      BookingReview & { customerName?: string }
-    >
-    const next = [
-      ...current.filter((item) => item.bookingId !== review.bookingId),
-      {
-        ...review,
-        customerName: review.customerName || 'Khách hàng',
-      },
-    ]
-
-    window.localStorage.setItem(ROOM_REVIEWS_KEY, JSON.stringify(next))
-  } catch {
-    window.localStorage.setItem(
-      ROOM_REVIEWS_KEY,
-      JSON.stringify([
-        {
-          ...review,
-          customerName: review.customerName || 'Khách hàng',
-        },
-      ]),
-    )
-  }
-}
-
 function getBookingTimestamp(booking: Pick<BookingHistoryItem, 'date' | 'startTime'>) {
   const [day, month, year] = booking.date.split('/').map(Number)
   const [hour = 0, minute = 0] = booking.startTime.split(':').map(Number)
@@ -162,11 +112,9 @@ function sortBookingsByTime(bookings: BookingHistoryItem[]) {
 }
 
 function mergeReviews(bookings: BookingHistoryItem[]) {
-  const storedReviews = readStoredReviews()
-
   return bookings.map((booking) => ({
     ...booking,
-    review: storedReviews.find((review) => review.bookingId === booking.bookingId) ?? booking.review,
+    review: getBookingReviewByBookingId(booking.bookingId) ?? booking.review,
   }))
 }
 
@@ -197,29 +145,15 @@ export async function getBookingDetail(bookingId: string): Promise<BookingHistor
 }
 
 export async function submitBookingReview(payload: SubmitBookingReviewPayload): Promise<BookingReview> {
-  await waitForMockApi()
-
-  const currentReviews = readStoredReviews()
   const existingReview =
-    currentReviews.find((review) => review.bookingId === payload.bookingId) ??
+    getBookingReviewByBookingId(payload.bookingId) ??
     mockBookings.find((booking) => booking.bookingId === payload.bookingId)?.review
 
   if (existingReview) {
     return existingReview
   }
 
-  const review: BookingReview = {
-    id: `review-${payload.bookingId}-${Date.now()}`,
-    bookingId: payload.bookingId,
-    roomId: payload.roomId,
-    customerName: payload.customerName?.trim() || 'Khách hàng',
-    rating: payload.rating,
-    comment: payload.comment.trim(),
-    createdAt: new Date().toISOString(),
-  }
-
-  writeStoredReviews([...currentReviews, review])
-  writeRoomReview(review)
-
-  return review
+  return submitReview(payload)
 }
+
+export { clearReviewDraft, loadReviewDraft, saveReviewDraft }

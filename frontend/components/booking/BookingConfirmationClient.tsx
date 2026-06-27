@@ -9,14 +9,12 @@ import {
   DEFAULT_BOOKING_DATE,
   DEFAULT_START_TIME,
   EMPTY_NOTE_TEXT,
-  MEMBER_DISCOUNT,
   calculateEndTime,
   findBookingRoom,
   formatCurrency,
   formatDisplayDate,
   getAddOnsTotal,
   getBookingRoomOrFallback,
-  getBookingTotal,
   getRoomSubtotal,
   getSelectedAddOns,
   normalizeDuration,
@@ -26,6 +24,7 @@ import {
   type PaymentMethod,
   type PaymentMethodId,
 } from '@/components/booking/booking-data'
+import { validateDiscountCode, type AppliedDiscount } from '@/lib/discount-service'
 
 export default function BookingConfirmationClient() {
   const router = useRouter()
@@ -41,12 +40,64 @@ export default function BookingConfirmationClient() {
   const selectedAddOns = useMemo(() => getSelectedAddOns(selectedAddonIds), [selectedAddonIds])
   const addOnsTotal = useMemo(() => getAddOnsTotal(selectedAddOns), [selectedAddOns])
   const roomSubtotal = getRoomSubtotal(room, duration)
-  const total = getBookingTotal(room, duration, addOnsTotal)
+  const subtotal = roomSubtotal + addOnsTotal
+  const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null)
+  const discountAmount = Math.min(appliedDiscount?.discountAmount ?? 0, subtotal)
+  const total = Math.max(0, subtotal - discountAmount)
   const note = searchParams.get('note')?.trim() || EMPTY_NOTE_TEXT
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId>('bank_transfer')
   const [confirmError, setConfirmError] = useState('')
   const [bookingConfirmed, setBookingConfirmed] = useState(false)
+  const [discountCode, setDiscountCode] = useState('')
+  const [discountError, setDiscountError] = useState('')
+  const [discountMessage, setDiscountMessage] = useState('')
+  const [isApplyingDiscount, setIsApplyingDiscount] = useState(false)
   const activePaymentMethod = paymentMethods.find((method) => method.id === paymentMethod) ?? paymentMethods[0]
+
+  const handleApplyDiscount = async () => {
+    const code = discountCode.trim()
+
+    setDiscountError('')
+    setDiscountMessage('')
+
+    if (!code) {
+      setDiscountError('Vui lòng nhập mã giảm giá.')
+      return
+    }
+
+    setIsApplyingDiscount(true)
+
+    try {
+      const result = await validateDiscountCode({
+        code,
+        bookingId: room.code,
+        roomId: room.id,
+        subtotal,
+      })
+
+      if (!result.valid || !result.code || result.discountAmount === undefined) {
+        setAppliedDiscount(null)
+        setDiscountError(result.message || 'Mã giảm giá không hợp lệ hoặc đã hết hạn.')
+        return
+      }
+
+      setAppliedDiscount({
+        code: result.code,
+        discountAmount: result.discountAmount,
+      })
+      setDiscountCode(result.code)
+      setDiscountMessage(result.message)
+    } finally {
+      setIsApplyingDiscount(false)
+    }
+  }
+
+  const handleRemoveDiscount = () => {
+    setAppliedDiscount(null)
+    setDiscountCode('')
+    setDiscountError('')
+    setDiscountMessage('')
+  }
 
   const handleConfirm = () => {
     if (!roomId || roomMissing) {
@@ -75,6 +126,11 @@ export default function BookingConfirmationClient() {
       note: note === EMPTY_NOTE_TEXT ? '' : note,
       method: paymentMethod,
     })
+
+    if (appliedDiscount) {
+      params.set('discountCode', appliedDiscount.code)
+      params.set('discountAmount', String(discountAmount))
+    }
 
     router.push(`/customer/checkout?${params.toString()}`)
   }
@@ -179,7 +235,28 @@ export default function BookingConfirmationClient() {
 
             <PaymentRow label="Tiền phòng" value={formatCurrency(roomSubtotal)} />
             <PaymentRow label="Dịch vụ thuê thêm" value={formatCurrency(addOnsTotal)} />
-            <PaymentRow label="Ưu đãi thành viên" value={`-${formatCurrency(MEMBER_DISCOUNT)}`} green />
+            {appliedDiscount && (
+              <PaymentRow
+                label={`Mã giảm giá (${appliedDiscount.code})`}
+                value={`-${formatCurrency(discountAmount)}`}
+                green
+              />
+            )}
+
+            <DiscountCodeBox
+              discountCode={discountCode}
+              discountError={discountError}
+              discountMessage={discountMessage}
+              appliedDiscount={appliedDiscount}
+              isApplyingDiscount={isApplyingDiscount}
+              onDiscountCodeChange={(value) => {
+                setDiscountCode(value)
+                setDiscountError('')
+                setDiscountMessage('')
+              }}
+              onApplyDiscount={handleApplyDiscount}
+              onRemoveDiscount={handleRemoveDiscount}
+            />
 
             <div className="my-5 rounded-2xl bg-[#FAF8F4] p-4">
               <div className="flex items-center justify-between gap-4">
@@ -314,6 +391,76 @@ function SelectedAddOnsSection({ addOns }: { addOns: BookingAddOn[] }) {
         <div className="mt-3 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4 text-sm text-[#5C5348]">
           Chưa chọn dịch vụ thuê thêm.
         </div>
+      )}
+    </div>
+  )
+}
+
+function DiscountCodeBox({
+  discountCode,
+  discountError,
+  discountMessage,
+  appliedDiscount,
+  isApplyingDiscount,
+  onDiscountCodeChange,
+  onApplyDiscount,
+  onRemoveDiscount,
+}: {
+  discountCode: string
+  discountError: string
+  discountMessage: string
+  appliedDiscount: AppliedDiscount | null
+  isApplyingDiscount: boolean
+  onDiscountCodeChange: (value: string) => void
+  onApplyDiscount: () => void
+  onRemoveDiscount: () => void
+}) {
+  return (
+    <div className="my-4 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4">
+      <label className="font-display text-xs font-bold uppercase tracking-wider text-[#5C5348]" htmlFor="booking-discount-code">
+        Mã giảm giá
+      </label>
+
+      {appliedDiscount ? (
+        <div className="mt-3 rounded-2xl border border-[#0A4D27]/25 bg-white px-3 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="font-display text-sm font-bold text-[#1A1C1E]">{appliedDiscount.code}</p>
+              <p className="mt-1 text-sm text-[#0A4D27]">
+                Đã giảm {formatCurrency(appliedDiscount.discountAmount)}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onRemoveDiscount}
+              className="shrink-0 rounded-xl border border-[#E8E4DC] px-3 py-1.5 font-display text-xs font-bold text-[#5C5348] transition hover:bg-[#FAF8F4] hover:text-[#1A1C1E]"
+            >
+              Gỡ mã
+            </button>
+          </div>
+          {discountMessage && <p className="mt-2 text-xs font-medium text-[#0A4D27]">{discountMessage}</p>}
+        </div>
+      ) : (
+        <>
+          <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto] lg:grid-cols-1 xl:grid-cols-[1fr_auto]">
+            <input
+              id="booking-discount-code"
+              value={discountCode}
+              onChange={(event) => onDiscountCodeChange(event.target.value)}
+              placeholder="Nhập mã giảm giá"
+              className="h-11 min-w-0 rounded-2xl border border-[#E8E4DC] bg-white px-3 text-sm text-[#1A1C1E] outline-none transition placeholder:text-[#8A8176] focus:border-[#FF7518] focus:ring-2 focus:ring-[#FF7518]/20"
+            />
+            <button
+              type="button"
+              onClick={onApplyDiscount}
+              disabled={isApplyingDiscount}
+              className="h-11 rounded-2xl bg-[#FF7518] px-4 font-display text-sm font-semibold text-white transition hover:bg-[#E6640F] disabled:cursor-wait disabled:opacity-70"
+            >
+              {isApplyingDiscount ? 'Đang áp dụng' : 'Áp dụng'}
+            </button>
+          </div>
+          {discountError && <p className="mt-2 text-xs font-medium text-[#C62828]">{discountError}</p>}
+        </>
       )}
     </div>
   )

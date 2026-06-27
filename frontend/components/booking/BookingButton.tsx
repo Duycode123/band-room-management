@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, type MouseEvent, type ReactNode } from 'react'
+import { useRouter } from 'next/navigation'
 import BookingQuickModal from '@/components/booking/BookingQuickModal'
+import { useAuth } from '@/contexts/AuthContext'
 import type { BookingRoom } from '@/components/booking/booking-data'
 
 type BookingButtonProps = {
@@ -23,10 +25,25 @@ export default function BookingButton({
   children = 'Đặt ngay',
   stopPropagation = false,
 }: BookingButtonProps) {
+  const router = useRouter()
+  const { isAuthenticated, isLoading } = useAuth()
   const [open, setOpen] = useState(false)
+
   const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
     if (stopPropagation) {
       event.stopPropagation()
+    }
+
+    if (isLoading) return
+
+    if (!isAuthenticated) {
+      const redirectPath =
+        typeof window === 'undefined'
+          ? '/'
+          : `${window.location.pathname}${window.location.search}`
+
+      router.push(`/login?redirect=${encodeURIComponent(redirectPath)}`)
+      return
     }
 
     setOpen(true)
@@ -34,7 +51,7 @@ export default function BookingButton({
 
   return (
     <>
-      <button type="button" onClick={handleClick} className={className}>
+      <button type="button" onClick={handleClick} disabled={isLoading} className={className}>
         {children}
       </button>
 

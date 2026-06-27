@@ -51,7 +51,7 @@ export default function CheckoutPageClient() {
         }
 
         setBooking(loadedBooking)
-        setAppliedDiscount(null)
+        setAppliedDiscount(getAppliedDiscountFromParams(searchParams, loadedBooking))
       } catch {
         if (mounted) {
           setError('Không thể tải thông tin thanh toán. Vui lòng thử lại.')
@@ -172,7 +172,6 @@ export default function CheckoutPageClient() {
               <CheckoutSummary
                 booking={booking}
                 appliedDiscount={appliedDiscount}
-                onDiscountChange={setAppliedDiscount}
               />
 
               <div className="mt-4 grid gap-2 text-xs leading-5 text-[#5C5348]">
@@ -223,4 +222,25 @@ function getInitialPaymentMethod(value: string | null): PaymentMethod {
   }
 
   return 'bank_transfer'
+}
+
+function getAppliedDiscountFromParams(
+  searchParams: URLSearchParams,
+  booking: CheckoutBooking,
+): AppliedDiscount | null {
+  const code = searchParams.get('discountCode')?.trim().toUpperCase()
+  const discountAmount = Number(searchParams.get('discountAmount'))
+
+  if (!code || !Number.isFinite(discountAmount) || discountAmount <= 0) {
+    return null
+  }
+
+  const subtotal =
+    booking.pricePerHour * booking.duration +
+    booking.addons.reduce((total, addon) => total + addon.price, 0)
+
+  return {
+    code,
+    discountAmount: Math.min(discountAmount, subtotal),
+  }
 }

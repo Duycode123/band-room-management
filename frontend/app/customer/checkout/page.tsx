@@ -1,10 +1,13 @@
 import { Suspense } from 'react'
+import AuthGuard from '@/components/AuthGuard'
 import CheckoutPageClient from '@/components/checkout/CheckoutPageClient'
 
 export default function CustomerCheckoutPage() {
   return (
     <Suspense fallback={<CheckoutFallback />}>
-      <CheckoutPageClient />
+      <AuthGuard allowedRoles={['ADMIN', 'STAFF', 'CUSTOMER']}>
+        <CheckoutPageClient />
+      </AuthGuard>
     </Suspense>
   )
 }

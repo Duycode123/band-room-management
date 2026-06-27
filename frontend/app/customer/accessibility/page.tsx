@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import {
+  CustomerCard,
   CustomerPageHeader,
   CustomerPageShell,
 } from "@/components/customer/CustomerPageShell";

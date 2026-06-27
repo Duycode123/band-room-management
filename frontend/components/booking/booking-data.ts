@@ -65,7 +65,6 @@ export const DEFAULT_BOOKING_DATE = getTodayDateString()
 export const DEFAULT_START_TIME = ''
 export const DEFAULT_DURATION = 0
 export const BOOKING_DURATION_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8] as const
-export const MEMBER_DISCOUNT = 50000
 export const EMPTY_NOTE_TEXT = 'Không có ghi chú thêm.'
 
 export const roomCategories: RoomCategoryOption[] = [
@@ -559,7 +558,7 @@ export function getAddOnsTotal(addOns: BookingAddOn[]) {
 }
 
 export function getBookingTotal(room: BookingRoom, duration: number, addOnsTotal = 0) {
-  return Math.max(0, getRoomSubtotal(room, duration) + addOnsTotal - MEMBER_DISCOUNT)
+  return Math.max(0, getRoomSubtotal(room, duration) + addOnsTotal)
 }
 
 export function calculateEndTime(startTime: string, duration: number) {
