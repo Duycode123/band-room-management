@@ -5,13 +5,16 @@ import { useEffect } from 'react'
 import {
   formatCurrency,
   formatRelativeTime,
-  getAverageRating,
-  getReviewsByRoomId,
   maskCustomerName,
+  roomReviews,
   type BookingRoom,
   type RoomCategory,
-  type RoomReview,
 } from '@/components/booking/booking-data'
+import {
+  getAverageReviewRating,
+  getRoomReviewsByRoomId,
+  type BookingReview,
+} from '@/lib/review-service'
 
 type RoomDetailModalProps = {
   room: BookingRoom | null
@@ -40,8 +43,8 @@ function getAvailabilityLabel(room: BookingRoom) {
   return 'Còn trống hôm nay'
 }
 
-function getAvatarInitial(customerName: string) {
-  return customerName.trim().charAt(0).toUpperCase() || 'K'
+function getAvatarInitial(customerName?: string) {
+  return customerName?.trim().charAt(0).toUpperCase() || 'K'
 }
 
 function renderRatingStars(rating: number) {
@@ -52,22 +55,41 @@ function renderRatingStars(rating: number) {
   ))
 }
 
-function ReviewItem({ review }: { review: RoomReview }) {
+function ReviewItem({ review }: { review: BookingReview }) {
+  const customerName = review.customerName || 'Khách hàng'
+
   return (
     <article className="rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4">
       <div className="flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#FFE8D6] font-display text-sm font-bold text-[#FF7518]">
-          {getAvatarInitial(review.customerName)}
+          {getAvatarInitial(customerName)}
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="font-display text-sm font-bold text-[#1A1C1E]">{maskCustomerName(review.customerName)}</p>
+            <p className="font-display text-sm font-bold text-[#1A1C1E]">{maskCustomerName(customerName)}</p>
             <span className="text-xs font-medium text-[#5C5348]">{formatRelativeTime(review.createdAt)}</span>
           </div>
           <div className="mt-1 flex text-xs" aria-label={`${review.rating} trên 5 sao`}>
             {renderRatingStars(review.rating)}
           </div>
-          <p className="mt-2 text-sm leading-6 text-[#5C5348]">{review.comment}</p>
+          <h4 className="mt-2 font-display text-sm font-bold text-[#1A1C1E]">{review.title}</h4>
+          <p className="mt-1 text-sm leading-6 text-[#5C5348]">{review.content}</p>
+          {review.tags && review.tags.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {review.tags.map((tag) => (
+                <span key={tag} className="rounded-full border border-[#FF7518]/25 bg-[#FFE8D6] px-2.5 py-1 text-[11px] font-semibold text-[#6B3200]">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+          {review.images && review.images.length > 0 && (
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              {review.images.map((image) => (
+                <img key={image.id} src={image.previewUrl} alt={image.name} className="h-16 w-full rounded-xl object-cover" />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </article>
@@ -92,8 +114,8 @@ export default function RoomDetailModal({ room, open, onClose, onBook }: RoomDet
 
   const suitableServices = suitableServicesByCategory[room.category]
   const availabilityLabel = getAvailabilityLabel(room)
-  const reviews = getReviewsByRoomId(room.id)
-  const averageRating = getAverageRating(reviews)
+  const reviews = getRoomReviewsByRoomId(room.id, roomReviews)
+  const averageRating = getAverageReviewRating(reviews)
   const visibleReviews = reviews.slice(0, 2)
 
   return (

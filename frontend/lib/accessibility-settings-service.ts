@@ -79,6 +79,7 @@ export function applyAccessibilitySettings(settings: AccessibilitySettings) {
 
   const root = document.documentElement
   root.classList.remove(...accessibilityClasses)
+  root.style.colorScheme = settings.darkMode ? 'dark' : 'light'
 
   root.classList.toggle('accessibility-dark', settings.darkMode)
   root.classList.toggle('accessibility-high-contrast', settings.highContrast)

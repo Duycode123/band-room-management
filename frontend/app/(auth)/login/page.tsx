@@ -36,7 +36,7 @@ export default function LoginPage() {
     try {
       const sessionUser = await loginSession(formData.identifier.trim(), formData.password)
       login(sessionUser)
-      router.replace(getPostLoginPath(sessionUser.role))
+      router.replace(getRedirectPath(sessionUser.role))
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } }
       setError(axiosErr.response?.data?.message || 'Đăng nhập thất bại, vui lòng kiểm tra lại tài khoản.')
@@ -190,4 +190,18 @@ export default function LoginPage() {
       </AuthFormPanel>
     </AuthShell>
   )
+}
+
+function getRedirectPath(role: Parameters<typeof getPostLoginPath>[0]) {
+  if (typeof window === 'undefined') {
+    return getPostLoginPath(role)
+  }
+
+  const redirectPath = new URLSearchParams(window.location.search).get('redirect')
+
+  if (redirectPath && redirectPath.startsWith('/') && !redirectPath.startsWith('//') && redirectPath !== '/login') {
+    return redirectPath
+  }
+
+  return getPostLoginPath(role)
 }

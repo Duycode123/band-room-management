@@ -90,6 +90,20 @@ html.accessibility-high-contrast body {
   color: #111111 !important;
 }
 
+html.accessibility-high-contrast main,
+html.accessibility-high-contrast section,
+html.accessibility-high-contrast header,
+html.accessibility-high-contrast nav,
+html.accessibility-high-contrast aside,
+html.accessibility-high-contrast [class*="bg-white"],
+html.accessibility-high-contrast [class*="bg-[#FFFFFF]"],
+html.accessibility-high-contrast [class*="bg-[#FAF8F4]"],
+html.accessibility-high-contrast [class*="bg-[#F5F2EC]"],
+html.accessibility-high-contrast [class*="bg-brand-bgGray"],
+html.accessibility-high-contrast [class*="bg-surface"] {
+  border-color: #1A1C1E !important;
+}
+
 html.accessibility-high-contrast button,
 html.accessibility-high-contrast input,
 html.accessibility-high-contrast select,
@@ -98,12 +112,20 @@ html.accessibility-high-contrast a {
   border-color: #1A1C1E !important;
 }
 
-html.accessibility-high-contrast [class*="text-[#5C5348]"] {
+html.accessibility-high-contrast [class*="text-[#5C5348]"],
+html.accessibility-high-contrast [class*="text-on-surface-variant"] {
   color: #2A2118 !important;
 }
 
+html.accessibility-high-contrast [class*="text-[#1A1C1E]"],
+html.accessibility-high-contrast [class*="text-on-surface"] {
+  color: #111111 !important;
+}
+
 html.accessibility-high-contrast [class*="border-[#E8E4DC]"],
-html.accessibility-high-contrast [class*="border-[#C9C2B6]"] {
+html.accessibility-high-contrast [class*="border-[#C9C2B6]"],
+html.accessibility-high-contrast [class*="border-outline"],
+html.accessibility-high-contrast [class*="border-surface"] {
   border-color: #1A1C1E !important;
 }
 
@@ -120,7 +142,8 @@ html.accessibility-dark main {
 
 html.accessibility-dark [class*="bg-[#F5F2EC]"],
 html.accessibility-dark [class*="bg-brand-bgGray"],
-html.accessibility-dark [class*="bg-surface"] {
+html.accessibility-dark [class*="bg-surface"],
+html.accessibility-dark [class*="bg-surface-container"] {
   background-color: #042A16 !important;
 }
 
@@ -136,19 +159,25 @@ html.accessibility-dark nav[class*="bg-white"] {
 }
 
 html.accessibility-dark [class*="bg-[#FAF8F4]"],
-html.accessibility-dark [class*="bg-[#F0EDE6]"] {
+html.accessibility-dark [class*="bg-[#F0EDE6]"],
+html.accessibility-dark [class*="bg-surface-container-low"],
+html.accessibility-dark [class*="bg-surface-container-high"] {
   background-color: #102A1B !important;
   border-color: #31533F !important;
 }
 
 html.accessibility-dark [class*="text-[#1A1C1E]"],
 html.accessibility-dark [class*="text-[#5C5348]"],
+html.accessibility-dark [class*="text-on-surface"],
+html.accessibility-dark [class*="text-on-surface-variant"],
 html.accessibility-dark [class*="text-black"] {
   color: #F6F1EA !important;
 }
 
 html.accessibility-dark [class*="border-[#E8E4DC]"],
-html.accessibility-dark [class*="border-[#C9C2B6]"] {
+html.accessibility-dark [class*="border-[#C9C2B6]"],
+html.accessibility-dark [class*="border-outline"],
+html.accessibility-dark [class*="border-surface"] {
   border-color: #31533F !important;
 }
 
