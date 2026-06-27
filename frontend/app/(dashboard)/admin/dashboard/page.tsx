@@ -57,7 +57,7 @@ export default function AdminDashboardPage() {
                   <p className="text-[10px] font-medium uppercase tracking-wider text-inverse-on-surface/70">
                     Module
                   </p>
-                  <p className="mt-1 font-display text-2xl font-bold">2</p>
+                  <p className="mt-1 font-display text-2xl font-bold">3</p>
                   <p className="text-xs text-inverse-on-surface/70">đang hoạt động</p>
                 </div>
                 <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-sm">
@@ -89,8 +89,8 @@ export default function AdminDashboardPage() {
             />
             <AdminStatCard
               label="Phòng tập"
-              value="—"
-              hint="Sắp ra mắt"
+              value="12"
+              hint="Đang quản lý"
               accent="default"
               icon={<IconRooms className="h-5 w-5" />}
             />
@@ -132,12 +132,13 @@ export default function AdminDashboardPage() {
                 badge="New"
               />
               <AdminModuleCard
+                href="/admin/rooms"
                 label="Phòng tập"
-                title="Quản lý phòng"
-                description="Thêm, chỉnh sửa và cấu hình phòng tập, loại phòng và giá theo giờ."
+                title="Quản lý phòng tập"
+                description="Thêm, chỉnh sửa và cấu hình phòng tập, hạng phòng, trạng thái vận hành và giá theo giờ."
                 icon={<IconRooms className="h-6 w-6" />}
                 accent="amber"
-                disabled
+                badge="Active"
               />
               <AdminModuleCard
                 label="Báo cáo"
