@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { loginSession, type UserRole } from '@/lib/auth'
+import { getPostLoginPath, loginSession } from '@/lib/auth'
 import AuthBanner from '@/components/auth/AuthBanner'
 import AuthTabs from '@/components/auth/AuthTabs'
 import {
@@ -14,12 +14,6 @@ import {
   AuthShell,
   AuthSubmitButton,
 } from '@/components/auth/AuthField'
-
-const dashboardByRole: Record<UserRole, string> = {
-  ADMIN: '/admin/dashboard',
-  STAFF: '/staff/dashboard',
-  CUSTOMER: '/customer/dashboard',
-}
 
 export default function LoginPage() {
   const router = useRouter()
@@ -39,11 +33,11 @@ export default function LoginPage() {
     setError('')
 
     try {
-      const role = await loginSession(formData.identifier.trim(), formData.password)
+      const sessionUser = await loginSession(formData.identifier.trim(), formData.password)
 
       alert('Đăng nhập thành công!')
-      login(role)
-      router.push(dashboardByRole[role] || '/')
+      login(sessionUser)
+      router.replace(getRedirectPath(sessionUser.role))
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } }
       setError(axiosErr.response?.data?.message || 'Đăng nhập thất bại, vui lòng kiểm tra lại tài khoản.')
@@ -193,4 +187,18 @@ export default function LoginPage() {
       </AuthFormPanel>
     </AuthShell>
   )
+}
+
+function getRedirectPath(role: Parameters<typeof getPostLoginPath>[0]) {
+  if (typeof window === 'undefined') {
+    return getPostLoginPath(role)
+  }
+
+  const redirectPath = new URLSearchParams(window.location.search).get('redirect')
+
+  if (redirectPath && redirectPath.startsWith('/') && !redirectPath.startsWith('//') && redirectPath !== '/login') {
+    return redirectPath
+  }
+
+  return getPostLoginPath(role)
 }

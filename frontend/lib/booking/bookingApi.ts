@@ -3,7 +3,7 @@ import type { PracticeRoom, SlotStatus, TimeSlot } from './types'
 
 const BOOKINGS_KEY = 'bandhub_local_bookings'
 const OPEN_HOUR = 8
-const CLOSE_HOUR = 22
+const CLOSE_HOUR = 24
 
 function hashCode(value: string): number {
   let hash = 0
@@ -18,10 +18,6 @@ function pad(n: number) {
   return n.toString().padStart(2, '0')
 }
 
-function toDateKey(date: Date) {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-}
-
 function parseSlotStart(date: string, start: string): Date {
   const [year, month, day] = date.split('-').map(Number)
   const [hour, minute] = start.split(':').map(Number)
@@ -31,13 +27,20 @@ function parseSlotStart(date: string, start: string): Date {
 type StoredBooking = {
   roomId: string
   date: string
-  slotId: string
+  slotIds: string[]
 }
 
 function readLocalBookings(): StoredBooking[] {
   if (typeof window === 'undefined') return []
   try {
-    return JSON.parse(localStorage.getItem(BOOKINGS_KEY) || '[]') as StoredBooking[]
+    const raw = JSON.parse(localStorage.getItem(BOOKINGS_KEY) || '[]') as Array<
+      StoredBooking & { slotId?: string }
+    >
+    return raw.map((b) => ({
+      roomId: b.roomId,
+      date: b.date,
+      slotIds: b.slotIds ?? (b.slotId ? [b.slotId] : []),
+    }))
   } catch {
     return []
   }
@@ -74,7 +77,7 @@ function resolveSlotStatus(
   if (slotStart.getTime() <= now.getTime()) return 'past'
 
   const localBooked = readLocalBookings().some(
-    (b) => b.roomId === roomId && b.date === date && b.slotId === slot.id,
+    (b) => b.roomId === roomId && b.date === date && b.slotIds.includes(slot.id),
   )
   if (localBooked) return 'booked'
 
@@ -105,37 +108,38 @@ export async function fetchAvailableSlots(roomId: string, date: string): Promise
 export async function createBooking(draft: {
   roomId: string
   date: string
-  slotId: string
+  slotIds: string[]
 }): Promise<{ success: boolean; message: string }> {
   await delay(400)
 
+  if (draft.slotIds.length === 0) {
+    return { success: false, message: 'Vui lòng chọn ít nhất một khung giờ.' }
+  }
+
   const slots = await fetchAvailableSlots(draft.roomId, draft.date)
-  const slot = slots.find((s) => s.id === draft.slotId)
-  if (!slot || slot.status !== 'available') {
-    return { success: false, message: 'Khung giờ này vừa được đặt. Vui lòng chọn slot khác.' }
+  const unavailable = draft.slotIds.filter((id) => {
+    const slot = slots.find((s) => s.id === id)
+    return !slot || slot.status !== 'available'
+  })
+
+  if (unavailable.length > 0) {
+    return {
+      success: false,
+      message: 'Một hoặc nhiều khung giờ vừa được đặt. Vui lòng chọn lại.',
+    }
   }
 
-  writeLocalBooking(draft)
-  return { success: true, message: 'Đặt phòng thành công!' }
-}
+  writeLocalBooking({
+    roomId: draft.roomId,
+    date: draft.date,
+    slotIds: draft.slotIds,
+  })
 
-export function getDateOptions(days = 14): { value: string; label: string }[] {
-  const options: { value: string; label: string }[] = []
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  for (let i = 0; i < days; i++) {
-    const d = new Date(today)
-    d.setDate(today.getDate() + i)
-    const value = toDateKey(d)
-    const label = d.toLocaleDateString('vi-VN', {
-      weekday: 'short',
-      day: '2-digit',
-      month: '2-digit',
-    })
-    options.push({ value, label: i === 0 ? `Hôm nay (${label})` : label })
+  const hours = draft.slotIds.length
+  return {
+    success: true,
+    message: hours > 1 ? `Đặt phòng thành công (${hours} giờ)!` : 'Đặt phòng thành công!',
   }
-  return options
 }
 
 export function formatPrice(amount: number) {

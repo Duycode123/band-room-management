@@ -62,3 +62,132 @@ body {
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
 }
+
+html.accessibility-font-large {
+  font-size: 106%;
+}
+
+html.accessibility-font-extra-large {
+  font-size: 115%;
+}
+
+html.accessibility-reduced-motion *,
+html.accessibility-reduced-motion *::before,
+html.accessibility-reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+  transition-duration: 0.01ms !important;
+}
+
+html.accessibility-enhanced-focus :focus-visible {
+  outline: 3px solid #FF7518 !important;
+  outline-offset: 4px !important;
+  box-shadow: 0 0 0 6px rgba(255, 117, 24, 0.22) !important;
+}
+
+html.accessibility-high-contrast body {
+  color: #111111 !important;
+}
+
+html.accessibility-high-contrast main,
+html.accessibility-high-contrast section,
+html.accessibility-high-contrast header,
+html.accessibility-high-contrast nav,
+html.accessibility-high-contrast aside,
+html.accessibility-high-contrast [class*="bg-white"],
+html.accessibility-high-contrast [class*="bg-[#FFFFFF]"],
+html.accessibility-high-contrast [class*="bg-[#FAF8F4]"],
+html.accessibility-high-contrast [class*="bg-[#F5F2EC]"],
+html.accessibility-high-contrast [class*="bg-brand-bgGray"],
+html.accessibility-high-contrast [class*="bg-surface"] {
+  border-color: #1A1C1E !important;
+}
+
+html.accessibility-high-contrast button,
+html.accessibility-high-contrast input,
+html.accessibility-high-contrast select,
+html.accessibility-high-contrast textarea,
+html.accessibility-high-contrast a {
+  border-color: #1A1C1E !important;
+}
+
+html.accessibility-high-contrast [class*="text-[#5C5348]"],
+html.accessibility-high-contrast [class*="text-on-surface-variant"] {
+  color: #2A2118 !important;
+}
+
+html.accessibility-high-contrast [class*="text-[#1A1C1E]"],
+html.accessibility-high-contrast [class*="text-on-surface"] {
+  color: #111111 !important;
+}
+
+html.accessibility-high-contrast [class*="border-[#E8E4DC]"],
+html.accessibility-high-contrast [class*="border-[#C9C2B6]"],
+html.accessibility-high-contrast [class*="border-outline"],
+html.accessibility-high-contrast [class*="border-surface"] {
+  border-color: #1A1C1E !important;
+}
+
+html.accessibility-high-contrast :focus-visible {
+  outline: 3px solid #1A1C1E !important;
+  outline-offset: 3px !important;
+}
+
+html.accessibility-dark body,
+html.accessibility-dark main {
+  background-color: #042A16 !important;
+  color: #F6F1EA !important;
+}
+
+html.accessibility-dark [class*="bg-[#F5F2EC]"],
+html.accessibility-dark [class*="bg-brand-bgGray"],
+html.accessibility-dark [class*="bg-surface"],
+html.accessibility-dark [class*="bg-surface-container"] {
+  background-color: #042A16 !important;
+}
+
+html.accessibility-dark section[class*="bg-white"],
+html.accessibility-dark div[class*="bg-white"],
+html.accessibility-dark form[class*="bg-white"],
+html.accessibility-dark aside[class*="bg-white"],
+html.accessibility-dark header[class*="bg-white"],
+html.accessibility-dark nav[class*="bg-white"] {
+  background-color: #0B2115 !important;
+  border-color: #31533F !important;
+  color: #F6F1EA !important;
+}
+
+html.accessibility-dark [class*="bg-[#FAF8F4]"],
+html.accessibility-dark [class*="bg-[#F0EDE6]"],
+html.accessibility-dark [class*="bg-surface-container-low"],
+html.accessibility-dark [class*="bg-surface-container-high"] {
+  background-color: #102A1B !important;
+  border-color: #31533F !important;
+}
+
+html.accessibility-dark [class*="text-[#1A1C1E]"],
+html.accessibility-dark [class*="text-[#5C5348]"],
+html.accessibility-dark [class*="text-on-surface"],
+html.accessibility-dark [class*="text-on-surface-variant"],
+html.accessibility-dark [class*="text-black"] {
+  color: #F6F1EA !important;
+}
+
+html.accessibility-dark [class*="border-[#E8E4DC]"],
+html.accessibility-dark [class*="border-[#C9C2B6]"],
+html.accessibility-dark [class*="border-outline"],
+html.accessibility-dark [class*="border-surface"] {
+  border-color: #31533F !important;
+}
+
+html.accessibility-dark [class*="shadow-"] {
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28) !important;
+}
+
+html.accessibility-dark input,
+html.accessibility-dark select,
+html.accessibility-dark textarea {
+  background-color: #F6F1EA !important;
+  color: #1A1C1E !important;
+}

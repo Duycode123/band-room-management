@@ -1,0 +1,63 @@
+export type RoomCategory = 'standard' | 'band' | 'recording' | 'premium'
+
+export type RoomStatus = 'active' | 'occupied' | 'maintenance' | 'inactive'
+
+export type AdminRoom = {
+  id: string
+  code: string
+  name: string
+  category: RoomCategory
+  categoryLabel: string
+  capacity: number
+  pricePerHour: number
+  status: RoomStatus
+  image: string
+  equipmentCount: number
+  equipments: string[]
+  todaySchedule: string
+  lastUpdated: string
+  description: string
+  occupancyRateToday: number
+  monthlyRevenue: number
+  averageRating: number
+  latestMaintenance: string
+}
+
+export type RoomFilters = {
+  query: string
+  category: RoomCategory | 'ALL'
+  status: RoomStatus | 'ALL'
+  sortBy: 'updated' | 'price-asc' | 'price-desc' | 'capacity'
+}
+
+export type RoomFormData = {
+  name: string
+  code: string
+  category: RoomCategory | ''
+  capacity: number
+  pricePerHour: number
+  status: RoomStatus | ''
+  description: string
+  equipments: string
+  image: string
+}
+
+export type RoomFormErrors = Partial<Record<keyof RoomFormData, string>>
+
+export const roomCategoryOptions: RoomCategory[] = ['standard', 'band', 'recording', 'premium']
+
+export const roomStatusOptions: RoomStatus[] = ['active', 'occupied', 'maintenance', 'inactive']
+
+export const roomCategoryLabels: Record<RoomCategory, string> = {
+  standard: 'Standard Practice',
+  band: 'Band Rehearsal',
+  recording: 'Recording Suite',
+  premium: 'Premium Studio',
+}
+
+export const roomStatusLabels: Record<RoomStatus, string> = {
+  active: 'Đang hoạt động',
+  occupied: 'Đang sử dụng',
+  maintenance: 'Bảo trì',
+  inactive: 'Tạm ngưng',
+}
