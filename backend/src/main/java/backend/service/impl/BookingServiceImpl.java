@@ -20,6 +20,7 @@ import backend.exception.ForbiddenException;
 import backend.exception.ResourceNotFoundException;
 import backend.repository.BookingRepository;
 import backend.repository.CustomerRepository;
+import backend.repository.ReviewRepository;
 import backend.repository.RoomRepository;
 import backend.repository.UserRepository;
 import backend.service.BookingService;
@@ -48,6 +49,7 @@ public class BookingServiceImpl implements BookingService {
     private final RoomRepository roomRepository;
     private final UserRepository userRepository;
     private final CustomerRepository customerRepository;
+    private final ReviewRepository reviewRepository;
 
     @Override
     public BookingCostResponse calculateCost(CalculateBookingCostRequest request) {
@@ -180,7 +182,7 @@ public class BookingServiceImpl implements BookingService {
                         historySpecification,
                         PageRequest.of(page, size, Sort.by(sortDirection, sortProperty))
                 )
-                .map(BookingResponse::new);
+                .map(booking -> new BookingResponse(booking, reviewRepository.existsByBooking_Id(booking.getId())));
 
         return PagedResponse.from(bookingPage);
     }
