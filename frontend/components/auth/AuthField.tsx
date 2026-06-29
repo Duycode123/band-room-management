@@ -6,9 +6,11 @@ type AuthFieldProps = {
   type?: string
   value: string
   placeholder: string
-  icon: 'user' | 'lock' | 'email'
+  icon: 'user' | 'lock' | 'email' | 'calendar'
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   trailing?: ReactNode
+  max?: string
+  min?: string
 }
 
 const iconPaths = {
@@ -16,6 +18,8 @@ const iconPaths = {
   lock: 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z',
   email:
     'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
+  calendar:
+    'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
 }
 
 export function AuthField({
@@ -27,6 +31,8 @@ export function AuthField({
   icon,
   onChange,
   trailing,
+  max,
+  min,
 }: AuthFieldProps) {
   return (
     <div>
@@ -49,6 +55,8 @@ export function AuthField({
           value={value}
           onChange={onChange}
           required
+          max={max}
+          min={min}
           placeholder={placeholder}
           className={[
             'w-full rounded-lg border border-outline bg-white py-2.5 pl-10 text-sm text-on-surface',
@@ -66,6 +74,14 @@ export function AuthField({
 export function AuthError({ message }: { message: string }) {
   return (
     <div className="mb-4 rounded-lg border border-error/20 bg-error-container px-3 py-2.5 text-xs text-error">
+      {message}
+    </div>
+  )
+}
+
+export function AuthSuccess({ message }: { message: string }) {
+  return (
+    <div className="mb-4 rounded-lg border border-secondary-container/50 bg-secondary-container/20 px-3 py-2.5 text-xs text-secondary">
       {message}
     </div>
   )

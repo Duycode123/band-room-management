@@ -19,7 +19,12 @@ export default function AuthGuard({ allowedRoles, children }: AuthGuardProps) {
     if (isLoading || isLoggingOut) return
 
     if (!user) {
-      router.replace('/login')
+      const redirectPath =
+        typeof window === 'undefined'
+          ? '/'
+          : `${window.location.pathname}${window.location.search}`
+
+      router.replace(`/login?redirect=${encodeURIComponent(redirectPath)}`)
       return
     }
     if (!allowedRoles.includes(user.role)) {

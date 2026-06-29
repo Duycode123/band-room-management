@@ -30,11 +30,13 @@ const customerMenuItems: Array<{ icon: MenuIconName; label: string; href: string
 const adminMenuItems: Array<{ icon: MenuIconName; label: string; href: string }> = [
   { icon: 'user', label: 'Dashboard quản trị', href: '/admin/dashboard' },
   { icon: 'lock', label: 'Bảo mật & mật khẩu', href: '/customer/security' },
+  { icon: 'accessibility', label: 'Màn hình và trợ năng', href: '/customer/accessibility' },
 ]
 
 const staffMenuItems: Array<{ icon: MenuIconName; label: string; href: string }> = [
   { icon: 'user', label: 'Dashboard nhân viên', href: '/staff/dashboard' },
   { icon: 'lock', label: 'Bảo mật & mật khẩu', href: '/customer/security' },
+  { icon: 'accessibility', label: 'Màn hình và trợ năng', href: '/customer/accessibility' },
 ]
 
 const roleLabels: Record<UserRole, string> = {

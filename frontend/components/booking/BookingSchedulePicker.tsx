@@ -209,9 +209,9 @@ export default function BookingSchedulePicker({
       return
     }
 
-    if (!pendingStartSlot || selectedSlots.length > 0) {
+    if (!pendingStartSlot) {
       setPendingStartSlot(slot)
-      setSelectedSlots([])
+      setSelectedSlots([slot])
       setMessage('')
       return
     }
@@ -355,7 +355,7 @@ export default function BookingSchedulePicker({
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="font-display text-lg font-bold text-[#1A1C1E]">Khung giờ còn trống</h3>
-            <p className="mt-1 text-sm text-[#5C5348]">Click lần 1 để chọn giờ bắt đầu, click lần 2 để chọn giờ kết thúc.</p>
+            <p className="mt-1 text-sm text-[#5C5348]">Click một khung giờ để đặt 1 giờ, click thêm khung khác để mở rộng thời lượng.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {hasSelectedTime && (
@@ -473,10 +473,10 @@ function getSlotAriaLabel(slot: string, state: SlotViewState) {
 
 function getSelectionHint(pendingStartSlot: string | null) {
   if (pendingStartSlot) {
-    return `Đã chọn giờ bắt đầu ${pendingStartSlot}. Chọn giờ kết thúc để hoàn tất.`
+    return `Đã chọn ${pendingStartSlot} trong 1 giờ. Chọn thêm khung khác nếu muốn đặt lâu hơn.`
   }
 
-  return 'Chọn giờ bắt đầu và giờ kết thúc để hệ thống tự tính thời lượng.'
+  return 'Chọn một khung giờ trống để đặt tối thiểu 1 giờ.'
 }
 
 function LegendItem({ className, label, dark = false }: { className: string; label: string; dark?: boolean }) {
