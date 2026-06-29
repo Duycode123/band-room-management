@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { getSessionRole, logoutSession, type AuthUser } from '@/lib/auth'
+import { logoutSession, restoreSession, type AuthUser } from '@/lib/auth'
 
 interface AuthContextType {
   user: AuthUser | null
@@ -23,7 +23,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshSession = useCallback(async () => {
     setIsLoading(true)
     try {
-      const sessionUser = await getSessionRole()
+      const sessionUser = await restoreSession()
       setUser(sessionUser)
     } catch {
       setUser(null)
