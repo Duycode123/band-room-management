@@ -24,4 +24,24 @@ public record PagedResponse<T>(
                 page.isLast()
         );
     }
+
+    public static <T> PagedResponse<T> of(
+            List<T> content,
+            int page,
+            int size,
+            long totalElements,
+            int totalPages,
+            boolean first,
+            boolean last
+    ) {
+        return new PagedResponse<>(
+                content,
+                page,
+                size,
+                totalElements,
+                totalPages,
+                first,
+                last
+        );
+    }
 }

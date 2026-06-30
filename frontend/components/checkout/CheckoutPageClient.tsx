@@ -18,6 +18,7 @@ import { createPaymentSession, type PaymentMethod } from '@/lib/payment-service'
 export default function CheckoutPageClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const confirmationHref = `/customer/booking/confirmation?${searchParams.toString()}`
   const initialPaymentMethod = getInitialPaymentMethod(searchParams.get('method'))
   const [booking, setBooking] = useState<CheckoutBooking | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -118,7 +119,7 @@ export default function CheckoutPageClient() {
             <div className="mb-2 flex flex-wrap items-center gap-2 font-display text-sm text-[#5C5348]">
               <Link href="/" className="hover:text-[#1A1C1E]">Trang chủ</Link>
               <span>/</span>
-              <Link href="/customer/booking" className="hover:text-[#1A1C1E]">Xác nhận đặt phòng</Link>
+              <Link href={confirmationHref} className="hover:text-[#1A1C1E]">Xác nhận đặt phòng</Link>
               <span>/</span>
               <span className="text-[#1A1C1E]">Thanh toán</span>
             </div>

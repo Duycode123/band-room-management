@@ -98,7 +98,7 @@ class BackendApplicationTests {
                                 new Cookie(AuthCookieService.REFRESH_COOKIE_NAME, refreshToken)
                         ))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Đăng xuất thành công"))
+                .andExpect(jsonPath("$.message").value("\u0110\u0103ng xu\u1ea5t th\u00e0nh c\u00f4ng"))
                 .andExpect(header().exists(HttpHeaders.SET_COOKIE))
                 .andExpect(cookie().maxAge(AuthCookieService.ACCESS_COOKIE_NAME, 0))
                 .andExpect(cookie().maxAge(AuthCookieService.REFRESH_COOKIE_NAME, 0));
@@ -153,7 +153,7 @@ class BackendApplicationTests {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.message").value("Cập nhật mật khẩu thành công"));
+                .andExpect(jsonPath("$.message").value("C\u1eadp nh\u1eadt m\u1eadt kh\u1ea9u th\u00e0nh c\u00f4ng"));
 
         assertTrue(passwordEncoder.matches("newSecret123", user.getPassword()));
         assertFalse("newSecret123".equals(user.getPassword()));
@@ -182,7 +182,7 @@ class BackendApplicationTests {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value("Mật khẩu hiện tại không đúng"));
+                .andExpect(jsonPath("$.message").value("M\u1eadt kh\u1ea9u hi\u1ec7n t\u1ea1i kh\u00f4ng \u0111\u00fang"));
     }
 
     @Test
@@ -337,7 +337,7 @@ class BackendApplicationTests {
                 .roomType(roomType)
                 .floor(1)
                 .maxPeople(6)
-                .status(RoomStatus.TRONG)
+                .status(RoomStatus.AVAILABLE)
                 .build();
         when(roomRepository.findAllByOrderByRoomNameAsc()).thenReturn(List.of(room));
 
