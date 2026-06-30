@@ -12,20 +12,20 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "hang_phong")
+@Table(name = "room_tier")
 public class RoomType {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(name = "ten_hang", nullable = false, unique = true)
+    @Column(name = "name", nullable = false, unique = true)
     private String typeName;
 
-    @Column(name = "mo_ta", columnDefinition = "TEXT")
+    @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
-    @Column(name = "gia_gio", nullable = false, precision = 12, scale = 2)
+    @Column(name = "hourly_rate", nullable = false, precision = 12, scale = 2)
     private BigDecimal pricePerHour;
 
     @Column(name = "suc_chua")

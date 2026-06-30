@@ -16,7 +16,7 @@ export const MOCK_ADMIN_BOOKINGS: AdminBooking[] = [
     equipment: ['Trống', 'Amp guitar'],
     totalPrice: 360_000,
     paymentStatus: 'PAID',
-    bookingStatus: 'DA_THANH_TOAN',
+    bookingStatus: 'PAID',
     note: 'Khách lần đầu, cần hướng dẫn thiết bị.',
   },
   {
@@ -34,7 +34,7 @@ export const MOCK_ADMIN_BOOKINGS: AdminBooking[] = [
     equipment: ['Full drum kit', 'Bass amp'],
     totalPrice: 360_000,
     paymentStatus: 'PENDING',
-    bookingStatus: 'CHO_THANH_TOAN',
+    bookingStatus: 'PENDING_PAYMENT',
   },
   {
     bookingId: 1003,
@@ -51,7 +51,7 @@ export const MOCK_ADMIN_BOOKINGS: AdminBooking[] = [
     equipment: ['Piano điện', 'Monitor'],
     totalPrice: 500_000,
     paymentStatus: 'PAID',
-    bookingStatus: 'DA_CHECKIN',
+    bookingStatus: 'CHECKED_IN',
     note: 'Band The Waves — rehearsal.',
   },
   {
@@ -69,7 +69,7 @@ export const MOCK_ADMIN_BOOKINGS: AdminBooking[] = [
     equipment: ['Trống'],
     totalPrice: 120_000,
     paymentStatus: 'PAID',
-    bookingStatus: 'HOAN_TAT',
+    bookingStatus: 'COMPLETED',
   },
   {
     bookingId: 1005,
@@ -86,7 +86,7 @@ export const MOCK_ADMIN_BOOKINGS: AdminBooking[] = [
     equipment: ['Mic vocal', 'Mixer'],
     totalPrice: 300_000,
     paymentStatus: 'UNPAID',
-    bookingStatus: 'CHO_THANH_TOAN',
+    bookingStatus: 'PENDING_PAYMENT',
   },
   {
     bookingId: 1006,
@@ -103,7 +103,7 @@ export const MOCK_ADMIN_BOOKINGS: AdminBooking[] = [
     equipment: ['Full drum kit'],
     totalPrice: 360_000,
     paymentStatus: 'PAID',
-    bookingStatus: 'DA_HUY',
+    bookingStatus: 'CANCELLED',
     note: 'Khách hủy vì trùng lịch band.',
   },
   {
@@ -121,7 +121,7 @@ export const MOCK_ADMIN_BOOKINGS: AdminBooking[] = [
     equipment: ['Piano điện', 'Monitor', 'Cách âm cao cấp'],
     totalPrice: 750_000,
     paymentStatus: 'PENDING',
-    bookingStatus: 'DA_THANH_TOAN',
+    bookingStatus: 'PAID',
   },
   {
     bookingId: 1008,
@@ -138,6 +138,6 @@ export const MOCK_ADMIN_BOOKINGS: AdminBooking[] = [
     equipment: ['Amp guitar', 'Bàn mixer'],
     totalPrice: 240_000,
     paymentStatus: 'PAID',
-    bookingStatus: 'HOAN_TAT',
+    bookingStatus: 'COMPLETED',
   },
 ]

@@ -1,5 +1,6 @@
 package backend;
 
+import backend.equipment.adapter.out.persistence.EquipmentRepository;
 import backend.entity.Role;
 import backend.entity.Room;
 import backend.entity.RoomStatus;
@@ -76,6 +77,9 @@ class BackendApplicationTests {
     private RoomTypeRepository roomTypeRepository;
 
     @MockBean
+    private EquipmentRepository equipmentRepository;
+
+    @MockBean
     private AuthenticationManager authenticationManager;
 
     @Test
@@ -98,7 +102,7 @@ class BackendApplicationTests {
                                 new Cookie(AuthCookieService.REFRESH_COOKIE_NAME, refreshToken)
                         ))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Đăng xuất thành công"))
+                .andExpect(jsonPath("$.message").value("\u0110\u0103ng xu\u1ea5t th\u00e0nh c\u00f4ng"))
                 .andExpect(header().exists(HttpHeaders.SET_COOKIE))
                 .andExpect(cookie().maxAge(AuthCookieService.ACCESS_COOKIE_NAME, 0))
                 .andExpect(cookie().maxAge(AuthCookieService.REFRESH_COOKIE_NAME, 0));
@@ -153,7 +157,7 @@ class BackendApplicationTests {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.message").value("Cập nhật mật khẩu thành công"));
+                .andExpect(jsonPath("$.message").value("C\u1eadp nh\u1eadt m\u1eadt kh\u1ea9u th\u00e0nh c\u00f4ng"));
 
         assertTrue(passwordEncoder.matches("newSecret123", user.getPassword()));
         assertFalse("newSecret123".equals(user.getPassword()));
@@ -182,7 +186,7 @@ class BackendApplicationTests {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value("Mật khẩu hiện tại không đúng"));
+                .andExpect(jsonPath("$.message").value("M\u1eadt kh\u1ea9u hi\u1ec7n t\u1ea1i kh\u00f4ng \u0111\u00fang"));
     }
 
     @Test
@@ -337,7 +341,7 @@ class BackendApplicationTests {
                 .roomType(roomType)
                 .floor(1)
                 .maxPeople(6)
-                .status(RoomStatus.TRONG)
+                .status(RoomStatus.AVAILABLE)
                 .build();
         when(roomRepository.findAllByOrderByRoomNameAsc()).thenReturn(List.of(room));
 
@@ -362,5 +366,39 @@ class BackendApplicationTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data[0].typeName").value("Standard"));
+    }
+
+    @Test
+    void adminEquipmentApiAllowsStaffRole() throws Exception {
+        User user = User.builder()
+                .email("staff-equipment@example.com")
+                .password("unused")
+                .role(Role.STAFF)
+                .build();
+        when(userDetailsService.loadUserByUsername(user.getEmail())).thenReturn(user);
+        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+        when(equipmentRepository.search(null, null, null)).thenReturn(List.of());
+        String accessToken = jwtService.generateAccessToken(user);
+
+        mockMvc.perform(get("/api/admin/equipment")
+                        .cookie(new Cookie(AuthCookieService.ACCESS_COOKIE_NAME, accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.length()").value(0));
+    }
+
+    @Test
+    void adminEquipmentApiRejectsCustomerRole() throws Exception {
+        User user = User.builder()
+                .email("customer-equipment@example.com")
+                .password("unused")
+                .role(Role.CUSTOMER)
+                .build();
+        when(userDetailsService.loadUserByUsername(user.getEmail())).thenReturn(user);
+        String accessToken = jwtService.generateAccessToken(user);
+
+        mockMvc.perform(get("/api/admin/equipment")
+                        .cookie(new Cookie(AuthCookieService.ACCESS_COOKIE_NAME, accessToken)))
+                .andExpect(status().isForbidden());
     }
 }

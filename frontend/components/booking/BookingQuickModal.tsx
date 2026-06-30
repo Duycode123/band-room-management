@@ -101,7 +101,7 @@ export default function BookingQuickModal({
       note,
     })
 
-    router.push(`/customer/booking?${params.toString()}`)
+    router.push(`/customer/booking/confirmation?${params.toString()}`)
   }
 
   return (

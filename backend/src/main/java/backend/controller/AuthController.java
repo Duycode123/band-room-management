@@ -1,21 +1,28 @@
 package backend.controller;
 
+import backend.auth.application.port.in.LoginUserUseCase;
+import backend.auth.application.port.in.LogoutUseCase;
+import backend.auth.application.port.in.RefreshSessionUseCase;
+import backend.auth.application.port.in.RegisterUserUseCase;
+import backend.auth.application.port.in.RequestPasswordResetUseCase;
+import backend.auth.application.port.in.ResetPasswordUseCase;
+import backend.auth.application.port.in.command.LoginUserCommand;
+import backend.auth.application.port.in.command.LogoutCommand;
+import backend.auth.application.port.in.command.RefreshSessionCommand;
+import backend.auth.application.port.in.command.RegisterUserCommand;
+import backend.auth.application.port.in.command.RequestPasswordResetCommand;
+import backend.auth.application.port.in.command.ResetPasswordCommand;
 import backend.dto.request.LoginRequest;
 import backend.dto.request.RegisterRequest;
 import backend.dto.request.ResetPasswordRequest;
 import backend.dto.response.AuthResponse;
 import backend.entity.User;
-import backend.repository.UserRepository;
-import backend.service.AuthService;
 import backend.security.AuthCookieService;
-import jakarta.mail.internet.MimeMessage;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,27 +32,40 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
-import java.util.UUID;
-import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping({"/api/auth", "/api/v1/auth"})
 @RequiredArgsConstructor
 public class AuthController {
-    private final AuthService authService;
+
+    private static final String RESET_PASSWORD_LINK_PREFIX = "http://localhost:3000/reset-password?token=";
+
+    private final RegisterUserUseCase registerUserUseCase;
+    private final LoginUserUseCase loginUserUseCase;
+    private final RefreshSessionUseCase refreshSessionUseCase;
+    private final LogoutUseCase logoutUseCase;
+    private final RequestPasswordResetUseCase requestPasswordResetUseCase;
+    private final ResetPasswordUseCase resetPasswordUseCase;
     private final AuthCookieService authCookieService;
-    private final UserRepository userRepository;
-    private final JavaMailSender mailSender;
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@RequestBody @Valid RegisterRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(authService.register(request));
+                .body(registerUserUseCase.register(new RegisterUserCommand(
+                        request.getFullName(),
+                        request.getEmail(),
+                        request.getPhone(),
+                        request.getPassword()
+                )));
     }
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody @Valid LoginRequest request) {
-        AuthResponse response = authService.login(request);
+        AuthResponse response = loginUserUseCase.login(new LoginUserCommand(
+                request.getEmail(),
+                request.getPassword()
+        ));
+
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, authCookieService.accessCookie(response.getAccessToken()).toString())
                 .header(HttpHeaders.SET_COOKIE, authCookieService.refreshCookie(response.getRefreshToken()).toString())
@@ -56,7 +76,8 @@ public class AuthController {
     public ResponseEntity<AuthResponse> refresh(
             @CookieValue(value = AuthCookieService.REFRESH_COOKIE_NAME, required = false) String refreshToken
     ) {
-        AuthResponse response = authService.refresh(refreshToken);
+        AuthResponse response = refreshSessionUseCase.refresh(new RefreshSessionCommand(refreshToken));
+
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, authCookieService.accessCookie(response.getAccessToken()).toString())
                 .header(HttpHeaders.SET_COOKIE, authCookieService.refreshCookie(response.getRefreshToken()).toString())
@@ -68,11 +89,12 @@ public class AuthController {
             @CookieValue(value = AuthCookieService.ACCESS_COOKIE_NAME, required = false) String accessToken,
             @CookieValue(value = AuthCookieService.REFRESH_COOKIE_NAME, required = false) String refreshToken
     ) {
-        authService.logout(accessToken, refreshToken);
+        logoutUseCase.logout(new LogoutCommand(accessToken, refreshToken));
+
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, authCookieService.clearAccessCookie().toString())
                 .header(HttpHeaders.SET_COOKIE, authCookieService.clearRefreshCookie().toString())
-                .body(Map.of("message", "Đăng xuất thành công"));
+                .body(Map.of("message", "\u0110\u0103ng xu\u1ea5t th\u00e0nh c\u00f4ng"));
     }
 
     @GetMapping("/session")
@@ -81,66 +103,34 @@ public class AuthController {
                 || !authentication.isAuthenticated()
                 || !(authentication.getPrincipal() instanceof User user)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("message", "Phiên đăng nhập không hợp lệ"));
+                    .body(Map.of("message", "Phien dang nhap khong hop le"));
         }
 
         return ResponseEntity.ok(Map.of("role", user.getRole().name()));
     }
 
     @PostMapping("/forgot-password")
-    public ResponseEntity<Map<String, String>> forgotPassword(@RequestBody Map<String, String> request) {
-        String email = request.get("email");
-        if (email == null || email.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Email không được để trống"));
-        }
+    public ResponseEntity<Map<String, String>> forgotPassword(@RequestBody(required = false) Map<String, String> request) {
+        String email = request == null ? null : request.get("email");
 
-        User user = userRepository.findByEmail(email.trim().toLowerCase()).orElse(null);
-        if (user == null) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Email không tồn tại"));
-        }
+        requestPasswordResetUseCase.requestPasswordReset(new RequestPasswordResetCommand(
+                email,
+                RESET_PASSWORD_LINK_PREFIX
+        ));
 
-        String token = UUID.randomUUID().toString();
-        user.setResetToken(token);
-        user.setResetTokenExpiresAt(LocalDateTime.now().plusMinutes(30));
-        userRepository.save(user);
-
-        String resetLink = "http://localhost:3000/reset-password?token=" + token;
-
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setTo(user.getEmail());
-            helper.setSubject("[BandHub Studio] Yêu cầu đặt lại mật khẩu tài khoản");
-            helper.setText(buildResetPasswordEmail(resetLink), true);
-            mailSender.send(message);
-
-            return ResponseEntity.ok(Map.of(
-                    "message",
-                    "Hệ thống đã gửi liên kết đặt lại mật khẩu vào email của bạn"
-            ));
-        } catch (Exception ex) {
-            return ResponseEntity.internalServerError().body(Map.of(
-                    "message",
-                    "Lỗi hệ thống: Không thể gửi email"
-            ));
-        }
+        return ResponseEntity.ok(Map.of(
+                "message",
+                "He thong da gui lien ket dat lai mat khau vao email cua ban"
+        ));
     }
 
     @PostMapping("/reset-password")
-    public ResponseEntity<Map<String, String>> resetPassword(@RequestBody ResetPasswordRequest request) {
-        authService.resetPassword(request);
-        return ResponseEntity.ok(Map.of("message", "Đổi mật khẩu thành công"));
-    }
+    public ResponseEntity<Map<String, String>> resetPassword(@RequestBody(required = false) ResetPasswordRequest request) {
+        resetPasswordUseCase.resetPassword(new ResetPasswordCommand(
+                request == null ? null : request.getToken(),
+                request == null ? null : request.getNewPassword()
+        ));
 
-    private String buildResetPasswordEmail(String resetLink) {
-        return """
-                <div style="font-family: Arial, sans-serif; max-width: 540px; margin: 0 auto; padding: 20px; border: 1px solid #f0f0f0; border-radius: 12px;">
-                  <h2 style="color: #FF7518; margin-bottom: 20px;">BandHub Studio</h2>
-                  <p>Chúng tôi nhận được yêu cầu khôi phục mật khẩu. Vui lòng bấm vào nút dưới để đặt lại mật khẩu:</p>
-                  <p style="text-align: center; margin: 20px 0;">
-                    <a href="%s" style="background-color: #FF7518; color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold;">Đặt lại mật khẩu</a>
-                  </p>
-                </div>
-                """.formatted(resetLink);
+        return ResponseEntity.ok(Map.of("message", "Doi mat khau thanh cong"));
     }
 }

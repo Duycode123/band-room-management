@@ -86,9 +86,10 @@ public class SecurityConfig {
                                 "/api/ai/chat",
                                 "/api/ai/suggested-questions"
                         ).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/rooms/**", "/api/room-types/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/rooms/**", "/api/room-types/**", "/api/reviews", "/api/reviews/rooms/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/bookings/calculate-cost").permitAll()
                         .requestMatchers("/api/auth/session", "/api/v1/auth/session").authenticated()
+                        .requestMatchers("/api/admin/equipment/**").hasAnyRole("ADMIN", "STAFF")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/bookings/**").authenticated()
                         .anyRequest().authenticated()

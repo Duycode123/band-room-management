@@ -66,6 +66,12 @@ coverage/
 out/
 next-env.d.ts
 
+# Keep hexagonal source packages named out/ tracked under backend source trees
+!backend/src/main/java/**/out/
+!backend/src/main/java/**/out/**
+!backend/src/test/java/**/out/
+!backend/src/test/java/**/out/**
+
 # Package archives
 *.jar
 *.war
