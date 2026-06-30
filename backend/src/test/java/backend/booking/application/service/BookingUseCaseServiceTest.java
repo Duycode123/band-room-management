@@ -1,6 +1,13 @@
-package backend.service;
+package backend.booking.application.service;
 
-import backend.dto.request.CreateBookingRequest;
+import backend.booking.application.port.in.command.CreateBookingCommand;
+import backend.booking.application.port.in.query.GetRoomAvailabilityQuery;
+import backend.booking.application.port.out.LoadBookingPort;
+import backend.booking.application.port.out.LoadCustomerPort;
+import backend.booking.application.port.out.LoadRoomPort;
+import backend.booking.application.port.out.LoadUserPort;
+import backend.booking.application.port.out.SaveBookingPort;
+import backend.booking.application.port.out.SearchCustomerBookingsPort;
 import backend.dto.response.RoomAvailabilityResponse;
 import backend.entity.Booking;
 import backend.entity.BookingStatus;
@@ -37,33 +44,37 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class BookingServiceImplTest {
+class BookingUseCaseServiceTest {
 
     @Mock
-    private BookingRepository bookingRepository;
+    private LoadRoomPort loadRoomPort;
 
     @Mock
-    private RoomRepository roomRepository;
+    private LoadCustomerPort loadCustomerPort;
 
     @Mock
-    private UserRepository userRepository;
+    private LoadUserPort loadUserPort;
 
     @Mock
-    private CustomerRepository customerRepository;
+    private LoadBookingPort loadBookingPort;
 
     @Mock
-    private ReviewRepository reviewRepository;
+    private SaveBookingPort saveBookingPort;
 
-    private BookingServiceImpl bookingService;
+    @Mock
+    private SearchCustomerBookingsPort searchCustomerBookingsPort;
+
+    private BookingUseCaseService bookingUseCaseService;
 
     @BeforeEach
     void setUp() {
-        bookingService = new BookingServiceImpl(
-                bookingRepository,
-                roomRepository,
-                userRepository,
-                customerRepository,
-                reviewRepository
+        bookingUseCaseService = new BookingUseCaseService(
+                loadRoomPort,
+                loadCustomerPort,
+                loadUserPort,
+                loadBookingPort,
+                saveBookingPort,
+                searchCustomerBookingsPort
         );
     }
 
@@ -86,15 +97,17 @@ class BookingServiceImplTest {
                 LocalDateTime.of(2030, 1, 10, 16, 0)
         );
 
-        when(roomRepository.findById(1)).thenReturn(Optional.of(room));
-        when(bookingRepository.findBlockingBookings(
+        when(loadRoomPort.loadRoom(1)).thenReturn(Optional.of(room));
+        when(loadBookingPort.loadBlockingBookings(
                 eq(1),
                 eq(from),
                 eq(to),
-                eq(BookingStatus.DA_HUY)
+                eq(BookingStatus.CANCELLED)
         )).thenReturn(List.of(first, overlapping, last));
 
-        RoomAvailabilityResponse response = bookingService.getAvailableSlots(1, from, to);
+        RoomAvailabilityResponse response = bookingUseCaseService.getAvailableSlots(
+                new GetRoomAvailabilityQuery(1, from, to)
+        );
 
         assertEquals(3, response.availableSlots().size());
         assertEquals(from, response.availableSlots().get(0).startTime());
@@ -113,28 +126,29 @@ class BookingServiceImplTest {
         User account = User.builder().id(7).email("customer@example.com").build();
         Customer customer = Customer.builder().id(7).account(account).build();
 
-        when(customerRepository.findByAccount_Email(account.getEmail())).thenReturn(Optional.of(customer));
-        when(roomRepository.findByIdForUpdate(1)).thenReturn(Optional.of(room));
-        when(bookingRepository.findBlockingBookings(
+        when(loadCustomerPort.loadCustomerByAccountEmail(account.getEmail())).thenReturn(Optional.of(customer));
+        when(loadRoomPort.loadRoomForUpdate(1)).thenReturn(Optional.of(room));
+        when(loadBookingPort.loadBlockingBookings(
                 eq(1),
                 eq(startTime),
                 eq(endTime),
-                eq(BookingStatus.DA_HUY)
+                eq(BookingStatus.CANCELLED)
         )).thenReturn(List.of(bookingAt(startTime.plusMinutes(30), endTime.plusHours(1))));
 
-        CreateBookingRequest request = new CreateBookingRequest(
+        CreateBookingCommand command = new CreateBookingCommand(
                 1,
                 startTime,
                 endTime,
-                PaymentMethod.TIEN_MAT,
-                null
+                PaymentMethod.CASH,
+                null,
+                account.getEmail()
         );
 
         assertThrows(
                 BookingConflictException.class,
-                () -> bookingService.createBooking(request, account.getEmail())
+                () -> bookingUseCaseService.createBooking(command)
         );
-        verify(bookingRepository, never()).saveAndFlush(any(Booking.class));
+        verify(saveBookingPort, never()).saveAndFlush(any(Booking.class));
     }
 
     @Test
@@ -145,31 +159,32 @@ class BookingServiceImplTest {
         User account = User.builder().id(7).email("customer@example.com").build();
         Customer customer = Customer.builder().id(7).account(account).build();
 
-        when(customerRepository.findByAccount_Email(account.getEmail())).thenReturn(Optional.of(customer));
-        when(roomRepository.findByIdForUpdate(1)).thenReturn(Optional.of(room));
-        when(bookingRepository.findBlockingBookings(
+        when(loadCustomerPort.loadCustomerByAccountEmail(account.getEmail())).thenReturn(Optional.of(customer));
+        when(loadRoomPort.loadRoomForUpdate(1)).thenReturn(Optional.of(room));
+        when(loadBookingPort.loadBlockingBookings(
                 eq(1),
                 eq(startTime),
                 eq(endTime),
-                eq(BookingStatus.DA_HUY)
+                eq(BookingStatus.CANCELLED)
         )).thenReturn(List.of());
-        when(bookingRepository.saveAndFlush(any(Booking.class))).thenAnswer(invocation -> {
+        when(saveBookingPort.saveAndFlush(any(Booking.class))).thenAnswer(invocation -> {
             Booking saved = invocation.getArgument(0);
             saved.setId(99);
             return saved;
         });
 
-        CreateBookingRequest request = new CreateBookingRequest(
+        CreateBookingCommand command = new CreateBookingCommand(
                 1,
                 startTime,
                 endTime,
-                PaymentMethod.TIEN_MAT,
-                null
+                PaymentMethod.CASH,
+                null,
+                account.getEmail()
         );
 
         assertEquals(
                 99,
-                bookingService.createBooking(request, account.getEmail()).getBookingId()
+                bookingUseCaseService.createBooking(command).getBookingId()
         );
     }
 
@@ -184,7 +199,7 @@ class BookingServiceImplTest {
                 .id(1)
                 .roomName("Room A")
                 .roomType(roomType)
-                .status(RoomStatus.TRONG)
+                .status(RoomStatus.AVAILABLE)
                 .build();
     }
 
@@ -192,7 +207,7 @@ class BookingServiceImplTest {
         return Booking.builder()
                 .startTime(startTime)
                 .endTime(endTime)
-                .status(BookingStatus.DA_THANH_TOAN)
+                .status(BookingStatus.PAID)
                 .build();
     }
 }

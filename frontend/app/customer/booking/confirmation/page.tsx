@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import AuthGuard from '@/components/AuthGuard'
 import BookingConfirmationClient from '@/components/booking/BookingConfirmationClient'
 
-export default function CustomerBookingPage() {
+export default function CustomerBookingConfirmationPage() {
   return (
     <Suspense fallback={<BookingConfirmationFallback />}>
       <AuthGuard allowedRoles={['ADMIN', 'STAFF', 'CUSTOMER']}>
