@@ -26,6 +26,8 @@ The first pass in this repository focuses on flows that already exist in the bac
 - create booking
 - customer booking history
 - admin booking management
+- review moderation and admin response
+- equipment management
 
 ## Traceability
 

@@ -1,5 +1,6 @@
 package backend;
 
+import backend.equipment.adapter.out.persistence.EquipmentRepository;
 import backend.entity.Role;
 import backend.entity.Room;
 import backend.entity.RoomStatus;
@@ -74,6 +75,9 @@ class BackendApplicationTests {
 
     @MockBean
     private RoomTypeRepository roomTypeRepository;
+
+    @MockBean
+    private EquipmentRepository equipmentRepository;
 
     @MockBean
     private AuthenticationManager authenticationManager;
@@ -362,5 +366,39 @@ class BackendApplicationTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data[0].typeName").value("Standard"));
+    }
+
+    @Test
+    void adminEquipmentApiAllowsStaffRole() throws Exception {
+        User user = User.builder()
+                .email("staff-equipment@example.com")
+                .password("unused")
+                .role(Role.STAFF)
+                .build();
+        when(userDetailsService.loadUserByUsername(user.getEmail())).thenReturn(user);
+        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+        when(equipmentRepository.search(null, null, null)).thenReturn(List.of());
+        String accessToken = jwtService.generateAccessToken(user);
+
+        mockMvc.perform(get("/api/admin/equipment")
+                        .cookie(new Cookie(AuthCookieService.ACCESS_COOKIE_NAME, accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.length()").value(0));
+    }
+
+    @Test
+    void adminEquipmentApiRejectsCustomerRole() throws Exception {
+        User user = User.builder()
+                .email("customer-equipment@example.com")
+                .password("unused")
+                .role(Role.CUSTOMER)
+                .build();
+        when(userDetailsService.loadUserByUsername(user.getEmail())).thenReturn(user);
+        String accessToken = jwtService.generateAccessToken(user);
+
+        mockMvc.perform(get("/api/admin/equipment")
+                        .cookie(new Cookie(AuthCookieService.ACCESS_COOKIE_NAME, accessToken)))
+                .andExpect(status().isForbidden());
     }
 }

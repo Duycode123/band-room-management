@@ -1,10 +1,10 @@
 /** Aligns with backend BookingStatus for future API integration. */
 export type BookingStatus =
-  | 'CHO_THANH_TOAN'
-  | 'DA_THANH_TOAN'
-  | 'DA_CHECKIN'
-  | 'HOAN_TAT'
-  | 'DA_HUY'
+  | 'PENDING_PAYMENT'
+  | 'PAID'
+  | 'CHECKED_IN'
+  | 'COMPLETED'
+  | 'CANCELLED'
 
 export type PaymentStatus = 'PAID' | 'UNPAID' | 'PENDING'
 
@@ -25,6 +25,7 @@ export type AdminBooking = {
   paymentStatus: PaymentStatus
   bookingStatus: BookingStatus
   note?: string
+  paymentMethod?: string
 }
 
 export type BookingFilters = {

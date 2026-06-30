@@ -12,6 +12,8 @@ This file maps the source backlog/SRS use cases to the current backend repositor
 | UC008 | Admin manage bookings | Partially implemented | `GET /api/admin/bookings`, `GET /api/admin/bookings/{id}`, `PATCH /api/admin/bookings/{id}/status`, `PUT /api/admin/bookings/{id}/cancel` | Current backend supports list, detail, status update, and cancel. Rich search/filter/payment status sync from backlog remain gaps. |
 | UC009 | Customer booking history | Partially implemented | `GET /api/bookings/my/history` | Supports pagination, sorting, status/time filters. Dedicated customer booking detail endpoint is not present yet. |
 | UC010 | Customer cancel booking with refund | Not implemented in current backend | N/A | Backlog contains refund flow and refund tables, but current source does not expose a customer cancel/refund endpoint yet. |
+| N/A | Moderate reviews and write one admin response | Implemented core flow | `POST /api/reviews`, `GET /api/reviews`, `GET /api/admin/reviews`, `PATCH /api/admin/reviews/{id}/approval`, `PUT /api/admin/reviews/{id}/response`, `DELETE /api/admin/reviews/{id}/response` | Backend supports review creation, public listing, approval toggle, and one optional admin response per review. Customer and public FE pages are not mapped to these APIs yet. |
+| N/A | Manage equipment | Implemented core flow | `GET /api/admin/equipment`, `GET /api/admin/equipment/{id}`, `POST /api/admin/equipment`, `PUT /api/admin/equipment/{id}`, `DELETE /api/admin/equipment/{id}` | Backend-managed feature from the current task; source backlog ID is not normalized in repo docs yet. |
 
 ## Working Rule
 

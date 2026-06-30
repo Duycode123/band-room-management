@@ -1,6 +1,7 @@
 package backend.service.impl;
 
 import backend.dto.request.CreateReviewRequest;
+import backend.dto.request.UpsertReviewResponseRequest;
 import backend.dto.request.UpdateReviewApprovalRequest;
 import backend.dto.response.PagedResponse;
 import backend.dto.response.ReviewEligibilityResponse;
@@ -9,11 +10,16 @@ import backend.entity.Booking;
 import backend.entity.BookingStatus;
 import backend.entity.Customer;
 import backend.entity.Review;
+import backend.entity.ReviewAdminResponse;
+import backend.entity.Role;
+import backend.entity.User;
 import backend.exception.ForbiddenException;
 import backend.exception.ResourceNotFoundException;
 import backend.repository.BookingRepository;
 import backend.repository.CustomerRepository;
+import backend.repository.ReviewAdminResponseRepository;
 import backend.repository.ReviewRepository;
+import backend.repository.UserRepository;
 import backend.service.ReviewService;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
@@ -33,8 +39,10 @@ import java.util.List;
 public class ReviewServiceImpl implements ReviewService {
 
     private final ReviewRepository reviewRepository;
+    private final ReviewAdminResponseRepository reviewAdminResponseRepository;
     private final BookingRepository bookingRepository;
     private final CustomerRepository customerRepository;
+    private final UserRepository userRepository;
 
     @Override
     @Transactional
@@ -46,7 +54,7 @@ public class ReviewServiceImpl implements ReviewService {
         validateBookingCanBeReviewed(booking);
 
         if (reviewRepository.existsByBooking_Id(booking.getId())) {
-            throw new IllegalStateException("Đơn đặt phòng này đã được đánh giá");
+            throw new IllegalStateException("Don dat phong nay da duoc danh gia");
         }
 
         Review review = Review.builder()
@@ -59,7 +67,7 @@ public class ReviewServiceImpl implements ReviewService {
         try {
             return ReviewResponse.from(reviewRepository.saveAndFlush(review));
         } catch (DataIntegrityViolationException exception) {
-            throw new IllegalStateException("Đơn đặt phòng này đã được đánh giá");
+            throw new IllegalStateException("Don dat phong nay da duoc danh gia");
         }
     }
 
@@ -87,19 +95,19 @@ public class ReviewServiceImpl implements ReviewService {
         Booking booking = findBooking(bookingId);
 
         if (!booking.getCustomer().getId().equals(customer.getId())) {
-            return new ReviewEligibilityResponse(bookingId, false, false, "Bạn chỉ được đánh giá đơn đặt phòng của mình");
+            return new ReviewEligibilityResponse(bookingId, false, false, "Ban chi duoc danh gia don dat phong cua minh");
         }
 
         boolean alreadyReviewed = reviewRepository.existsByBooking_Id(bookingId);
         if (alreadyReviewed) {
-            return new ReviewEligibilityResponse(bookingId, false, true, "Đơn đặt phòng này đã được đánh giá");
+            return new ReviewEligibilityResponse(bookingId, false, true, "Don dat phong nay da duoc danh gia");
         }
 
         if (booking.getStatus() != BookingStatus.COMPLETED) {
-            return new ReviewEligibilityResponse(bookingId, false, false, "Chỉ có thể đánh giá sau khi đơn đặt phòng đã hoàn tất");
+            return new ReviewEligibilityResponse(bookingId, false, false, "Chi co the danh gia sau khi don dat phong da hoan tat");
         }
 
-        return new ReviewEligibilityResponse(bookingId, true, false, "Có thể đánh giá đơn đặt phòng này");
+        return new ReviewEligibilityResponse(bookingId, true, false, "Co the danh gia don dat phong nay");
     }
 
     @Override
@@ -190,6 +198,44 @@ public class ReviewServiceImpl implements ReviewService {
 
     @Override
     @Transactional
+    public ReviewResponse upsertReviewResponse(Integer reviewId, UpsertReviewResponseRequest request, String responderEmail) {
+        Review review = findReview(reviewId);
+        User responder = findResponder(responderEmail);
+        validateResponderCanRespond(responder);
+
+        ReviewAdminResponse adminResponse = review.getAdminResponse();
+        if (adminResponse == null) {
+            adminResponse = ReviewAdminResponse.builder()
+                    .review(review)
+                    .responder(responder)
+                    .content(request.getContent().trim())
+                    .build();
+        } else {
+            adminResponse.setResponder(responder);
+            adminResponse.setContent(request.getContent().trim());
+        }
+
+        ReviewAdminResponse savedResponse = reviewAdminResponseRepository.save(adminResponse);
+        review.setAdminResponse(savedResponse);
+
+        return ReviewResponse.from(review);
+    }
+
+    @Override
+    @Transactional
+    public void deleteReviewResponse(Integer reviewId) {
+        Review review = findReview(reviewId);
+        ReviewAdminResponse adminResponse = review.getAdminResponse();
+        if (adminResponse == null) {
+            throw new ResourceNotFoundException("Khong tim thay phan hoi cho danh gia nay");
+        }
+
+        review.setAdminResponse(null);
+        reviewAdminResponseRepository.delete(adminResponse);
+    }
+
+    @Override
+    @Transactional
     public void deleteReview(Integer reviewId) {
         Review review = findReview(reviewId);
         reviewRepository.delete(review);
@@ -197,48 +243,59 @@ public class ReviewServiceImpl implements ReviewService {
 
     private Customer findCustomer(String email) {
         return customerRepository.findByAccount_Email(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ khách hàng"));
+                .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay ho so khach hang"));
     }
 
     private Booking findBooking(Integer bookingId) {
         return bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn đặt phòng"));
+                .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay don dat phong"));
     }
 
     private Review findReview(Integer reviewId) {
         return reviewRepository.findById(reviewId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đánh giá"));
+                .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay danh gia"));
+    }
+
+    private User findResponder(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay tai khoan phan hoi"));
     }
 
     private void validateBookingBelongsToCustomer(Booking booking, Customer customer) {
         if (!booking.getCustomer().getId().equals(customer.getId())) {
-            throw new ForbiddenException("Bạn chỉ được đánh giá đơn đặt phòng của mình");
+            throw new ForbiddenException("Ban chi duoc danh gia don dat phong cua minh");
+        }
+    }
+
+    private void validateResponderCanRespond(User responder) {
+        if (responder.getRole() != Role.ADMIN) {
+            throw new ForbiddenException("Chi admin moi duoc phan hoi danh gia");
         }
     }
 
     private void validateBookingCanBeReviewed(Booking booking) {
         if (booking.getStatus() != BookingStatus.COMPLETED) {
-            throw new IllegalStateException("Chỉ có thể đánh giá sau khi đơn đặt phòng đã hoàn tất");
+            throw new IllegalStateException("Chi co the danh gia sau khi don dat phong da hoan tat");
         }
     }
 
     private int validatePage(int page) {
         if (page < 0) {
-            throw new IllegalArgumentException("Trang không được nhỏ hơn 0");
+            throw new IllegalArgumentException("Trang khong duoc nho hon 0");
         }
         return page;
     }
 
     private int validateSize(int size) {
         if (size < 1 || size > 100) {
-            throw new IllegalArgumentException("Kích thước trang phải từ 1 đến 100");
+            throw new IllegalArgumentException("Kich thuoc trang phai tu 1 den 100");
         }
         return size;
     }
 
     private void validateRating(Integer rating) {
         if (rating < 1 || rating > 5) {
-            throw new IllegalArgumentException("Điểm đánh giá phải từ 1 đến 5");
+            throw new IllegalArgumentException("Diem danh gia phai tu 1 den 5");
         }
     }
 }
