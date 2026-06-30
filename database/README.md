@@ -39,6 +39,7 @@ Core entity classes currently present:
 - `database/BandLab_Database.sql`
 - `database/migrations/20260624_create_payment_transactions.sql`
 - `database/migrations/20260628_rename_vn_schema_to_en.sql`
+- `database/migrations/20260630_complete_vn_schema_to_en.sql`
 - `database/schema-target-en.dbml`
 
 ## Target Naming Direction
@@ -50,7 +51,7 @@ The long-term naming direction for this project is:
 - English enum type names
 - English enum values
 
-The backend JPA mappings now target the English schema. Existing PostgreSQL databases that still use Vietnamese names must be migrated with `database/migrations/20260628_rename_vn_schema_to_en.sql` before running a backend build that includes the English mappings.
+The backend JPA mappings now target the English schema. Existing PostgreSQL databases that still use Vietnamese names must apply the phased rename migrations, including `database/migrations/20260628_rename_vn_schema_to_en.sql` and `database/migrations/20260630_complete_vn_schema_to_en.sql`, before running a backend build that includes the English mappings.
 
 Do not mix new Vietnamese names into new schema work unless a task is strictly limited to keeping a legacy area stable.
 
@@ -133,7 +134,8 @@ Current repository status:
 
 - JPA mappings: English
 - target DBML: English
-- legacy production-like SQL base: still contains Vietnamese names until the rename migration is applied
+- legacy production-like SQL base: still contains Vietnamese names until the rename migrations are applied
+- rename rollout SQL: phase 1 (`20260628_rename_vn_schema_to_en.sql`) plus completion pass (`20260630_complete_vn_schema_to_en.sql`)
 
 If a task is only about documentation, do not pretend the runtime schema has already been renamed.
 
