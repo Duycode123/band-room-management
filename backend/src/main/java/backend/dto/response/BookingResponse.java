@@ -37,6 +37,8 @@ public class BookingResponse {
 
     private BookingStatus status;
     private PaymentMethod paymentMethod;
+    private Boolean canReview;
+    private Boolean alreadyReviewed;
 
     public BookingResponse(Booking booking) {
         this.bookingId = booking.getId();
@@ -70,5 +72,11 @@ public class BookingResponse {
         this.totalAmount = booking.getTotalAmount();
         this.status = booking.getStatus();
         this.paymentMethod = booking.getPaymentMethod();
+    }
+
+    public BookingResponse(Booking booking, boolean alreadyReviewed) {
+        this(booking);
+        this.alreadyReviewed = alreadyReviewed;
+        this.canReview = booking.getStatus() == BookingStatus.HOAN_TAT && !alreadyReviewed;
     }
 }
