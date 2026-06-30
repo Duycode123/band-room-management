@@ -13,6 +13,7 @@ import backend.entity.User;
 import backend.exception.BookingConflictException;
 import backend.repository.BookingRepository;
 import backend.repository.CustomerRepository;
+import backend.repository.ReviewRepository;
 import backend.repository.RoomRepository;
 import backend.repository.UserRepository;
 import backend.service.impl.BookingServiceImpl;
@@ -50,6 +51,9 @@ class BookingServiceImplTest {
     @Mock
     private CustomerRepository customerRepository;
 
+    @Mock
+    private ReviewRepository reviewRepository;
+
     private BookingServiceImpl bookingService;
 
     @BeforeEach
@@ -58,7 +62,8 @@ class BookingServiceImplTest {
                 bookingRepository,
                 roomRepository,
                 userRepository,
-                customerRepository
+                customerRepository,
+                reviewRepository
         );
     }
 
