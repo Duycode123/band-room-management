@@ -1,13 +1,18 @@
 package backend.booking.application.service;
 
+import backend.booking.application.model.PageResult;
 import backend.booking.application.port.in.command.CreateBookingCommand;
+import backend.booking.application.port.in.query.CustomerBookingHistoryQuery;
 import backend.booking.application.port.in.query.GetRoomAvailabilityQuery;
 import backend.booking.application.port.out.LoadBookingPort;
 import backend.booking.application.port.out.LoadCustomerPort;
+import backend.booking.application.port.out.LoadReviewPort;
 import backend.booking.application.port.out.LoadRoomPort;
 import backend.booking.application.port.out.LoadUserPort;
 import backend.booking.application.port.out.SaveBookingPort;
 import backend.booking.application.port.out.SearchCustomerBookingsPort;
+import backend.dto.response.BookingResponse;
+import backend.dto.response.PagedResponse;
 import backend.dto.response.RoomAvailabilityResponse;
 import backend.entity.Booking;
 import backend.entity.BookingStatus;
@@ -18,12 +23,6 @@ import backend.entity.RoomStatus;
 import backend.entity.RoomType;
 import backend.entity.User;
 import backend.exception.BookingConflictException;
-import backend.repository.BookingRepository;
-import backend.repository.CustomerRepository;
-import backend.repository.ReviewRepository;
-import backend.repository.RoomRepository;
-import backend.repository.UserRepository;
-import backend.service.impl.BookingServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -64,6 +63,9 @@ class BookingUseCaseServiceTest {
     @Mock
     private SearchCustomerBookingsPort searchCustomerBookingsPort;
 
+    @Mock
+    private LoadReviewPort loadReviewPort;
+
     private BookingUseCaseService bookingUseCaseService;
 
     @BeforeEach
@@ -74,7 +76,8 @@ class BookingUseCaseServiceTest {
                 loadUserPort,
                 loadBookingPort,
                 saveBookingPort,
-                searchCustomerBookingsPort
+                searchCustomerBookingsPort,
+                loadReviewPort
         );
     }
 
@@ -186,6 +189,31 @@ class BookingUseCaseServiceTest {
                 99,
                 bookingUseCaseService.createBooking(command).getBookingId()
         );
+    }
+
+    @Test
+    void includesReviewFlagsInCustomerBookingHistory() {
+        LocalDateTime startTime = LocalDateTime.of(2030, 1, 10, 10, 0);
+        LocalDateTime endTime = startTime.plusHours(2);
+        User account = User.builder().id(7).email("customer@example.com").build();
+        Customer customer = Customer.builder().id(7).account(account).build();
+        Booking completedBooking = bookingAt(startTime, endTime);
+        completedBooking.setId(12);
+        completedBooking.setStatus(BookingStatus.COMPLETED);
+
+        when(loadCustomerPort.loadCustomerByAccountEmail(account.getEmail())).thenReturn(Optional.of(customer));
+        when(searchCustomerBookingsPort.searchCustomerBookings(any())).thenReturn(
+                new PageResult<>(List.of(completedBooking), 0, 10, 1, 1, true, true)
+        );
+        when(loadReviewPort.existsReviewByBookingId(12)).thenReturn(true);
+
+        PagedResponse<BookingResponse> response = bookingUseCaseService.getCustomerBookingHistory(
+                new CustomerBookingHistoryQuery(account.getEmail(), null, null, null, 0, 10, "createdAt", "desc")
+        );
+
+        assertEquals(1, response.content().size());
+        assertEquals(Boolean.TRUE, response.content().get(0).getAlreadyReviewed());
+        assertEquals(Boolean.FALSE, response.content().get(0).getCanReview());
     }
 
     private Room availableRoom() {

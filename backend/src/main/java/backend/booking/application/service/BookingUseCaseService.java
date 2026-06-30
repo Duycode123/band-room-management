@@ -19,6 +19,7 @@ import backend.booking.application.port.in.query.GetRoomAvailabilityQuery;
 import backend.booking.application.port.in.query.ListBookingsForManagementQuery;
 import backend.booking.application.port.out.LoadBookingPort;
 import backend.booking.application.port.out.LoadCustomerPort;
+import backend.booking.application.port.out.LoadReviewPort;
 import backend.booking.application.port.out.LoadRoomPort;
 import backend.booking.application.port.out.LoadUserPort;
 import backend.booking.application.port.out.SaveBookingPort;
@@ -69,6 +70,7 @@ public class BookingUseCaseService implements
     private final LoadBookingPort loadBookingPort;
     private final SaveBookingPort saveBookingPort;
     private final SearchCustomerBookingsPort searchCustomerBookingsPort;
+    private final LoadReviewPort loadReviewPort;
 
     @Override
     public BookingCostResponse calculateCost(CalculateBookingCostCommand command) {
@@ -165,7 +167,7 @@ public class BookingUseCaseService implements
         );
 
         return PagedResponse.of(
-                bookingPage.content().stream().map(BookingResponse::new).toList(),
+                bookingPage.content().stream().map(this::toBookingResponse).toList(),
                 bookingPage.page(),
                 bookingPage.size(),
                 bookingPage.totalElements(),
@@ -453,6 +455,13 @@ public class BookingUseCaseService implements
     private User getCurrentUser(String email) {
         return loadUserPort.loadUserByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay nguoi dung"));
+    }
+
+    private BookingResponse toBookingResponse(Booking booking) {
+        return new BookingResponse(
+                booking,
+                booking.getId() != null && loadReviewPort.existsReviewByBookingId(booking.getId())
+        );
     }
 
     private void checkAdminOrStaff(User user) {

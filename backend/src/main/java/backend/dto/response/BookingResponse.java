@@ -77,6 +77,6 @@ public class BookingResponse {
     public BookingResponse(Booking booking, boolean alreadyReviewed) {
         this(booking);
         this.alreadyReviewed = alreadyReviewed;
-        this.canReview = booking.getStatus() == BookingStatus.HOAN_TAT && !alreadyReviewed;
+        this.canReview = booking.getStatus() == BookingStatus.COMPLETED && !alreadyReviewed;
     }
 }

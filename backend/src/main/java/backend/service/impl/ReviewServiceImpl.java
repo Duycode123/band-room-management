@@ -95,7 +95,7 @@ public class ReviewServiceImpl implements ReviewService {
             return new ReviewEligibilityResponse(bookingId, false, true, "Đơn đặt phòng này đã được đánh giá");
         }
 
-        if (booking.getStatus() != BookingStatus.HOAN_TAT) {
+        if (booking.getStatus() != BookingStatus.COMPLETED) {
             return new ReviewEligibilityResponse(bookingId, false, false, "Chỉ có thể đánh giá sau khi đơn đặt phòng đã hoàn tất");
         }
 
@@ -217,7 +217,7 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     private void validateBookingCanBeReviewed(Booking booking) {
-        if (booking.getStatus() != BookingStatus.HOAN_TAT) {
+        if (booking.getStatus() != BookingStatus.COMPLETED) {
             throw new IllegalStateException("Chỉ có thể đánh giá sau khi đơn đặt phòng đã hoàn tất");
         }
     }
