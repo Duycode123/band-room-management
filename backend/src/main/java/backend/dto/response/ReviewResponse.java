@@ -14,7 +14,8 @@ public record ReviewResponse(
         Integer rating,
         String content,
         Boolean approved,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        ReviewAdminResponsePayload adminResponse
 ) {
     public static ReviewResponse from(Review review) {
         return new ReviewResponse(
@@ -27,7 +28,8 @@ public record ReviewResponse(
                 review.getRating(),
                 review.getContent(),
                 review.getApproved(),
-                review.getCreatedAt()
+                review.getCreatedAt(),
+                review.getAdminResponse() == null ? null : ReviewAdminResponsePayload.from(review.getAdminResponse())
         );
     }
 }

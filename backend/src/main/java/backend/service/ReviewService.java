@@ -1,6 +1,7 @@
 package backend.service;
 
 import backend.dto.request.CreateReviewRequest;
+import backend.dto.request.UpsertReviewResponseRequest;
 import backend.dto.request.UpdateReviewApprovalRequest;
 import backend.dto.response.PagedResponse;
 import backend.dto.response.ReviewEligibilityResponse;
@@ -28,6 +29,10 @@ public interface ReviewService {
     ReviewResponse getReviewDetailForAdmin(Integer reviewId);
 
     ReviewResponse updateReviewApproval(Integer reviewId, UpdateReviewApprovalRequest request);
+
+    ReviewResponse upsertReviewResponse(Integer reviewId, UpsertReviewResponseRequest request, String responderEmail);
+
+    void deleteReviewResponse(Integer reviewId);
 
     void deleteReview(Integer reviewId);
 }

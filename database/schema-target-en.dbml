@@ -156,8 +156,17 @@ Table review {
   booking_id      int       [unique, not null, ref: - booking.id]
   rating          int       [not null, note: '1-5']
   content         text
-  approved        boolean   [not null, default: true]
+  approved        boolean   [not null, default: false]
   created_at      timestamp [default: `now()`]
+}
+
+Table review_response {
+  id              int       [pk, increment]
+  review_id       int       [unique, not null, ref: - review.id, note: 'One admin response per review']
+  responder_id    int       [not null, ref: > account.id]
+  content         text      [not null]
+  created_at      timestamp [default: `now()`]
+  updated_at      timestamp [default: `now()`]
 }
 
 Table shift {

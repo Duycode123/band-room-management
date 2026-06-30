@@ -12,9 +12,9 @@ import java.time.LocalDateTime;
 @Builder
 @Entity
 @Table(
-        name = "danh_gia",
+        name = "review",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uk_danh_gia_dat_phong", columnNames = "dat_phong_id")
+                @UniqueConstraint(name = "uk_review_booking_id", columnNames = "booking_id")
         }
 )
 public class Review {
@@ -24,20 +24,23 @@ public class Review {
     private Integer id;
 
     @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "dat_phong_id", nullable = false)
+    @JoinColumn(name = "booking_id", nullable = false)
     private Booking booking;
 
-    @Column(name = "diem", nullable = false)
+    @Column(name = "rating", nullable = false)
     private Integer rating;
 
-    @Column(name = "noi_dung", columnDefinition = "TEXT")
+    @Column(name = "content", columnDefinition = "TEXT")
     private String content;
 
-    @Column(name = "da_duyet", nullable = false)
+    @Column(name = "approved", nullable = false)
     private Boolean approved;
 
-    @Column(name = "ngay_tao", nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @OneToOne(mappedBy = "review", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private ReviewAdminResponse adminResponse;
 
     @PrePersist
     public void prePersist() {
