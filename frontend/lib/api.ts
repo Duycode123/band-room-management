@@ -2,6 +2,7 @@ import axios from 'axios'
 
 const REFRESH_PATH = '/api/auth/refresh'
 const AUTH_PATH_PREFIX = '/api/auth/'
+const AUTH_SESSION_MARKER_KEY = 'bandroom_has_auth_session'
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
@@ -10,12 +11,27 @@ const api = axios.create({
 
 let refreshPromise: Promise<void> | null = null
 
+export function hasStoredAuthSession() {
+  if (typeof window === 'undefined') return false
+  return window.localStorage.getItem(AUTH_SESSION_MARKER_KEY) === 'true'
+}
+
+export function rememberAuthSession() {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(AUTH_SESSION_MARKER_KEY, 'true')
+}
+
+export function clearStoredAuthSession() {
+  if (typeof window === 'undefined') return
+  window.localStorage.removeItem(AUTH_SESSION_MARKER_KEY)
+}
+
 function isAuthFlowRequest(url?: string) {
   if (!url) return false
   return url.includes(AUTH_PATH_PREFIX) && !url.includes('/session')
 }
 
-async function refreshSession() {
+export async function refreshSession() {
   if (!refreshPromise) {
     refreshPromise = api.post(REFRESH_PATH).then(() => undefined).finally(() => {
       refreshPromise = null
@@ -39,12 +55,17 @@ api.interceptors.response.use(
       return Promise.reject(error)
     }
 
+    if (!hasStoredAuthSession()) {
+      return Promise.reject(error)
+    }
+
     originalRequest._retry = true
 
     try {
       await refreshSession()
       return api(originalRequest)
     } catch {
+      clearStoredAuthSession()
       return Promise.reject(error)
     }
   },

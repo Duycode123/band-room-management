@@ -1,4 +1,9 @@
-import api from '@/lib/api'
+import api, {
+  clearStoredAuthSession,
+  hasStoredAuthSession,
+  refreshSession,
+  rememberAuthSession,
+} from '@/lib/api'
 
 export type UserRole = 'ADMIN' | 'STAFF' | 'CUSTOMER'
 
@@ -43,6 +48,7 @@ export function getPostLoginPath(role: UserRole) {
 
 export const loginSession = async (email: string, password: string) => {
   const response = await api.post<AuthApiUser>('/api/auth/login', { email, password })
+  rememberAuthSession()
   return normalizeAuthUser(response.data)
 }
 
@@ -51,10 +57,30 @@ export const getSessionRole = async () => {
   return normalizeAuthUser(response.data)
 }
 
+export const restoreSession = async () => {
+  try {
+    return await getSessionRole()
+  } catch (error) {
+    if (!hasStoredAuthSession()) {
+      throw error
+    }
+
+    try {
+      await refreshSession()
+      return await getSessionRole()
+    } catch (refreshError) {
+      clearStoredAuthSession()
+      throw refreshError
+    }
+  }
+}
+
 export const logoutSession = async () => {
   try {
     await api.post('/api/auth/logout')
   } catch {
     // The UI still clears local auth state and returns to the homepage if the API is temporarily unavailable.
+  } finally {
+    clearStoredAuthSession()
   }
 }
