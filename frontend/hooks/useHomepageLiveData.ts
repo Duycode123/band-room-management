@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  fetchHomepageSummary,
-  getAvailabilityStatus,
-  getInitialAvailabilityStatus,
+  fetchNextAvailableSlot,
+  fetchRecentActivities,
+  fetchTodayAvailability,
+  getFallbackAvailabilityStatus,
+  getFallbackNextAvailableSlot,
+  getFallbackRecentActivities,
   type AvailabilityStatus,
   type NextAvailableSlot,
   type RecentActivity,
@@ -23,9 +26,9 @@ const POLLING_INTERVAL_MS = 30000
 
 export function useHomepageLiveData(): HomepageLiveData {
   const mountedRef = useRef(false)
-  const [availabilityStatus, setAvailabilityStatus] = useState<AvailabilityStatus>(() => getInitialAvailabilityStatus())
-  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([])
-  const [nextAvailableSlot, setNextAvailableSlot] = useState<NextAvailableSlot | null>(null)
+  const [availabilityStatus, setAvailabilityStatus] = useState<AvailabilityStatus>(() => getFallbackAvailabilityStatus())
+  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>(() => getFallbackRecentActivities())
+  const [nextAvailableSlot, setNextAvailableSlot] = useState<NextAvailableSlot | null>(() => getFallbackNextAvailableSlot())
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -33,18 +36,22 @@ export function useHomepageLiveData(): HomepageLiveData {
     if (!silent) setIsLoading(true)
 
     try {
-      const summary = await fetchHomepageSummary()
+      const [availability, activities, slot] = await Promise.all([
+        fetchTodayAvailability(),
+        fetchRecentActivities(),
+        fetchNextAvailableSlot(),
+      ])
 
       if (!mountedRef.current) return
 
-      setAvailabilityStatus(getAvailabilityStatus(summary))
-      setRecentActivities(summary.recentActivities)
-      setNextAvailableSlot(summary.nextAvailableSlots[0] ?? null)
+      setAvailabilityStatus(availability)
+      setRecentActivities(activities)
+      setNextAvailableSlot(slot)
       setError(null)
     } catch {
       if (!mountedRef.current) return
 
-      setError('Không thể tải dữ liệu hiện tại')
+      setError('Không thể cập nhật dữ liệu realtime. Đang hiển thị dữ liệu gần nhất.')
     } finally {
       if (!mountedRef.current) return
 
@@ -55,10 +62,15 @@ export function useHomepageLiveData(): HomepageLiveData {
   useEffect(() => {
     mountedRef.current = true
 
-    void loadData()
+    const loadMountedData = async (silent = false) => {
+      if (!mountedRef.current) return
+      await loadData(silent)
+    }
+
+    void loadMountedData()
 
     const intervalId = window.setInterval(() => {
-      void loadData(true)
+      void loadMountedData(true)
     }, POLLING_INTERVAL_MS)
 
     return () => {
