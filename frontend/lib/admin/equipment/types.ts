@@ -1,45 +1,43 @@
 export type EquipmentType =
-  | 'GUITAR'
+  | 'AMP'
+  | 'MIXER'
+  | 'MIC'
   | 'DRUM'
+  | 'GUITAR'
   | 'KEYBOARD'
-  | 'AMPLIFIER'
-  | 'MICROPHONE'
-  | 'MONITOR'
-  | 'RECORDING'
+  | 'OTHER'
 
-export type EquipmentStatus = 'AVAILABLE' | 'IN_USE' | 'MAINTENANCE' | 'DISABLED'
+export type EquipmentStatus = 'GOOD' | 'BROKEN' | 'MAINTENANCE'
 
 export type AdminEquipment = {
-  equipmentId: string
-  equipmentCode: string
+  equipmentId: number
+  roomId: number
+  roomName: string
   equipmentName: string
   equipmentType: EquipmentType
-  quantity: number
-  availableQuantity: number
-  rentalPrice: number
   status: EquipmentStatus
-  description?: string
-  imageUrl?: string
-  /** Mock flag — block delete when true (AC-04). */
-  inActiveBooking: boolean
+  notes?: string
 }
 
 export type EquipmentFilters = {
   query: string
   equipmentType: EquipmentType | 'ALL'
   status: EquipmentStatus | 'ALL'
-  sortBy: 'name' | 'price' | 'quantity'
+  sortBy: 'name' | 'room'
   sortOrder: 'asc' | 'desc'
 }
 
 export type EquipmentFormData = {
+  roomId: number | null
   equipmentName: string
   equipmentType: EquipmentType
-  quantity: number
-  rentalPrice: number
   status: EquipmentStatus
-  description: string
-  imageUrl: string
+  notes: string
 }
 
 export type EquipmentFormErrors = Partial<Record<keyof EquipmentFormData, string>>
+
+export type EquipmentRoomOption = {
+  roomId: number
+  roomName: string
+}

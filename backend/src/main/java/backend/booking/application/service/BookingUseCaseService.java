@@ -4,6 +4,7 @@ import backend.booking.application.model.PageResult;
 import backend.booking.application.port.in.CalculateBookingCostUseCase;
 import backend.booking.application.port.in.CancelBookingForManagementUseCase;
 import backend.booking.application.port.in.CreateBookingUseCase;
+import backend.booking.application.port.in.GetCustomerBookingDetailUseCase;
 import backend.booking.application.port.in.GetBookingManagementDetailUseCase;
 import backend.booking.application.port.in.GetCustomerBookingHistoryUseCase;
 import backend.booking.application.port.in.GetRoomAvailabilityUseCase;
@@ -15,6 +16,7 @@ import backend.booking.application.port.in.command.CreateBookingCommand;
 import backend.booking.application.port.in.command.UpdateBookingStatusCommand;
 import backend.booking.application.port.in.query.CustomerBookingHistoryQuery;
 import backend.booking.application.port.in.query.GetBookingManagementDetailQuery;
+import backend.booking.application.port.in.query.GetCustomerBookingDetailQuery;
 import backend.booking.application.port.in.query.GetRoomAvailabilityQuery;
 import backend.booking.application.port.in.query.ListBookingsForManagementQuery;
 import backend.booking.application.port.out.LoadBookingPort;
@@ -57,6 +59,7 @@ import java.util.List;
 public class BookingUseCaseService implements
         CalculateBookingCostUseCase,
         CreateBookingUseCase,
+        GetCustomerBookingDetailUseCase,
         GetCustomerBookingHistoryUseCase,
         GetRoomAvailabilityUseCase,
         ListBookingsForManagementUseCase,
@@ -175,6 +178,25 @@ public class BookingUseCaseService implements
                 bookingPage.first(),
                 bookingPage.last()
         );
+    }
+
+    @Override
+    public BookingResponse getCustomerBookingDetail(GetCustomerBookingDetailQuery query) {
+        if (query.bookingId() == null) {
+            throw new IllegalArgumentException("bookingId khong duoc de trong");
+        }
+
+        Customer customer = loadCustomerPort.loadCustomerByAccountEmail(query.customerEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay ho so khach hang"));
+
+        Booking booking = loadBookingPort.loadBooking(query.bookingId())
+                .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay don dat phong"));
+
+        if (!booking.getCustomer().getId().equals(customer.getId())) {
+            throw new ForbiddenException("Ban khong co quyen xem don dat phong nay");
+        }
+
+        return toBookingResponse(booking);
     }
 
     @Override

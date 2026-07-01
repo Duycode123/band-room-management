@@ -71,6 +71,7 @@ public class AuthUseCaseService implements
                 .fullName(fullName)
                 .phone(phone)
                 .email(email)
+                .dateOfBirth(command.dateOfBirth())
                 .build();
 
         authAccountPort.saveCustomer(customer);

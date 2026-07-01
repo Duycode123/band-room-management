@@ -5,13 +5,15 @@
 - Source: Product Backlog `UC004`
 - Primary actor: Customer
 - Supporting actors: Booking system, payment flow
-- Current status in repo: Implemented for availability lookup, cost calculation, and booking creation with pending-payment state
+- Current status in repo: Implemented for availability lookup, cost calculation, booking creation, and backend-managed checkout handoff
 
 ## Related Endpoints
 
 - `GET /api/rooms/{id}/available-slots`
 - `POST /api/bookings/calculate-cost`
 - `POST /api/bookings`
+- `POST /api/payments/sessions`
+- `GET /api/payments/transactions/{paymentId}`
 
 ## Goal
 
@@ -35,6 +37,9 @@ Allow an authenticated customer to select a valid room/time range, see the expec
 7. Customer confirms booking.
 8. Backend validates the request again, checks availability under concurrency control, and creates the booking.
 9. Backend stores the booking with pending-payment status and returns booking summary data.
+10. Frontend opens checkout using the stored booking identity instead of rebuilding a local mock summary.
+11. Backend creates a payment transaction for the selected checkout method.
+12. For the current simplified flow, counter payments stay pending while online payments are marked succeeded immediately.
 
 ## Alternate and Error Flows
 
@@ -69,12 +74,13 @@ Allow an authenticated customer to select a valid room/time range, see the expec
 - Booking creation uses room locking plus overlap checks to reduce race conditions.
 - The service catches persistence conflicts and converts them into booking conflict errors.
 - A scheduled expiry job exists to auto-cancel stale unpaid bookings after the configured timeout.
+- Checkout now asks the backend to create a `payment_transaction` record instead of simulating payment only in the frontend.
+- The current backend maps checkout methods into the existing booking payment model (`CASH` or `ONLINE`) and exposes a payment-return lookup endpoint for the frontend.
 
 ## Known Gaps / Follow-up
 
-- Full payment completion flow is not fully represented by current controller sources.
 - Instrument add-ons, coupon application, and richer checkout breakdown from backlog are not yet covered in this backend path.
-- Booking detail for customers is not yet a separate endpoint.
+- Real gateway callback/reconciliation is still follow-up work; the current online path is a backend-owned simulated success.
 
 ## Hexagonal Refactor Notes
 

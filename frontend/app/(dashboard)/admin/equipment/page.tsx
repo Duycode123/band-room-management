@@ -16,10 +16,16 @@ import {
   deleteAdminEquipment,
   EMPTY_EQUIPMENT_FORM,
   fetchAdminEquipment,
+  fetchEquipmentRooms,
   toFormData,
   updateAdminEquipment,
 } from '@/lib/admin/equipment/adminEquipmentApi'
-import type { AdminEquipment, EquipmentFilters, EquipmentFormData } from '@/lib/admin/equipment/types'
+import type {
+  AdminEquipment,
+  EquipmentFilters,
+  EquipmentFormData,
+  EquipmentRoomOption,
+} from '@/lib/admin/equipment/types'
 
 const DEFAULT_FILTERS: EquipmentFilters = {
   query: '',
@@ -32,29 +38,45 @@ const DEFAULT_FILTERS: EquipmentFilters = {
 type FormModalState =
   | { open: false }
   | { open: true; mode: 'create'; data: EquipmentFormData }
-  | { open: true; mode: 'edit'; equipmentId: string; data: EquipmentFormData }
+  | { open: true; mode: 'edit'; equipmentId: number; data: EquipmentFormData }
 
 export default function AdminEquipmentPage() {
   const [filters, setFilters] = useState<EquipmentFilters>(DEFAULT_FILTERS)
   const [equipment, setEquipment] = useState<AdminEquipment[]>([])
+  const [rooms, setRooms] = useState<EquipmentRoomOption[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selected, setSelected] = useState<AdminEquipment | null>(null)
   const [formModal, setFormModal] = useState<FormModalState>({ open: false })
   const [toast, setToast] = useState('')
+  const [errorMessage, setErrorMessage] = useState('')
 
   const loadEquipment = useCallback(async () => {
     setIsLoading(true)
+
     try {
       const data = await fetchAdminEquipment(filters)
       setEquipment(data)
-      setSelected((current) => {
-        if (!current) return null
-        return data.find((e) => e.equipmentId === current.equipmentId) ?? null
+      setErrorMessage('')
+      setSelected((currentEquipment) => {
+        if (!currentEquipment) return null
+        return data.find((item) => item.equipmentId === currentEquipment.equipmentId) ?? null
       })
+    } catch (error) {
+      setEquipment([])
+      setSelected(null)
+      setErrorMessage(error instanceof Error ? error.message : 'Khong the tai danh sach thiet bi.')
     } finally {
       setIsLoading(false)
     }
   }, [filters])
+
+  useEffect(() => {
+    void fetchEquipmentRooms()
+      .then((data) => setRooms(data))
+      .catch((error) => {
+        setErrorMessage(error instanceof Error ? error.message : 'Khong the tai danh sach phong.')
+      })
+  }, [])
 
   useEffect(() => {
     const timer = setTimeout(() => void loadEquipment(), 200)
@@ -63,6 +85,7 @@ export default function AdminEquipmentPage() {
 
   useEffect(() => {
     if (!toast) return
+
     const timer = setTimeout(() => setToast(''), 3500)
     return () => clearTimeout(timer)
   }, [toast])
@@ -70,31 +93,42 @@ export default function AdminEquipmentPage() {
   const stats = useMemo(() => {
     return {
       total: equipment.length,
-      available: equipment.filter((e) => e.status === 'AVAILABLE').length,
-      inUse: equipment.filter((e) => e.status === 'IN_USE').length,
-      maintenance: equipment.filter((e) => e.status === 'MAINTENANCE' || e.status === 'DISABLED').length,
+      good: equipment.filter((item) => item.status === 'GOOD').length,
+      broken: equipment.filter((item) => item.status === 'BROKEN').length,
+      maintenance: equipment.filter((item) => item.status === 'MAINTENANCE').length,
     }
   }, [equipment])
 
+  const createInitialForm = useCallback(
+    () => ({
+      ...EMPTY_EQUIPMENT_FORM,
+      roomId: rooms[0]?.roomId ?? null,
+    }),
+    [rooms],
+  )
+
   const handleCreate = async (data: EquipmentFormData) => {
     await createAdminEquipment(data)
-    setToast('Thêm thiết bị thành công.')
+    setToast('Them thiet bi thanh cong.')
     await loadEquipment()
   }
 
   const handleUpdate = async (data: EquipmentFormData) => {
-    if (formModal.open && formModal.mode === 'edit') {
-      const updated = await updateAdminEquipment(formModal.equipmentId, data)
-      if (!updated) throw new Error('Không tìm thấy thiết bị.')
-      setToast('Cập nhật thiết bị thành công.')
-      setSelected(updated)
-      await loadEquipment()
+    if (!formModal.open || formModal.mode !== 'edit') return
+
+    const updated = await updateAdminEquipment(formModal.equipmentId, data)
+    if (!updated) {
+      throw new Error('Khong tim thay thiet bi.')
     }
+
+    setToast('Cap nhat thiet bi thanh cong.')
+    setSelected(updated)
+    await loadEquipment()
   }
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: number) => {
     await deleteAdminEquipment(id)
-    setToast('Xóa thiết bị thành công.')
+    setToast('Xoa thiet bi thanh cong.')
     setSelected(null)
     await loadEquipment()
   }
@@ -103,23 +137,21 @@ export default function AdminEquipmentPage() {
     <AuthGuard allowedRoles={['ADMIN']}>
       <AdminShell>
         <AdminPageHeader
-          eyebrow="Thiết bị cho thuê"
-          title="Quản lý thiết bị"
-          description="Kiểm soát nhạc cụ và gear — số lượng khả dụng, giá thuê, trạng thái bảo trì đồng bộ với đặt phòng."
+          eyebrow="Thiet bi"
+          title="Quan ly thiet bi"
+          description="Danh sach thiet bi nay dang doc va ghi truc tiep vao backend."
           breadcrumbs={[
-            { label: 'Tổng quan', href: '/admin/dashboard' },
-            { label: 'Thiết bị' },
+            { label: 'Tong quan', href: '/admin/dashboard' },
+            { label: 'Thiet bi' },
           ]}
           actions={
             <button
               type="button"
-              onClick={() =>
-                setFormModal({ open: true, mode: 'create', data: { ...EMPTY_EQUIPMENT_FORM } })
-              }
+              onClick={() => setFormModal({ open: true, mode: 'create', data: createInitialForm() })}
               className="inline-flex items-center gap-2 rounded-xl bg-brand-orange px-5 py-2.5 font-display text-sm font-medium text-white shadow-lg shadow-brand-orange/25 transition-all hover:bg-brand-orangeHover active:scale-[0.98]"
             >
               <IconPlus className="h-4 w-4" />
-              Thêm mới
+              Them moi
             </button>
           }
         />
@@ -127,33 +159,39 @@ export default function AdminEquipmentPage() {
         <div className="mx-auto max-w-7xl space-y-6 px-5 py-6 sm:px-8">
           <AdminToast message={toast} onDismiss={() => setToast('')} />
 
+          {errorMessage && (
+            <div className="rounded-xl border border-error/30 bg-error-container/30 px-4 py-3 text-sm text-error">
+              {errorMessage}
+            </div>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <AdminStatCard
-              label="Kết quả lọc"
+              label="Ket qua loc"
               value={stats.total}
-              hint="Thiết bị hiển thị"
+              hint="Thiet bi hien thi"
               icon={<IconEquipment className="h-5 w-5" />}
             />
             <AdminStatCard
-              label="Khả dụng"
-              value={stats.available}
-              hint="Sẵn sàng cho thuê"
+              label="Tot"
+              value={stats.good}
+              hint="San sang su dung"
               accent="secondary"
-              icon={<span className="text-base">✓</span>}
+              icon={<span className="text-base">OK</span>}
             />
             <AdminStatCard
-              label="Đang sử dụng"
-              value={stats.inUse}
-              hint="Trong booking"
+              label="Hu hong"
+              value={stats.broken}
+              hint="Can xu ly"
               accent="primary"
-              icon={<span className="text-base">◉</span>}
+              icon={<span className="text-base">!</span>}
             />
             <AdminStatCard
-              label="Bảo trì / Ngưng"
+              label="Bao tri"
               value={stats.maintenance}
-              hint="Tạm không cho thuê"
+              hint="Tam dung"
               accent="tertiary"
-              icon={<span className="text-base">⚙</span>}
+              icon={<span className="text-base">MT</span>}
             />
           </div>
 
@@ -161,8 +199,8 @@ export default function AdminEquipmentPage() {
 
           <section>
             <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="font-display text-lg font-bold text-on-surface">Danh sách thiết bị</h2>
-              <p className="text-xs text-on-surface-variant">Nhấn thẻ để xem chi tiết</p>
+              <h2 className="font-display text-lg font-bold text-on-surface">Danh sach thiet bi</h2>
+              <p className="text-xs text-on-surface-variant">Nhan the de xem chi tiet</p>
             </div>
             <EquipmentTable
               equipment={equipment}
@@ -171,10 +209,6 @@ export default function AdminEquipmentPage() {
               onSelect={setSelected}
             />
           </section>
-
-          <p className="pb-4 text-center text-[11px] text-on-surface-variant">
-            * Demo FE — dữ liệu mock, sẽ kết nối API khi tích hợp backend.
-          </p>
         </div>
 
         <EquipmentDetailPanel
@@ -189,7 +223,8 @@ export default function AdminEquipmentPage() {
         <EquipmentFormModal
           open={formModal.open}
           mode={formModal.open ? formModal.mode : 'create'}
-          initialData={formModal.open ? formModal.data : EMPTY_EQUIPMENT_FORM}
+          initialData={formModal.open ? formModal.data : createInitialForm()}
+          rooms={rooms}
           onClose={() => setFormModal({ open: false })}
           onSubmit={formModal.open && formModal.mode === 'edit' ? handleUpdate : handleCreate}
         />

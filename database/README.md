@@ -22,6 +22,7 @@ The current backend source clearly models these areas:
 - booking data
 - review and admin review response data
 - payment transaction data
+- customer issue report data
 - revoked token data
 
 Core model/entity classes currently present in backend source:
@@ -36,6 +37,7 @@ Core model/entity classes currently present in backend source:
 - `Review`
 - `ReviewAdminResponse`
 - `PaymentTransaction`
+- `CustomerIssueReport`
 - `RevokedToken`
 
 ## Existing Files
@@ -45,6 +47,7 @@ Core model/entity classes currently present in backend source:
 - `database/migrations/20260628_rename_vn_schema_to_en.sql`
 - `database/migrations/20260630_complete_vn_schema_to_en.sql`
 - `database/migrations/20260630_add_review_response_table.sql`
+- `database/migrations/20260701_add_customer_issue_report_and_counter_provider.sql`
 - `database/sample-data/seed_rooms_and_equipment.sql`
 - `database/sample-data/seed_bookings_and_reviews.sql`
 - `database/schema-target-en.dbml`
@@ -166,6 +169,8 @@ If the change is part of the Vietnamese-to-English rename:
 - Each review can have at most one admin response stored in `review_response`.
 - Payment and booking timeout behavior should stay aligned with booking-expiry logic in the backend.
 - Enum-backed statuses deserve explicit documentation because they affect filters, transitions, and reporting.
+- `payment_provider` now includes `COUNTER` for pay-at-counter checkout sessions alongside online providers such as `VNPAY`.
+- `customer_issue_report` stores customer-submitted support issues, optionally linked to one owned booking, and keeps a small explicit lifecycle (`OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`).
 
 ## Migration Guidance For The Rename
 

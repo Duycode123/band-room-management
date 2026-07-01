@@ -55,6 +55,7 @@ public class AuthController {
                         request.getFullName(),
                         request.getEmail(),
                         request.getPhone(),
+                        request.getDateOfBirth(),
                         request.getPassword()
                 )));
     }
