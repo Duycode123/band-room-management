@@ -7,7 +7,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import BookingRoomCard from '@/components/booking/BookingRoomCard'
 import BookingQuickModal from '@/components/booking/BookingQuickModal'
 import RoomDetailModal from '@/components/booking/RoomDetailModal'
-import AccountMenu from '@/components/layout/AccountMenu'
+import BandRoomHeader from '@/components/layout/BandRoomHeader'
 import {
   bookingRooms,
   roomCategories,
@@ -22,14 +22,8 @@ import {
   formatRelativeTime,
   formatSlotDateLabel,
   getActivityActionLabel,
-  maskCustomerName,
   type AvailabilityTone,
 } from '@/lib/homepage-live-service'
-
-const navItems = [
-  { label: 'Phòng tập', href: '#rooms' },
-  { label: 'Về chúng tôi', href: '#about' },
-]
 
 const stats = [
   { value: '2.400+', label: 'Lượt đặt mỗi tháng' },
@@ -179,17 +173,54 @@ function getAvailabilityDotClassName(tone: AvailabilityTone) {
   return ['h-2 w-2 rounded-full', toneClassName[tone]].join(' ')
 }
 
+function getSlotDurationHours(startTime: string, endTime?: string) {
+  if (!endTime) return 1
+
+  const [startHour, startMinute] = startTime.split(':').map(Number)
+  const [endHour, endMinute] = endTime.split(':').map(Number)
+  const startTotal = (Number.isFinite(startHour) ? startHour : 0) * 60 + (Number.isFinite(startMinute) ? startMinute : 0)
+  const endTotal = (Number.isFinite(endHour) ? endHour : 0) * 60 + (Number.isFinite(endMinute) ? endMinute : 0)
+  const duration = Math.max(1, Math.round((endTotal - startTotal) / 60))
+
+  return duration
+}
+
+function LiveActivitySkeleton() {
+  return (
+    <>
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div key={index} className="flex items-center justify-between gap-3">
+          <div className="h-4 w-44 animate-pulse rounded-full bg-white/10" />
+          <div className="h-3 w-16 animate-pulse rounded-full bg-white/10" />
+        </div>
+      ))}
+    </>
+  )
+}
+
+function NextSlotSkeleton() {
+  return (
+    <div className="mt-3 flex items-end justify-between gap-4">
+      <div className="space-y-2">
+        <div className="h-5 w-36 animate-pulse rounded-full bg-white/10" />
+        <div className="h-4 w-44 animate-pulse rounded-full bg-white/10" />
+      </div>
+      <div className="h-9 w-16 animate-pulse rounded-lg bg-white/10" />
+    </div>
+  )
+}
+
 export default function HomePage() {
   const router = useRouter()
-  const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth()
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth()
   const {
     availabilityStatus,
     recentActivities,
     nextAvailableSlot,
     isLoading: isLiveDataLoading,
     error: liveDataError,
+    refresh: refreshLiveData,
   } = useHomepageLiveData()
-  const [menuOpen, setMenuOpen] = useState(false)
   const [availabilityHintVisible, setAvailabilityHintVisible] = useState(false)
   const [quickBooking, setQuickBooking] = useState<QuickBookingState | null>(null)
   const [selectedRoomDetail, setSelectedRoomDetail] = useState<BookingRoom | null>(null)
@@ -224,12 +255,10 @@ export default function HomePage() {
   }, [])
 
   const scrollToRooms = () => {
-    document.getElementById('rooms')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    router.push('/rooms')
   }
 
   const handleBookingClick = () => {
-    setMenuOpen(false)
-
     if (isAuthLoading) return
     if (!isAuthenticated) {
       router.push('/login')
@@ -256,10 +285,10 @@ export default function HomePage() {
       return
     }
 
-    const room = findBookingRoomInCatalog(nextAvailableSlot.roomId, rooms)
+    const room = findBookingRoomInCatalog(String(nextAvailableSlot.roomId), rooms)
 
     if (!room) {
-      handleBookingClick()
+      router.push('/rooms')
       return
     }
 
@@ -267,7 +296,7 @@ export default function HomePage() {
       room,
       initialDate: nextAvailableSlot.date,
       initialStartTime: nextAvailableSlot.startTime,
-      initialDuration: nextAvailableSlot.duration,
+      initialDuration: getSlotDurationHours(nextAvailableSlot.startTime, nextAvailableSlot.endTime),
     })
   }
 
@@ -278,101 +307,7 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-brand-bgGray text-on-surface">
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-brand-bgGray/90 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center gap-5 px-5 py-4 sm:px-8">
-          <Link href="/" className="flex shrink-0 items-center gap-3" aria-label="Band Room homepage">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-orange text-white">
-              <Icon name="music" className="h-5 w-5" />
-            </span>
-            <span className="font-display text-lg font-bold">Band Room</span>
-          </Link>
-
-          <nav className="mx-auto hidden items-center gap-6 md:flex">
-            {navItems.map((item) => (
-              <a
-                key={item.label}
-                href={item.href}
-                className="rounded-lg px-4 py-2 font-display text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
-              >
-                {item.label}
-              </a>
-            ))}
-          </nav>
-
-          <div className="hidden items-center gap-3 md:flex">
-            {isAuthenticated && user ? (
-              <AccountMenu />
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  className="px-4 py-2 font-display text-sm font-semibold text-on-surface-variant transition-colors hover:text-on-surface"
-                >
-                  Đăng nhập
-                </Link>
-                <button
-                  type="button"
-                  onClick={handleBookingClick}
-                  disabled={isAuthLoading}
-                  className="rounded-lg bg-brand-orange px-5 py-2.5 font-display text-sm font-semibold text-white shadow-[0_10px_28px_rgba(255,117,24,0.28)] transition-all hover:bg-brand-orangeHover active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
-                >
-                  Đặt phòng
-                </button>
-              </>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setMenuOpen((open) => !open)}
-            className="ml-auto rounded-lg border border-outline bg-white/70 px-3 py-2 font-display text-sm font-semibold text-on-surface md:hidden"
-            aria-expanded={menuOpen}
-            aria-controls="mobile-menu"
-          >
-            {menuOpen ? 'Đóng' : 'Menu'}
-          </button>
-        </div>
-
-        {menuOpen && (
-          <div id="mobile-menu" className="border-t border-outline-variant bg-brand-bgGray px-5 pb-5 md:hidden">
-            <nav className="grid py-2">
-              {navItems.map((item) => (
-                <a
-                  key={item.label}
-                  href={item.href}
-                  onClick={() => setMenuOpen(false)}
-                  className="border-b border-outline-variant py-3 font-display text-sm font-semibold text-on-surface-variant"
-                >
-                  {item.label}
-                </a>
-              ))}
-            </nav>
-            {isAuthenticated && user ? (
-              <div className="mt-4 flex justify-end">
-                <AccountMenu align="full" onNavigate={() => setMenuOpen(false)} />
-              </div>
-            ) : (
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <Link
-                  href="/login"
-                  onClick={() => setMenuOpen(false)}
-                  className="rounded-lg border border-outline bg-white px-4 py-3 text-center font-display text-sm font-semibold text-on-surface"
-                >
-                  Đăng nhập
-                </Link>
-                <button
-                  type="button"
-                  onClick={handleBookingClick}
-                  disabled={isAuthLoading}
-                  className="rounded-lg bg-brand-orange px-4 py-3 font-display text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-70"
-                >
-                  Đặt phòng
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </header>
+      <BandRoomHeader fixed />
 
       <section className="relative flex min-h-[720px] items-center overflow-hidden bg-secondary pt-28 text-white md:min-h-screen">
         <Image
@@ -388,15 +323,19 @@ export default function HomePage() {
 
         <div className="relative mx-auto grid w-full max-w-7xl items-center gap-12 px-5 pb-20 sm:px-8 lg:grid-cols-[1fr_380px]">
           <div className="max-w-3xl">
-            <button
-              type="button"
-              onClick={handleAvailabilityBadgeClick}
-              className={getAvailabilityBadgeClassName(availabilityStatus.tone)}
-              aria-live="polite"
-            >
-              <span className={getAvailabilityDotClassName(availabilityStatus.tone)} />
-              <span>{isLiveDataLoading ? 'Đang cập nhật lịch phòng...' : availabilityStatus.label}</span>
-            </button>
+            {isLiveDataLoading ? (
+              <div className="mb-8 h-10 w-72 animate-pulse rounded-full border border-white/15 bg-white/10" aria-hidden="true" />
+            ) : (
+              <button
+                type="button"
+                onClick={handleAvailabilityBadgeClick}
+                className={getAvailabilityBadgeClassName(availabilityStatus.tone)}
+                aria-live="polite"
+              >
+                <span className={getAvailabilityDotClassName(availabilityStatus.tone)} />
+                <span>{availabilityStatus.label}</span>
+              </button>
+            )}
 
             {availabilityHintVisible && availabilityStatus.status === 'CLOSED' && (
               <p className="-mt-5 mb-8 max-w-md text-sm text-white/55">
@@ -443,11 +382,13 @@ export default function HomePage() {
                 <span className="h-2 w-2 rounded-full bg-brand-orange" />
               </div>
               <div className="space-y-3">
-                {recentActivities.length > 0 ? (
+                {isLiveDataLoading ? (
+                  <LiveActivitySkeleton />
+                ) : recentActivities.length > 0 ? (
                   recentActivities.map((activity) => (
                     <div key={activity.id} className="flex items-center justify-between gap-3 text-sm">
                       <p>
-                        <span className="font-semibold text-white">{maskCustomerName(activity.customerName)}</span>
+                        <span className="font-semibold text-white">{activity.customerDisplayName}</span>
                         <span className="text-white/45"> {getActivityActionLabel(activity.action)} </span>
                         <span className="font-semibold text-primary-fixed">{activity.roomName}</span>
                       </p>
@@ -458,12 +399,21 @@ export default function HomePage() {
                   <p className="text-sm text-white/45">Chưa có hoạt động mới</p>
                 )}
               </div>
-              {liveDataError && <p className="mt-4 text-xs text-white/40">{liveDataError}</p>}
+              {liveDataError && !isLiveDataLoading && (
+                <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+                  <p className="text-xs text-white/55">{liveDataError}</p>
+                  <button type="button" onClick={() => void refreshLiveData()} className="shrink-0 text-xs font-semibold text-primary-fixed hover:text-brand-orange">
+                    Thử lại
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="rounded-xl border border-white/15 bg-secondary/80 p-5 shadow-[0_18px_48px_rgba(0,0,0,0.28)]">
               <p className="font-display text-xs font-semibold uppercase text-on-secondary-container">Khung giờ tiếp theo</p>
-              {nextAvailableSlot ? (
+              {isLiveDataLoading ? (
+                <NextSlotSkeleton />
+              ) : nextAvailableSlot ? (
                 <div className="mt-3 flex items-end justify-between gap-4">
                   <div>
                     <p className="font-display text-lg font-bold text-white">{nextAvailableSlot.roomName}</p>

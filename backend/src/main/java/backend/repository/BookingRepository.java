@@ -2,6 +2,7 @@ package backend.repository;
 
 import backend.entity.Booking;
 import backend.entity.BookingStatus;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -15,6 +16,9 @@ public interface BookingRepository extends JpaRepository<Booking, Integer>, JpaS
     List<Booking> findByCustomer_IdOrderByCreatedAtDesc(Integer customerId);
 
     List<Booking> findAllByOrderByCreatedAtDesc();
+
+    @EntityGraph(attributePaths = {"customer", "room"})
+    List<Booking> findTop5ByOrderByCreatedAtDesc();
 
     List<Booking> findByStatusOrderByCreatedAtDesc(BookingStatus status);
 
