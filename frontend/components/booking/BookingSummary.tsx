@@ -88,7 +88,7 @@ export default function BookingSummary({
         </button>
 
         <p className="text-center text-[11px] leading-relaxed text-on-surface-variant">
-          * Demo FE — sẽ kết nối API backend khi sẵn sàng
+          Lịch phòng và giá đang lấy theo dữ liệu backend hiện có.
         </p>
       </div>
     </aside>

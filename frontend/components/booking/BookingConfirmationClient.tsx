@@ -1,138 +1,86 @@
 'use client'
 
+import axios from 'axios'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import BandRoomHeader from '@/components/layout/BandRoomHeader'
 import {
   DEFAULT_BOOKING_DATE,
   DEFAULT_START_TIME,
   EMPTY_NOTE_TEXT,
   calculateEndTime,
+  detectRoomCategory,
   findBookingRoom,
   formatCurrency,
   formatDisplayDate,
-  getAddOnsTotal,
   getBookingRoomOrFallback,
-  getRoomSubtotal,
-  getSelectedAddOns,
-  normalizeDuration,
-  parseAddonIds,
   paymentMethods,
-  type BookingAddOn,
+  type BookingRoom,
   type PaymentMethod,
   type PaymentMethodId,
 } from '@/components/booking/booking-data'
-import { validateDiscountCode, type AppliedDiscount } from '@/lib/discount-service'
+import { createBooking, mapPaymentMethodToBackend } from '@/lib/booking/bookingApi'
 
 export default function BookingConfirmationClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const roomId = searchParams.get('roomId')
-  const room = getBookingRoomOrFallback(roomId)
-  const roomMissing = Boolean(roomId && !findBookingRoom(roomId))
+  const fallbackRoom = getBookingRoomOrFallback(roomId)
+  const apiRoom = getApiBookingRoom(searchParams)
+  const displayRoom = apiRoom ?? fallbackRoom
+  const isApiRoom = apiRoom !== null
+  const roomMissing = !isApiRoom && Boolean(roomId && !findBookingRoom(roomId))
+  const selectionHref = isApiRoom ? '/customer/booking' : '/#rooms'
   const date = searchParams.get('date') || DEFAULT_BOOKING_DATE
   const startTime = searchParams.get('startTime') || DEFAULT_START_TIME
   const duration = normalizeDuration(searchParams.get('duration'))
   const endTime = searchParams.get('endTime') || calculateEndTime(startTime, duration)
-  const selectedAddonIds = useMemo(() => parseAddonIds(searchParams.get('addons')), [searchParams])
-  const selectedAddOns = useMemo(() => getSelectedAddOns(selectedAddonIds), [selectedAddonIds])
-  const addOnsTotal = useMemo(() => getAddOnsTotal(selectedAddOns), [selectedAddOns])
-  const roomSubtotal = getRoomSubtotal(room, duration)
-  const subtotal = roomSubtotal + addOnsTotal
-  const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null)
-  const discountAmount = Math.min(appliedDiscount?.discountAmount ?? 0, subtotal)
-  const total = Math.max(0, subtotal - discountAmount)
+  const roomSubtotal = displayRoom.pricePerHour * duration
   const note = searchParams.get('note')?.trim() || EMPTY_NOTE_TEXT
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId>('bank_transfer')
   const [confirmError, setConfirmError] = useState('')
-  const [bookingConfirmed, setBookingConfirmed] = useState(false)
-  const [discountCode, setDiscountCode] = useState('')
-  const [discountError, setDiscountError] = useState('')
-  const [discountMessage, setDiscountMessage] = useState('')
-  const [isApplyingDiscount, setIsApplyingDiscount] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const activePaymentMethod = paymentMethods.find((method) => method.id === paymentMethod) ?? paymentMethods[0]
 
-  const handleApplyDiscount = async () => {
-    const code = discountCode.trim()
-
-    setDiscountError('')
-    setDiscountMessage('')
-
-    if (!code) {
-      setDiscountError('Vui lòng nhập mã giảm giá.')
-      return
-    }
-
-    setIsApplyingDiscount(true)
-
-    try {
-      const result = await validateDiscountCode({
-        code,
-        bookingId: room.code,
-        roomId: room.id,
-        subtotal,
-      })
-
-      if (!result.valid || !result.code || result.discountAmount === undefined) {
-        setAppliedDiscount(null)
-        setDiscountError(result.message || 'Mã giảm giá không hợp lệ hoặc đã hết hạn.')
-        return
-      }
-
-      setAppliedDiscount({
-        code: result.code,
-        discountAmount: result.discountAmount,
-      })
-      setDiscountCode(result.code)
-      setDiscountMessage(result.message)
-    } finally {
-      setIsApplyingDiscount(false)
-    }
-  }
-
-  const handleRemoveDiscount = () => {
-    setAppliedDiscount(null)
-    setDiscountCode('')
-    setDiscountError('')
-    setDiscountMessage('')
-  }
-
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!roomId || roomMissing) {
-      setConfirmError('Vui lòng quay lại homepage và chọn một phòng hợp lệ.')
-      setBookingConfirmed(false)
+      setConfirmError('Vui long quay lai buoc chon phong va chon mot phong hop le.')
       return
     }
 
     if (!date || !startTime || !duration || !paymentMethod) {
-      setConfirmError('Vui lòng kiểm tra ngày đặt, giờ bắt đầu, thời lượng và phương thức thanh toán.')
-      setBookingConfirmed(false)
+      setConfirmError('Vui long kiem tra ngay dat, gio bat dau, thoi luong va phuong thuc thanh toan.')
       return
     }
 
     setConfirmError('')
-    setBookingConfirmed(false)
+    setIsSubmitting(true)
 
-    const params = new URLSearchParams({
-      bookingId: room.code,
-      roomId: room.id,
-      date,
-      startTime,
-      endTime,
-      duration: String(duration),
-      addons: selectedAddonIds.join(','),
-      note: note === EMPTY_NOTE_TEXT ? '' : note,
-      method: paymentMethod,
-    })
+    try {
+      const booking = await createBooking({
+        roomId: displayRoom.id,
+        date,
+        startTime,
+        endTime,
+        paymentMethod: mapPaymentMethodToBackend(paymentMethod),
+        note: note === EMPTY_NOTE_TEXT ? '' : note,
+      })
 
-    if (appliedDiscount) {
-      params.set('discountCode', appliedDiscount.code)
-      params.set('discountAmount', String(discountAmount))
+      const params = new URLSearchParams({
+        bookingId: booking.bookingCode || String(booking.bookingId),
+        backendBookingId: String(booking.bookingId),
+        roomId: displayRoom.id,
+        method: paymentMethod,
+      })
+
+      router.push(`/customer/checkout?${params.toString()}`)
+    } catch (error) {
+      setConfirmError(getBookingErrorMessage(error))
+    } finally {
+      setIsSubmitting(false)
     }
-
-    router.push(`/customer/checkout?${params.toString()}`)
   }
 
   return (
@@ -144,71 +92,93 @@ export default function BookingConfirmationClient() {
           <div>
             <div className="mb-2 flex flex-wrap items-center gap-2 font-display text-sm text-[#5C5348]">
               <Link href="/" className="hover:text-[#1A1C1E]">
-                Trang chủ
+                Trang chu
               </Link>
               <span>/</span>
-              <Link href="/#rooms" className="hover:text-[#1A1C1E]">
-                Phòng tập
+              <Link href={selectionHref} className="hover:text-[#1A1C1E]">
+                Phong tap
               </Link>
               <span>/</span>
-              <span className="text-[#1A1C1E]">Xác nhận đặt phòng</span>
+              <span className="text-[#1A1C1E]">Xac nhan dat phong</span>
             </div>
 
-            <h1 className="font-display text-4xl font-bold tracking-tight">Xác nhận đặt phòng</h1>
+            <h1 className="font-display text-4xl font-bold tracking-tight">Xac nhan dat phong</h1>
             <p className="mt-2 text-[#5C5348]">
-              Vui lòng kiểm tra lại thông tin trước khi hoàn tất đặt phòng.
+              Buoc nay se tao booking that tren backend truoc khi chuyen sang checkout.
             </p>
           </div>
 
           <span className="w-fit rounded-full bg-[#0A4D27] px-4 py-2 font-display text-sm font-semibold text-white">
-            Sẵn sàng xác nhận
+            San sang xac nhan
           </span>
         </div>
 
         {roomMissing && (
           <div className="mb-6 rounded-2xl border border-[#FF7518]/30 bg-[#FFE8D6] px-4 py-3 text-sm font-medium text-[#6B3200]">
-            Không tìm thấy phòng đã chọn. Hệ thống đang hiển thị phòng đầu tiên để bạn tiếp tục kiểm tra.
+            Khong tim thay phong da chon. He thong dang hien thi phong mac dinh de ban kiem tra.
+          </div>
+        )}
+
+        {isApiRoom && (
+          <div className="mb-6 rounded-2xl border border-[#0A4D27]/20 bg-[#E8F5EC] px-4 py-3 text-sm font-medium text-[#0A4D27]">
+            Flow nay da bo add-on va discount mock. Xac nhan xong se tao booking backend va mo checkout tu booking vua tao.
           </div>
         )}
 
         <div className="grid gap-6 lg:grid-cols-[1fr_420px]">
           <section className="rounded-[24px] border border-[#E8E4DC] bg-white p-6 shadow-[0_4px_24px_rgba(26,28,30,0.06)]">
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="font-display text-xl font-bold">Thông tin đặt phòng</h2>
-              <span className="rounded-full bg-[#FFE8D6] px-3 py-1 font-display text-xs font-bold uppercase tracking-wide text-[#6B3200]">
-                {room.badge}
-              </span>
+              <h2 className="font-display text-xl font-bold">Thong tin dat phong</h2>
+              {displayRoom.badge && (
+                <span className="rounded-full bg-[#FFE8D6] px-3 py-1 font-display text-xs font-bold uppercase tracking-wide text-[#6B3200]">
+                  {displayRoom.badge}
+                </span>
+              )}
             </div>
 
-            <Image
-              src={room.image}
-              alt={room.name}
-              width={900}
-              height={420}
-              className={`h-[260px] w-full rounded-2xl object-cover ${room.imageClassName}`}
-              priority
-            />
+            {displayRoom.image ? (
+              <Image
+                src={displayRoom.image}
+                alt={displayRoom.name}
+                width={900}
+                height={420}
+                className={`h-[260px] w-full rounded-2xl object-cover ${displayRoom.imageClassName}`}
+                priority
+              />
+            ) : (
+              <div className="flex h-[260px] w-full items-center justify-center rounded-2xl bg-[radial-gradient(circle_at_top,#FFE8D6,transparent_55%),linear-gradient(135deg,#F5F2EC,#E8E4DC)] px-6 text-center">
+                <div>
+                  <p className="font-display text-2xl font-bold text-[#6B3200]">{displayRoom.name}</p>
+                  <p className="mt-2 text-sm text-[#5C5348]">Backend chua cung cap anh phong.</p>
+                </div>
+              </div>
+            )}
 
             <div className="mt-5 flex flex-wrap items-center gap-3">
-              <h3 className="font-display text-2xl font-bold">{room.name}</h3>
-              <span className="font-display font-semibold text-[#B45309]">★ {room.rating}</span>
+              <h3 className="font-display text-2xl font-bold">{displayRoom.name}</h3>
+              {typeof displayRoom.rating === 'number' && (
+                <span className="font-display font-semibold text-[#B45309]">★ {displayRoom.rating.toFixed(1)}</span>
+              )}
             </div>
 
-            <p className="mt-1 text-[#5C5348]">{room.type}</p>
+            <p className="mt-1 text-[#5C5348]">{displayRoom.type}</p>
 
             <div className="mt-6 grid gap-4 border-b border-[#E8E4DC] pb-6 sm:grid-cols-2">
-              <Detail label="Ngày đặt" value={formatDisplayDate(date)} />
-              <Detail label="Khung giờ" value={`${startTime} - ${endTime}`} />
-              <Detail label="Thời lượng" value={`${duration} giờ`} />
-              <Detail label="Số người" value={room.capacity} />
-              <Detail label="Địa điểm" value={room.location} />
+              <Detail label="Ngay dat" value={formatDisplayDate(date)} />
+              <Detail label="Khung gio" value={`${startTime} - ${endTime}`} />
+              <Detail label="Thoi luong" value={`${duration} gio`} />
+              <Detail label="So nguoi" value={displayRoom.capacity} />
+              <Detail label="Dia diem" value={displayRoom.location} />
             </div>
 
-            <InfoSection title="Thiết bị có sẵn" items={room.includedEquipments} />
-            <SelectedAddOnsSection addOns={selectedAddOns} />
+            <InfoSection title="Thiet bi hien thi" items={displayRoom.includedEquipments} />
+
+            <div className="mt-6 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4 text-sm text-[#5C5348]">
+              Add-on va discount khong con duoc tinh o buoc nay vi backend chua co contract tuong ung.
+            </div>
 
             <div className="mt-6">
-              <h3 className="font-display text-lg font-bold">Ghi chú khách hàng</h3>
+              <h3 className="font-display text-lg font-bold">Ghi chu khach hang</h3>
               <div className="mt-3 whitespace-pre-wrap rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4 text-[#5C5348]">
                 {note}
               </div>
@@ -219,53 +189,31 @@ export default function BookingConfirmationClient() {
             <div className="mb-5 flex items-center justify-between gap-3">
               <div>
                 <p className="font-display text-xs font-bold uppercase tracking-wider text-[#5C5348]">
-                  Tóm tắt thanh toán
+                  Tom tat thanh toan
                 </p>
-                <p className="mt-1 font-display font-semibold">Mã đặt phòng: {room.code}</p>
+                <p className="mt-1 font-display font-semibold">Booking se duoc tao sau khi xac nhan</p>
               </div>
               <span className="rounded-full bg-[#FFE8D6] px-3 py-1 font-display text-xs font-bold text-[#6B3200]">
-                Chờ thanh toán
+                Cho thanh toan
               </span>
             </div>
 
-            <PaymentRow label="Giá phòng" value={`${formatCurrency(room.pricePerHour)} / giờ`} />
-            <PaymentRow label="Thời lượng" value={`${duration} giờ`} />
+            <PaymentRow label="Gia phong" value={`${formatCurrency(displayRoom.pricePerHour)} / gio`} />
+            <PaymentRow label="Thoi luong" value={`${duration} gio`} />
 
             <div className="my-4 h-px bg-[#E8E4DC]" />
 
-            <PaymentRow label="Tiền phòng" value={formatCurrency(roomSubtotal)} />
-            <PaymentRow label="Dịch vụ thuê thêm" value={formatCurrency(addOnsTotal)} />
-            {appliedDiscount && (
-              <PaymentRow
-                label={`Mã giảm giá (${appliedDiscount.code})`}
-                value={`-${formatCurrency(discountAmount)}`}
-                green
-              />
-            )}
-
-            <DiscountCodeBox
-              discountCode={discountCode}
-              discountError={discountError}
-              discountMessage={discountMessage}
-              appliedDiscount={appliedDiscount}
-              isApplyingDiscount={isApplyingDiscount}
-              onDiscountCodeChange={(value) => {
-                setDiscountCode(value)
-                setDiscountError('')
-                setDiscountMessage('')
-              }}
-              onApplyDiscount={handleApplyDiscount}
-              onRemoveDiscount={handleRemoveDiscount}
-            />
+            <PaymentRow label="Tien phong" value={formatCurrency(roomSubtotal)} />
+            <PaymentRow label="Dich vu thue them" value="Khong ap dung" />
 
             <div className="my-5 rounded-2xl bg-[#FAF8F4] p-4">
               <div className="flex items-center justify-between gap-4">
-                <span className="font-display text-lg font-bold">Tổng thanh toán</span>
-                <span className="font-display text-3xl font-bold text-[#FF7518]">{formatCurrency(total)}</span>
+                <span className="font-display text-lg font-bold">Tong thanh toan</span>
+                <span className="font-display text-3xl font-bold text-[#FF7518]">{formatCurrency(roomSubtotal)}</span>
               </div>
             </div>
 
-            <h3 className="font-display text-lg font-bold">Phương thức thanh toán</h3>
+            <h3 className="font-display text-lg font-bold">Phuong thuc thanh toan</h3>
             <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-1">
               {paymentMethods.map((method) => (
                 <PaymentMethodOption
@@ -275,7 +223,6 @@ export default function BookingConfirmationClient() {
                   onSelect={() => {
                     setPaymentMethod(method.id)
                     setConfirmError('')
-                    setBookingConfirmed(false)
                   }}
                 />
               ))}
@@ -289,35 +236,27 @@ export default function BookingConfirmationClient() {
               </p>
             )}
 
-            {bookingConfirmed && (
-              <div className="mt-4 rounded-2xl border border-[#0A4D27]/25 bg-[#F1F8F2] px-4 py-3 text-sm text-[#0A4D27]">
-                <p className="font-display font-bold">Đặt phòng thành công</p>
-                <p className="mt-1">Mã đặt phòng: {room.code}</p>
-                <p className="mt-1">Phương thức thanh toán: {activePaymentMethod.label}</p>
-                <p className="mt-1">Vui lòng giữ mã đặt phòng để check-in.</p>
-              </div>
-            )}
-
             <button
               type="button"
-              onClick={handleConfirm}
-              className="mt-6 h-12 w-full rounded-2xl bg-[#FF7518] font-display font-semibold text-white transition hover:bg-[#E6640F] active:scale-[0.98]"
+              onClick={() => void handleConfirm()}
+              disabled={isSubmitting}
+              className="mt-6 h-12 w-full rounded-2xl bg-[#FF7518] font-display font-semibold text-white transition hover:bg-[#E6640F] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
             >
-              Xác nhận đặt phòng
+              {isSubmitting ? 'Dang xu ly...' : 'Xac nhan dat phong'}
             </button>
 
             <Link
-              href="/#rooms"
+              href={selectionHref}
               className="mt-3 flex h-12 w-full items-center justify-center rounded-2xl border border-[#C9C2B6] bg-transparent font-display font-semibold text-[#1A1C1E] transition hover:bg-[#FAF8F4]"
             >
-              Quay lại chọn phòng
+              Quay lai chon phong
             </Link>
           </aside>
         </div>
 
         <section className="mt-6 grid gap-6 lg:grid-cols-[1fr_420px]">
           <div className="rounded-[24px] border border-[#E8E4DC] bg-white p-6 shadow-[0_4px_24px_rgba(26,28,30,0.06)]">
-            <h3 className="font-display text-lg font-bold">Quy trình sau khi đặt phòng</h3>
+            <h3 className="font-display text-lg font-bold">Quy trinh sau khi dat phong</h3>
             <div className="mt-6 grid gap-5 md:grid-cols-4">
               {processSteps.map((step, index) => (
                 <ProcessStep key={step[0]} step={step} index={index} />
@@ -326,12 +265,12 @@ export default function BookingConfirmationClient() {
           </div>
 
           <div className="rounded-[24px] border border-[#E8E4DC] bg-white p-6 shadow-[0_4px_24px_rgba(26,28,30,0.06)]">
-            <h3 className="font-display text-lg font-bold">Chính sách đặt phòng</h3>
+            <h3 className="font-display text-lg font-bold">Chinh sach dat phong</h3>
             <ul className="mt-4 space-y-3 text-sm text-[#5C5348]">
-              <li>Có thể hủy trước 2 giờ</li>
-              <li>Đến muộn quá 15 phút cần liên hệ nhân viên</li>
-              <li>Thiết bị hư hỏng phát sinh sẽ được xử lý theo quy định</li>
-              <li>Vui lòng giữ mã đặt phòng để check-in</li>
+              <li>Co the huy truoc 2 gio.</li>
+              <li>Den muon qua 15 phut can lien he nhan vien.</li>
+              <li>Thiet bi hu hong phat sinh se duoc xu ly theo quy dinh.</li>
+              <li>Vui long giu ma dat phong de check-in.</li>
             </ul>
           </div>
         </section>
@@ -341,10 +280,10 @@ export default function BookingConfirmationClient() {
 }
 
 const processSteps = [
-  ['Kiểm tra thông tin', 'Hệ thống kiểm tra thông tin đặt phòng'],
-  ['Xác nhận đặt phòng', 'Bạn sẽ nhận mã đặt phòng qua email/SMS'],
-  ['Thanh toán', 'Hoàn tất thanh toán theo phương thức đã chọn'],
-  ['Nhận phòng & check-in', 'Đến đúng giờ và check-in bằng mã đặt phòng'],
+  ['Kiem tra thong tin', 'He thong kiem tra thong tin dat phong'],
+  ['Tao booking', 'Backend tao booking that va tra ve ma dat phong'],
+  ['Thanh toan', 'Checkout doc lai booking vua tao va tao phien thanh toan'],
+  ['Nhan phong & check-in', 'Den dung gio va check-in bang ma dat phong'],
 ] as const
 
 function Detail({ label, value }: { label: string; value: string }) {
@@ -371,108 +310,11 @@ function InfoSection({ title, items }: { title: string; items: string[] }) {
   )
 }
 
-function SelectedAddOnsSection({ addOns }: { addOns: BookingAddOn[] }) {
-  return (
-    <div className="mt-6">
-      <h3 className="font-display text-lg font-bold">Dịch vụ thuê thêm</h3>
-      {addOns.length > 0 ? (
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          {addOns.map((addon) => (
-            <div
-              key={addon.id}
-              className="flex items-center justify-between gap-3 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] px-3 py-2 text-sm"
-            >
-              <span className="font-medium text-[#5C5348]">{addon.name}</span>
-              <span className="font-display font-semibold text-[#1A1C1E]">{formatCurrency(addon.price)}</span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="mt-3 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4 text-sm text-[#5C5348]">
-          Chưa chọn dịch vụ thuê thêm.
-        </div>
-      )}
-    </div>
-  )
-}
-
-function DiscountCodeBox({
-  discountCode,
-  discountError,
-  discountMessage,
-  appliedDiscount,
-  isApplyingDiscount,
-  onDiscountCodeChange,
-  onApplyDiscount,
-  onRemoveDiscount,
-}: {
-  discountCode: string
-  discountError: string
-  discountMessage: string
-  appliedDiscount: AppliedDiscount | null
-  isApplyingDiscount: boolean
-  onDiscountCodeChange: (value: string) => void
-  onApplyDiscount: () => void
-  onRemoveDiscount: () => void
-}) {
-  return (
-    <div className="my-4 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4">
-      <label className="font-display text-xs font-bold uppercase tracking-wider text-[#5C5348]" htmlFor="booking-discount-code">
-        Mã giảm giá
-      </label>
-
-      {appliedDiscount ? (
-        <div className="mt-3 rounded-2xl border border-[#0A4D27]/25 bg-white px-3 py-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="font-display text-sm font-bold text-[#1A1C1E]">{appliedDiscount.code}</p>
-              <p className="mt-1 text-sm text-[#0A4D27]">
-                Đã giảm {formatCurrency(appliedDiscount.discountAmount)}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={onRemoveDiscount}
-              className="shrink-0 rounded-xl border border-[#E8E4DC] px-3 py-1.5 font-display text-xs font-bold text-[#5C5348] transition hover:bg-[#FAF8F4] hover:text-[#1A1C1E]"
-            >
-              Gỡ mã
-            </button>
-          </div>
-          {discountMessage && <p className="mt-2 text-xs font-medium text-[#0A4D27]">{discountMessage}</p>}
-        </div>
-      ) : (
-        <>
-          <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto] lg:grid-cols-1 xl:grid-cols-[1fr_auto]">
-            <input
-              id="booking-discount-code"
-              value={discountCode}
-              onChange={(event) => onDiscountCodeChange(event.target.value)}
-              placeholder="Nhập mã giảm giá"
-              className="h-11 min-w-0 rounded-2xl border border-[#E8E4DC] bg-white px-3 text-sm text-[#1A1C1E] outline-none transition placeholder:text-[#8A8176] focus:border-[#FF7518] focus:ring-2 focus:ring-[#FF7518]/20"
-            />
-            <button
-              type="button"
-              onClick={onApplyDiscount}
-              disabled={isApplyingDiscount}
-              className="h-11 rounded-2xl bg-[#FF7518] px-4 font-display text-sm font-semibold text-white transition hover:bg-[#E6640F] disabled:cursor-wait disabled:opacity-70"
-            >
-              {isApplyingDiscount ? 'Đang áp dụng' : 'Áp dụng'}
-            </button>
-          </div>
-          {discountError && <p className="mt-2 text-xs font-medium text-[#C62828]">{discountError}</p>}
-        </>
-      )}
-    </div>
-  )
-}
-
-function PaymentRow({ label, value, green = false }: { label: string; value: string; green?: boolean }) {
+function PaymentRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between py-2 text-sm">
       <span className="text-[#5C5348]">{label}</span>
-      <span className={['font-semibold', green ? 'text-[#0A4D27]' : 'text-[#1A1C1E]'].join(' ')}>
-        {value}
-      </span>
+      <span className="font-semibold text-[#1A1C1E]">{value}</span>
     </div>
   )
 }
@@ -509,9 +351,8 @@ function PaymentMethodOption({
 function PaymentInstruction({ method }: { method: PaymentMethod }) {
   if (method.id === 'bank_transfer') {
     return (
-      <div className="mt-5 text-center">
-        <p className="mb-2 text-sm font-semibold text-[#5C5348]">Quét mã để thanh toán</p>
-        <QrPattern />
+      <div className="mt-5 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4 text-sm text-[#5C5348]">
+        Backend se tao phien thanh toan online va chuyen ban sang trang ket qua giao dich.
       </div>
     )
   }
@@ -519,25 +360,9 @@ function PaymentInstruction({ method }: { method: PaymentMethod }) {
   return (
     <div className="mt-5 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4 text-sm text-[#5C5348]">
       <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FFE8D6] font-display text-lg font-bold text-[#FF7518]">
-        {method.id === 'e_wallet' ? 'Ví' : '₫'}
+        {method.id === 'e_wallet' ? 'Vi' : '₫'}
       </div>
       <p>{method.description}</p>
-    </div>
-  )
-}
-
-function QrPattern() {
-  const filledBlocks = new Set([0, 1, 2, 4, 5, 7, 9, 10, 13, 15, 17, 18, 20, 21, 22, 24])
-
-  return (
-    <div className="mx-auto grid h-28 w-28 grid-cols-5 gap-1 rounded-2xl border border-dashed border-[#FF7518] bg-[#FAF8F4] p-3">
-      {Array.from({ length: 25 }).map((_, index) => (
-        <span
-          key={index}
-          className={filledBlocks.has(index) ? 'rounded-sm bg-[#042A16]' : 'rounded-sm bg-[#E8E4DC]'}
-        />
-      ))}
-      <span className="sr-only">QR CODE</span>
     </div>
   )
 }
@@ -557,4 +382,87 @@ function ProcessStep({ step, index }: { step: readonly [string, string]; index: 
       <p className="mt-1 text-sm text-[#5C5348]">{step[1]}</p>
     </div>
   )
+}
+
+function getBookingErrorMessage(error: unknown) {
+  if (axios.isAxiosError<{ message?: string }>(error)) {
+    return error.response?.data?.message || 'Khong the tao booking. Vui long thu lai.'
+  }
+
+  return error instanceof Error ? error.message : 'Khong the tao booking. Vui long thu lai.'
+}
+
+function formatCapacityLabel(value: string | null, fallback: string) {
+  if (!value) return fallback
+
+  const normalized = value.trim()
+  if (!normalized) return fallback
+  if (/\D/.test(normalized)) return normalized
+
+  return `Toi da ${normalized} nguoi`
+}
+
+function getApiBookingRoom(searchParams: { get(name: string): string | null }): BookingRoom | null {
+  const source = searchParams.get('source')
+
+  if (source !== 'dashboard-booking' && source !== 'api-booking') {
+    return null
+  }
+
+  const roomId = searchParams.get('roomId')
+  const roomName = searchParams.get('roomName')?.trim()
+
+  if (!roomId || !roomName) {
+    return null
+  }
+
+  const roomType = searchParams.get('roomType')?.trim() || 'Practice Room'
+  const roomHighlights = parseCsvParam(searchParams.get('roomHighlights'))
+  const rawPrice = Number(searchParams.get('pricePerHour'))
+  const pricePerHour = Number.isFinite(rawPrice) && rawPrice > 0 ? rawPrice : 0
+  const roomImage = searchParams.get('roomImage')?.trim()
+  const safeImage = roomImage?.startsWith('/') ? roomImage : undefined
+  const category = detectRoomCategory(roomType)
+
+  return {
+    id: roomId,
+    code: `PENDING-${roomId}`,
+    name: roomName,
+    category,
+    categoryLabel: roomType,
+    type: roomType,
+    roomTierId: undefined,
+    roomTierName: roomType,
+    roomTierDescription: undefined,
+    badge: undefined,
+    rating: undefined,
+    reviews: undefined,
+    capacity: formatCapacityLabel(searchParams.get('roomCapacity'), 'Chua ro suc chua'),
+    location: searchParams.get('roomLocation')?.trim() || 'Band Room Studio',
+    image: safeImage,
+    imageClassName: 'object-center',
+    pricePerHour,
+    equipments: roomHighlights,
+    includedEquipments: roomHighlights.length > 0 ? roomHighlights : [roomType],
+    addons: [],
+    description: searchParams.get('roomDescription')?.trim() || undefined,
+    isAvailable: false,
+    availabilityKnown: false,
+    nextAvailableTime: undefined,
+    note: undefined,
+  }
+}
+
+function parseCsvParam(value: string | null) {
+  if (!value) return []
+
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function normalizeDuration(value: string | null) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1
 }

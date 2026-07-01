@@ -7,6 +7,13 @@ export type PracticeRoom = {
   pricePerHour: number
   equipment: string[]
   isVip?: boolean
+  roomTypeId?: number
+  roomTypeName?: string
+  roomTypeDescription?: string
+  location?: string
+  description?: string
+  imageUrl?: string
+  status?: 'AVAILABLE' | 'IN_USE' | 'MAINTENANCE'
 }
 
 export type TimeSlot = {

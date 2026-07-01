@@ -1,22 +1,30 @@
+import axios from 'axios'
+import api from '@/lib/api'
 import {
   clearReviewDraft,
-  getBookingReviewByBookingId,
   loadReviewDraft,
   saveReviewDraft,
-  submitReview,
   type BookingReview,
   type ReviewDraft,
   type SubmitBookingReviewPayload,
 } from '@/lib/review-service'
 
-export type CustomerBookingStatus = 'PENDING_PAYMENT' | 'PAID' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED'
+export type CustomerBookingStatus =
+  | 'PENDING_PAYMENT'
+  | 'PAID'
+  | 'CHECKED_IN'
+  | 'COMPLETED'
+  | 'CANCELLED'
 
 export type { BookingReview, ReviewDraft, SubmitBookingReviewPayload }
 
 export type BookingHistoryItem = {
   bookingId: string
+  backendBookingId?: number
   roomId: string
   roomName: string
+  startDateTime?: string
+  endDateTime?: string
   date: string
   startTime: string
   endTime: string
@@ -26,75 +34,137 @@ export type BookingHistoryItem = {
   addons?: string[]
   note?: string
   review?: BookingReview
+  canReview?: boolean
+  alreadyReviewed?: boolean
 }
 
-const mockBookings: BookingHistoryItem[] = [
-  {
-    bookingId: 'BR-2026-0821',
-    roomId: 'studio-a',
-    roomName: 'Studio A - Phong Do',
-    date: '28/06/2026',
-    startTime: '19:00',
-    endTime: '22:00',
-    totalAmount: 1050000,
-    status: 'PAID',
-    paymentMethod: 'Chuyen khoan ngan hang',
-    addons: ['Guitar dien Fender', 'Micro Shure SM58'],
-    note: 'Can setup vocal truoc 15 phut.',
-  },
-  {
-    bookingId: 'BR-2026-0831',
-    roomId: 'the-vault',
-    roomName: 'The Vault - Thu am',
-    date: '20/06/2026',
-    startTime: '14:00',
-    endTime: '16:00',
-    totalAmount: 1000000,
-    status: 'COMPLETED',
-    paymentMethod: 'Vi dien tu',
-    addons: ['Ky thuat vien thu am'],
-    note: 'Thu vocal demo.',
-    review: {
-      id: 'review-booking-0831',
-      bookingId: 'BR-2026-0831',
-      roomId: 'the-vault',
-      customerName: 'Minh Anh',
-      rating: 5,
-      title: 'Phong sach, am thanh tot',
-      content: 'Phong sach, thiet bi tot, am thanh on dinh, phu hop thu vocal demo.',
-      tags: ['Phòng sạch', 'Thiết bị ổn', 'Âm thanh rõ'],
-      images: [],
-      createdAt: '2026-06-26T15:30:00',
-    },
-  },
-  {
-    bookingId: 'BR-2026-0840',
-    roomId: 'studio-b',
-    roomName: 'Studio B - Band Rehearsal',
-    date: '30/06/2026',
-    startTime: '18:00',
-    endTime: '20:00',
-    totalAmount: 720000,
-    status: 'CONFIRMED',
-    paymentMethod: 'Thanh toan tai quay',
-    addons: [],
-  },
-  {
-    bookingId: 'BR-2026-0802',
-    roomId: 'practice-pod-a',
-    roomName: 'Practice Pod A',
-    date: '12/06/2026',
-    startTime: '09:00',
-    endTime: '10:00',
-    totalAmount: 180000,
-    status: 'CANCELLED',
-    addons: [],
-    note: 'Khach da huy lich.',
-  },
-]
+type ApiResponse<T> = {
+  success: boolean
+  message: string
+  data: T
+}
 
-function waitForMockApi(delay = 220) {
-  return new Promise((resolve) => globalThis.setTimeout(resolve, delay))
+type PagedResponse<T> = {
+  content: T[]
+  page: number
+  size: number
+  totalElements: number
+  totalPages: number
+  first: boolean
+  last: boolean
+}
+
+type BackendBooking = {
+  bookingId: number
+  bookingCode: string
+  roomId: number
+  roomName: string
+  startTime: string
+  endTime: string
+  totalAmount: number | string
+  status: string
+  paymentMethod?: 'CASH' | 'ONLINE' | null
+  note?: string | null
+  equipmentNotes?: string | null
+  canReview?: boolean | null
+  alreadyReviewed?: boolean | null
+}
+
+type BackendReview = {
+  id: number
+  bookingId: number
+  customerName?: string | null
+  roomId: number
+  roomName: string
+  rating: number
+  content: string
+  createdAt: string
+}
+
+function parseAmount(value: number | string | null | undefined) {
+  const normalized = typeof value === 'string' ? Number(value) : value
+  return Number.isFinite(normalized) ? Number(normalized) : 0
+}
+
+function formatDate(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date)
+}
+
+function formatTime(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+
+function normalizeStatus(status?: string | null): CustomerBookingStatus {
+  if (
+    status === 'PENDING_PAYMENT' ||
+    status === 'PAID' ||
+    status === 'CHECKED_IN' ||
+    status === 'COMPLETED' ||
+    status === 'CANCELLED'
+  ) {
+    return status
+  }
+
+  return 'PENDING_PAYMENT'
+}
+
+function getPaymentMethodLabel(method?: 'CASH' | 'ONLINE' | null) {
+  if (method === 'CASH') return 'Thanh toan tai quay'
+  if (method === 'ONLINE') return 'Thanh toan online'
+  return undefined
+}
+
+function mapBooking(booking: BackendBooking): BookingHistoryItem {
+  return {
+    bookingId: booking.bookingCode || String(booking.bookingId),
+    backendBookingId: booking.bookingId,
+    roomId: String(booking.roomId),
+    roomName: booking.roomName,
+    startDateTime: booking.startTime,
+    endDateTime: booking.endTime,
+    date: formatDate(booking.startTime),
+    startTime: formatTime(booking.startTime),
+    endTime: formatTime(booking.endTime),
+    totalAmount: parseAmount(booking.totalAmount),
+    status: normalizeStatus(booking.status),
+    paymentMethod: getPaymentMethodLabel(booking.paymentMethod),
+    addons: [],
+    note: booking.note?.trim() || booking.equipmentNotes?.trim() || undefined,
+    canReview: booking.canReview ?? undefined,
+    alreadyReviewed: booking.alreadyReviewed ?? undefined,
+  }
+}
+
+function buildReviewTitle(content: string) {
+  const normalizedContent = content.trim()
+  return normalizedContent.slice(0, 80) || 'Danh gia phong'
+}
+
+function mapBackendReviewToUiReview(review: BackendReview, booking: BookingHistoryItem): BookingReview {
+  const content = review.content?.trim() || ''
+
+  return {
+    id: `backend-review-${review.id}`,
+    bookingId: booking.bookingId,
+    roomId: booking.roomId,
+    customerName: review.customerName?.trim() || 'Khach hang',
+    rating: review.rating,
+    title: buildReviewTitle(content),
+    content,
+    tags: [],
+    images: [],
+    createdAt: review.createdAt,
+  }
 }
 
 function getBookingTimestamp(booking: Pick<BookingHistoryItem, 'date' | 'startTime'>) {
@@ -111,22 +181,55 @@ function sortBookingsByTime(bookings: BookingHistoryItem[]) {
   })
 }
 
-function mergeReviews(bookings: BookingHistoryItem[]) {
-  return bookings.map((booking) => ({
-    ...booking,
-    review: getBookingReviewByBookingId(booking.bookingId) ?? booking.review,
-  }))
+function mergeReviews(bookings: BookingHistoryItem[], backendReviews: BackendReview[]) {
+  const backendReviewMap = new Map<number, BackendReview>(
+    backendReviews.map((review) => [review.bookingId, review]),
+  )
+
+  return bookings.map((booking) => {
+    const backendReview = booking.backendBookingId ? backendReviewMap.get(booking.backendBookingId) : undefined
+
+    return {
+      ...booking,
+      review: backendReview ? mapBackendReviewToUiReview(backendReview, booking) : undefined,
+    }
+  })
 }
 
-export function canReviewBooking(booking: Pick<BookingHistoryItem, 'status'>) {
-  return booking.status === 'COMPLETED' || booking.status === 'PAID'
+async function fetchBackendBookings() {
+  const response = await api.get<ApiResponse<PagedResponse<BackendBooking>>>('/api/bookings/my/history', {
+    params: { size: 100 },
+  })
+
+  return response.data.data?.content ?? []
+}
+
+async function fetchBackendReviews() {
+  const response = await api.get<ApiResponse<PagedResponse<BackendReview>>>('/api/reviews/my', {
+    params: { size: 100 },
+  })
+
+  return response.data.data?.content ?? []
+}
+
+async function fetchBackendBookingDetail(backendBookingId: number) {
+  const response = await api.get<ApiResponse<BackendBooking>>(`/api/bookings/my/${backendBookingId}`)
+  return response.data.data
+}
+
+export function canReviewBooking(booking: Pick<BookingHistoryItem, 'status' | 'canReview'>) {
+  if (typeof booking.canReview === 'boolean') {
+    return booking.canReview
+  }
+
+  return booking.status === 'COMPLETED'
 }
 
 export function formatBookingStatus(status: CustomerBookingStatus) {
   const labels: Record<CustomerBookingStatus, string> = {
     PENDING_PAYMENT: 'Cho thanh toan',
     PAID: 'Da thanh toan',
-    CONFIRMED: 'Da xac nhan',
+    CHECKED_IN: 'Da check-in',
     COMPLETED: 'Hoan tat',
     CANCELLED: 'Da huy',
   }
@@ -135,25 +238,65 @@ export function formatBookingStatus(status: CustomerBookingStatus) {
 }
 
 export async function getCustomerBookings(): Promise<BookingHistoryItem[]> {
-  await waitForMockApi()
-  return sortBookingsByTime(mergeReviews(mockBookings))
+  try {
+    const [bookings, reviews] = await Promise.all([fetchBackendBookings(), fetchBackendReviews()])
+    return sortBookingsByTime(mergeReviews(bookings.map(mapBooking), reviews))
+  } catch {
+    return []
+  }
 }
 
-export async function getBookingDetail(bookingId: string): Promise<BookingHistoryItem | null> {
-  await waitForMockApi(120)
-  return mergeReviews(mockBookings).find((booking) => booking.bookingId === bookingId) ?? null
+export async function getBookingDetail(
+  bookingId: string,
+  backendBookingId?: number,
+): Promise<BookingHistoryItem | null> {
+  if (backendBookingId) {
+    try {
+      const [booking, reviews] = await Promise.all([fetchBackendBookingDetail(backendBookingId), fetchBackendReviews()])
+      return mergeReviews([mapBooking(booking)], reviews)[0] ?? null
+    } catch {
+      return null
+    }
+  }
+
+  const bookings = await getCustomerBookings()
+  return bookings.find((booking) => booking.bookingId === bookingId) ?? null
 }
 
 export async function submitBookingReview(payload: SubmitBookingReviewPayload): Promise<BookingReview> {
-  const existingReview =
-    getBookingReviewByBookingId(payload.bookingId) ??
-    mockBookings.find((booking) => booking.bookingId === payload.bookingId)?.review
-
-  if (existingReview) {
-    return existingReview
+  if (!payload.backendBookingId) {
+    throw new Error('Khong tim thay booking backend de gui danh gia.')
   }
 
-  return submitReview(payload)
+  try {
+    const response = await api.post<ApiResponse<BackendReview>>('/api/reviews', {
+      bookingId: payload.backendBookingId,
+      rating: payload.rating,
+      content: payload.content.trim(),
+    })
+
+    const booking: BookingHistoryItem = {
+      bookingId: payload.bookingId,
+      backendBookingId: payload.backendBookingId,
+      roomId: payload.roomId,
+      roomName: '',
+      startDateTime: undefined,
+      endDateTime: undefined,
+      date: '',
+      startTime: '',
+      endTime: '',
+      totalAmount: 0,
+      status: 'COMPLETED',
+    }
+
+    return mapBackendReviewToUiReview(response.data.data, booking)
+  } catch (error) {
+    if (axios.isAxiosError<{ message?: string }>(error)) {
+      throw new Error(error.response?.data?.message || 'Khong the gui danh gia. Vui long thu lai.')
+    }
+
+    throw error
+  }
 }
 
 export { clearReviewDraft, loadReviewDraft, saveReviewDraft }
