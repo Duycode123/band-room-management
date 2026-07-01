@@ -61,9 +61,9 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
                 return response(INVALID_AMOUNT_CODE, "Invalid amount");
             }
 
-            if (transaction.getStatus() == PaymentTransactionStatus.THANH_CONG
-                    || transaction.getStatus() == PaymentTransactionStatus.THAT_BAI
-                    || transaction.getStatus() == PaymentTransactionStatus.DA_HUY) {
+            if (transaction.getStatus() == PaymentTransactionStatus.SUCCEEDED
+                    || transaction.getStatus() == PaymentTransactionStatus.FAILED
+                    || transaction.getStatus() == PaymentTransactionStatus.CANCELLED) {
                 return response(ORDER_ALREADY_CONFIRMED_CODE, "Order already confirmed");
             }
 
@@ -73,13 +73,13 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
             transaction.setProviderTransactionId(blankToNull(params.get("vnp_TransactionNo")));
             transaction.setResponseCode(params.get("vnp_ResponseCode"));
             transaction.setStatus(paymentSuccess
-                    ? PaymentTransactionStatus.THANH_CONG
-                    : PaymentTransactionStatus.THAT_BAI);
+                    ? PaymentTransactionStatus.SUCCEEDED
+                    : PaymentTransactionStatus.FAILED);
             transaction.setPaidAt(paymentSuccess ? parsePayDate(params.get("vnp_PayDate")) : null);
 
             Booking booking = transaction.getBooking();
-            if (booking.getStatus() == BookingStatus.CHO_THANH_TOAN) {
-                booking.setStatus(paymentSuccess ? BookingStatus.DA_THANH_TOAN : BookingStatus.DA_HUY);
+            if (booking.getStatus() == BookingStatus.PENDING_PAYMENT) {
+                booking.setStatus(paymentSuccess ? BookingStatus.PAID : BookingStatus.CANCELLED);
             }
 
             paymentTransactionRepository.save(transaction);

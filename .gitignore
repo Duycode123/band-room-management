@@ -54,6 +54,7 @@ replay_pid*
 
 # Frontend
 node_modules/
+.npm-cache/
 dist/
 dist-ssr/
 coverage/

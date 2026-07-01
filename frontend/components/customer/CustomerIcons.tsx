@@ -38,6 +38,15 @@ export function IconGift({ className = 'h-5 w-5' }: IconProps) {
   )
 }
 
+export function IconChat({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+      <path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.6 8.6 0 0 1-7.7 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.4A8.4 8.4 0 0 1 4 11.5 8.5 8.5 0 0 1 12.5 3 8.5 8.5 0 0 1 21 11.5z" />
+      <path d="M8.5 10.5h8M8.5 14h5" />
+    </svg>
+  )
+}
+
 export function IconLogout({ className = 'h-5 w-5' }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
@@ -80,7 +89,7 @@ export function CustomerBrandMark({ className }: { className?: string }) {
       </div>
       <div>
         <p className="font-display text-sm font-bold leading-tight text-white">BandSpace</p>
-        <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-white/70">Khách hàng</p>
+        <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-white/70">Khach hang</p>
       </div>
     </div>
   )

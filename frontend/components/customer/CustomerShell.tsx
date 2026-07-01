@@ -8,6 +8,7 @@ import {
   CustomerBrandMark,
   IconBooking,
   IconCalendar,
+  IconChat,
   IconGift,
   IconHome,
   IconLogout,
@@ -15,10 +16,11 @@ import {
 } from './CustomerIcons'
 
 const NAV_ITEMS: CustomerNavItem[] = [
-  { href: '/customer/dashboard', label: 'Trang chủ', icon: <IconHome className="h-5 w-5" /> },
-  { href: '/customer/booking', label: 'Đặt phòng', icon: <IconBooking className="h-5 w-5" /> },
-  { href: '#', label: 'Lịch của tôi', icon: <IconCalendar className="h-5 w-5" />, disabled: true },
-  { href: '#', label: 'Ưu đãi', icon: <IconGift className="h-5 w-5" />, disabled: true },
+  { href: '/customer/dashboard', label: 'Trang chu', icon: <IconHome className="h-5 w-5" /> },
+  { href: '/customer/booking', label: 'Dat phong', icon: <IconBooking className="h-5 w-5" /> },
+  { href: '/customer/chatbot', label: 'Chatbot', icon: <IconChat className="h-5 w-5" /> },
+  { href: '#', label: 'Lich cua toi', icon: <IconCalendar className="h-5 w-5" />, disabled: true },
+  { href: '#', label: 'Uu dai', icon: <IconGift className="h-5 w-5" />, disabled: true },
 ]
 
 type CustomerShellProps = {
@@ -67,7 +69,7 @@ export default function CustomerShell({ children }: CustomerShellProps) {
                   <div
                     key={item.label}
                     className={[base, 'cursor-not-allowed text-white/35'].join(' ')}
-                    title="Sắp ra mắt"
+                    title="Sap ra mat"
                   >
                     <span className="opacity-50">{item.icon}</span>
                     {item.label}
@@ -106,7 +108,7 @@ export default function CustomerShell({ children }: CustomerShellProps) {
               className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 font-display text-sm font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white"
             >
               <IconLogout className="h-5 w-5" />
-              Đăng xuất
+              Dang xuat
             </button>
           </div>
         </aside>

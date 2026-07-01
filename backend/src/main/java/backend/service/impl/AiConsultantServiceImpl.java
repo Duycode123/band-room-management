@@ -7,10 +7,14 @@ import backend.entity.Booking;
 import backend.entity.BookingStatus;
 import backend.entity.Room;
 import backend.entity.RoomStatus;
+import backend.entity.RoomType;
 import backend.repository.BookingRepository;
 import backend.repository.RoomRepository;
 import backend.service.AiConsultantService;
+import backend.service.CloudflareAiClient;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,19 +34,21 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class AiConsultantServiceImpl implements AiConsultantService {
 
+    private static final Logger log = LoggerFactory.getLogger(AiConsultantServiceImpl.class);
+
     private static final List<String> SUGGESTED_QUESTIONS = List.of(
-            "Tối nay 18h đến 20h còn phòng nào trống?",
-            "Tôi đi 4 người, phòng nào phù hợp?",
-            "Có phòng nào dưới 200k một giờ không?",
-            "Phòng rẻ nhất hiện tại là phòng nào?",
-            "Tôi muốn phòng rộng cho nhóm đông người thì nên chọn phòng nào?",
-            "Cho tôi xem tất cả phòng đang có",
-            "Phòng nào phù hợp để tập band trong 2 giờ?",
-            "Tư vấn giúp tôi phòng phù hợp với ngân sách 300k"
+            "Toi nay 18h den 20h con phong nao trong?",
+            "Toi di 4 nguoi, phong nao phu hop?",
+            "Co phong nao duoi 200k mot gio khong?",
+            "Phong re nhat hien tai la phong nao?",
+            "Toi muon phong rong cho nhom dong nguoi thi nen chon phong nao?",
+            "Cho toi xem tat ca phong dang co",
+            "Phong nao phu hop de tap band trong 2 gio?",
+            "Tu van giup toi phong phu hop voi ngan sach 300k"
     );
 
     private static final Pattern PEOPLE_PATTERN =
-            Pattern.compile("(\\d{1,3})\\s*(nguoi|khach|thanh vien|ban)");
+            Pattern.compile("(\\d{1,3})\\s*(nguoi|khach|thanh vien|ban|member)");
     private static final Pattern PRICE_PATTERN =
             Pattern.compile("(\\d+(?:[\\.,]\\d+)?)\\s*(k|nghin|ngan|trieu|m|vnd|d|dong)");
     private static final Pattern HOUR_RANGE_PATTERN =
@@ -50,6 +56,7 @@ public class AiConsultantServiceImpl implements AiConsultantService {
 
     private final RoomRepository roomRepository;
     private final BookingRepository bookingRepository;
+    private final CloudflareAiClient cloudflareAiClient;
 
     @Override
     @Transactional(readOnly = true)
@@ -64,9 +71,23 @@ public class AiConsultantServiceImpl implements AiConsultantService {
                 : extractMaxPrice(normalizedMessage).orElse(null);
         TimeRange timeRange = resolveTimeRange(request, normalizedMessage);
 
-        List<AiSuggestedRoomResponse> allAvailableRooms = getRoomContext(timeRange);
-        List<AiSuggestedRoomResponse> matchedRooms = filterRooms(allAvailableRooms, people, maxPrice, timeRange);
-        String answer = buildAnswer(normalizedMessage, matchedRooms, allAvailableRooms, people, maxPrice, timeRange);
+        List<AiSuggestedRoomResponse> allRooms = getRoomContext(timeRange);
+        List<AiSuggestedRoomResponse> matchedRooms = filterRooms(allRooms, people, maxPrice, timeRange);
+        String localAnswer = buildAnswer(normalizedMessage, matchedRooms, allRooms, people, maxPrice, timeRange);
+        String answer = localAnswer;
+        boolean usedCloudflareAi = false;
+
+        if (cloudflareAiClient.isConfigured()) {
+            try {
+                answer = cloudflareAiClient.chat(
+                        buildCloudflareSystemPrompt(),
+                        buildCloudflareUserPrompt(message, allRooms, matchedRooms, people, maxPrice, timeRange, localAnswer)
+                );
+                usedCloudflareAi = true;
+            } catch (RuntimeException exception) {
+                log.warn("Cloudflare AI request failed, falling back to local room rules: {}", exception.getMessage());
+            }
+        }
 
         return AiChatResponse.builder()
                 .answer(answer)
@@ -75,8 +96,8 @@ public class AiConsultantServiceImpl implements AiConsultantService {
                 .interpretedEndTime(timeRange == null ? null : timeRange.endTime())
                 .interpretedPeople(people)
                 .suggestedQuestions(getSuggestedQuestions())
-                .usedAi(true)
-                .mode("LOCAL_DB_RULES")
+                .usedAi(usedCloudflareAi)
+                .mode(usedCloudflareAi ? "CLOUDFLARE_REST_API:" + cloudflareAiClient.getModel() : "LOCAL_DB_RULES")
                 .build();
     }
 
@@ -88,8 +109,10 @@ public class AiConsultantServiceImpl implements AiConsultantService {
     private List<AiSuggestedRoomResponse> getRoomContext(TimeRange timeRange) {
         return roomRepository.findAllByOrderByRoomNameAsc().stream()
                 .map(room -> toSuggestedRoom(room, timeRange))
-                .sorted(Comparator.comparing(AiSuggestedRoomResponse::getPricePerHour)
-                        .thenComparing(AiSuggestedRoomResponse::getRoomName))
+                .sorted(Comparator.comparing(
+                                AiSuggestedRoomResponse::getPricePerHour,
+                                Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(AiSuggestedRoomResponse::getRoomName, Comparator.nullsLast(String::compareTo)))
                 .toList();
     }
 
@@ -100,21 +123,33 @@ public class AiConsultantServiceImpl implements AiConsultantService {
                     room.getId(),
                     timeRange.startTime(),
                     timeRange.endTime(),
-                    BookingStatus.DA_HUY
+                    BookingStatus.CANCELLED
             );
             available = blockingBookings.isEmpty();
         }
 
-        return AiSuggestedRoomResponse.builder()
+        RoomType roomType = room.getRoomType();
+        AiSuggestedRoomResponse response = AiSuggestedRoomResponse.builder()
                 .roomId(room.getId())
                 .roomName(room.getRoomName())
-                .roomTypeName(room.getRoomType().getTypeName())
-                .roomTypeDescription(room.getRoomType().getDescription())
-                .pricePerHour(room.getRoomType().getPricePerHour())
-                .capacity(room.getRoomType().getCapacity())
+                .roomTypeName(roomType == null ? "Chua co loai phong" : roomType.getTypeName())
+                .roomTypeDescription(roomType == null ? null : roomType.getDescription())
+                .pricePerHour(roomType == null ? null : roomType.getPricePerHour())
+                .capacity(roomType == null ? null : roomType.getCapacity())
                 .status(room.getStatus())
                 .availableInRequestedTime(available)
-                .reason(buildReason(room, available))
+                .build();
+
+        return AiSuggestedRoomResponse.builder()
+                .roomId(response.getRoomId())
+                .roomName(response.getRoomName())
+                .roomTypeName(response.getRoomTypeName())
+                .roomTypeDescription(response.getRoomTypeDescription())
+                .pricePerHour(response.getPricePerHour())
+                .capacity(response.getCapacity())
+                .status(response.getStatus())
+                .availableInRequestedTime(response.getAvailableInRequestedTime())
+                .reason(buildReason(response))
                 .build();
     }
 
@@ -125,9 +160,9 @@ public class AiConsultantServiceImpl implements AiConsultantService {
             TimeRange timeRange
     ) {
         return rooms.stream()
-                .filter(room -> room.getStatus() != RoomStatus.BAO_TRI)
+                .filter(room -> room.getStatus() != RoomStatus.MAINTENANCE)
                 .filter(room -> people == null || room.getCapacity() != null && room.getCapacity() >= people)
-                .filter(room -> maxPrice == null || room.getPricePerHour().compareTo(maxPrice) <= 0)
+                .filter(room -> maxPrice == null || room.getPricePerHour() != null && room.getPricePerHour().compareTo(maxPrice) <= 0)
                 .filter(room -> timeRange == null || Boolean.TRUE.equals(room.getAvailableInRequestedTime()))
                 .toList();
     }
@@ -141,7 +176,7 @@ public class AiConsultantServiceImpl implements AiConsultantService {
             TimeRange timeRange
     ) {
         if (allRooms.isEmpty()) {
-            return "Hiện hệ thống chưa có dữ liệu phòng. Bạn thử quay lại sau hoặc liên hệ nhân viên để được hỗ trợ nhé.";
+            return "Hien he thong chua co du lieu phong. Ban thu quay lai sau hoac lien he nhan vien de duoc ho tro nhe.";
         }
 
         if (isAskingAllRooms(normalizedMessage)) {
@@ -156,51 +191,50 @@ public class AiConsultantServiceImpl implements AiConsultantService {
             return buildNoRoomAnswer(allRooms, people, maxPrice, timeRange);
         }
 
-        StringBuilder answer = new StringBuilder("Mình tìm thấy ");
-        answer.append(matchedRooms.size()).append(" phòng phù hợp");
+        StringBuilder answer = new StringBuilder("Minh tim thay ");
+        answer.append(matchedRooms.size()).append(" phong phu hop");
 
         if (people != null) {
-            answer.append(" cho khoảng ").append(people).append(" người");
+            answer.append(" cho khoang ").append(people).append(" nguoi");
         }
         if (maxPrice != null) {
-            answer.append(", giá không quá ").append(formatMoney(maxPrice)).append("/giờ");
+            answer.append(", gia khong qua ").append(formatMoney(maxPrice)).append("/gio");
         }
         if (timeRange != null) {
-            answer.append(", còn trống từ ")
+            answer.append(", con trong tu ")
                     .append(formatTime(timeRange.startTime()))
-                    .append(" đến ")
+                    .append(" den ")
                     .append(formatTime(timeRange.endTime()));
         }
-        answer.append(". ");
-
-        answer.append("Bạn có thể tham khảo: ");
+        answer.append(". Ban co the tham khao: ");
         answer.append(formatRoomList(matchedRooms));
         answer.append(".");
 
         if (timeRange == null) {
-            answer.append(" Nếu bạn cho mình thêm ngày giờ muốn đặt, mình sẽ kiểm tra lịch trống chính xác hơn nha.");
+            answer.append(" Neu ban cho minh them ngay gio muon dat, minh se kiem tra lich trong chinh xac hon nha.");
         }
 
         return answer.toString();
     }
 
     private String buildAllRoomsAnswer(List<AiSuggestedRoomResponse> rooms) {
-        return "Hiện hệ thống có các phòng sau: " + formatRoomList(rooms) + ".";
+        return "Hien he thong co cac phong sau: " + formatRoomList(rooms) + ".";
     }
 
     private String buildCheapestRoomAnswer(List<AiSuggestedRoomResponse> rooms) {
         List<AiSuggestedRoomResponse> activeRooms = rooms.stream()
-                .filter(room -> room.getStatus() != RoomStatus.BAO_TRI)
+                .filter(room -> room.getStatus() != RoomStatus.MAINTENANCE)
+                .filter(room -> room.getPricePerHour() != null)
                 .sorted(Comparator.comparing(AiSuggestedRoomResponse::getPricePerHour))
                 .toList();
 
         if (activeRooms.isEmpty()) {
-            return "Hiện chưa có phòng nào sẵn sàng để tư vấn. Bạn thử lại sau nhé.";
+            return "Hien chua co phong nao san sang de tu van. Ban thu lai sau nhe.";
         }
 
         AiSuggestedRoomResponse cheapestRoom = activeRooms.get(0);
-        return "Phòng rẻ nhất hiện tại là " + cheapestRoom.getRoomName()
-                + ", giá " + formatMoney(cheapestRoom.getPricePerHour()) + "/giờ"
+        return "Phong re nhat hien tai la " + cheapestRoom.getRoomName()
+                + ", gia " + formatMoney(cheapestRoom.getPricePerHour()) + "/gio"
                 + capacityText(cheapestRoom)
                 + ".";
     }
@@ -211,35 +245,35 @@ public class AiConsultantServiceImpl implements AiConsultantService {
             BigDecimal maxPrice,
             TimeRange timeRange
     ) {
-        StringBuilder answer = new StringBuilder("Mình chưa tìm thấy phòng phù hợp với yêu cầu này.");
+        StringBuilder answer = new StringBuilder("Minh chua tim thay phong phu hop voi yeu cau nay.");
 
         if (people != null) {
             boolean hasCapacityData = allRooms.stream().anyMatch(room -> room.getCapacity() != null);
             if (!hasCapacityData) {
-                answer.append(" Hiện DB chưa có dữ liệu sức chứa phòng, nên mình không thể tư vấn chính xác theo số lượng ")
+                answer.append(" Hien DB chua co du lieu suc chua phong, nen minh chua the tu van chinh xac theo so luong ")
                         .append(people)
-                        .append(" người.");
+                        .append(" nguoi.");
             } else {
-                answer.append(" Không có phòng nào đủ sức chứa cho ")
+                answer.append(" Khong co phong nao du suc chua cho ")
                         .append(people)
-                        .append(" người.");
+                        .append(" nguoi.");
             }
         }
 
         if (maxPrice != null) {
-            answer.append(" Bạn cũng đang giới hạn ngân sách ")
+            answer.append(" Ban cung dang gioi han ngan sach ")
                     .append(formatMoney(maxPrice))
-                    .append("/giờ.");
+                    .append("/gio.");
         }
 
         if (timeRange != null) {
-            answer.append(" Khung giờ bạn hỏi là ")
+            answer.append(" Khung gio ban hoi la ")
                     .append(formatTime(timeRange.startTime()))
-                    .append(" đến ")
+                    .append(" den ")
                     .append(formatTime(timeRange.endTime()))
                     .append(".");
         } else {
-            answer.append(" Bạn có thể cho mình thêm ngày giờ muốn đặt để mình kiểm tra lịch trống chính xác hơn nhé.");
+            answer.append(" Ban co the cho minh them ngay gio muon dat de minh kiem tra lich trong chinh xac hon nhe.");
         }
 
         return answer.toString();
@@ -249,43 +283,95 @@ public class AiConsultantServiceImpl implements AiConsultantService {
         return rooms.stream()
                 .map(room -> room.getRoomName()
                         + " - " + room.getRoomTypeName()
-                        + ", " + formatMoney(room.getPricePerHour()) + "/giờ"
+                        + ", " + formatMoney(room.getPricePerHour()) + "/gio"
                         + capacityText(room)
                         + statusText(room))
                 .reduce((first, second) -> first + "; " + second)
-                .orElse("chưa có phòng phù hợp");
+                .orElse("chua co phong phu hop");
     }
 
-    private String buildReason(Room room, Boolean available) {
+    private String buildReason(AiSuggestedRoomResponse room) {
         List<String> reasons = new ArrayList<>();
-        reasons.add("Giá " + formatMoney(room.getRoomType().getPricePerHour()) + "/giờ");
+        reasons.add("Gia " + formatMoney(room.getPricePerHour()) + "/gio");
 
-        if (room.getRoomType().getCapacity() != null) {
-            reasons.add("sức chứa tối đa " + room.getRoomType().getCapacity() + " người");
+        if (room.getCapacity() != null) {
+            reasons.add("suc chua toi da " + room.getCapacity() + " nguoi");
         } else {
-            reasons.add("chưa có dữ liệu sức chứa");
+            reasons.add("chua co du lieu suc chua");
         }
 
-        if (available != null) {
-            reasons.add(available ? "còn trống trong khung giờ yêu cầu" : "đã có lịch trong khung giờ yêu cầu");
+        if (room.getAvailableInRequestedTime() != null) {
+            reasons.add(Boolean.TRUE.equals(room.getAvailableInRequestedTime())
+                    ? "con trong trong khung gio yeu cau"
+                    : "da co lich trong khung gio yeu cau");
         }
 
         return String.join(", ", reasons);
     }
 
+    private String buildCloudflareSystemPrompt() {
+        return """
+                You are a Vietnamese chatbot for Band Room Management.
+                Answer in friendly Vietnamese.
+                Only use the room, price, capacity, status, and availability data provided by the system.
+                Do not invent rooms, prices, promotions, bookings, or unavailable data.
+                If date or time is missing for an availability question, ask the customer for the missing details.
+                Keep the answer concise and useful for booking a music practice room.
+                Avoid technical words such as API, backend, database, token, or Cloudflare in customer-facing answers.
+                """;
+    }
+
+    private String buildCloudflareUserPrompt(
+            String originalMessage,
+            List<AiSuggestedRoomResponse> allRooms,
+            List<AiSuggestedRoomResponse> matchedRooms,
+            Integer people,
+            BigDecimal maxPrice,
+            TimeRange timeRange,
+            String fallbackAnswer
+    ) {
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("Customer question:\n").append(originalMessage).append("\n\n");
+        prompt.append("Interpreted filters:\n");
+        prompt.append("- people: ").append(people == null ? "unknown" : people).append("\n");
+        prompt.append("- max price per hour: ").append(maxPrice == null ? "unknown" : formatMoney(maxPrice)).append("\n");
+        prompt.append("- requested time: ").append(timeRange == null ? "unknown" : formatTime(timeRange.startTime()) + " to " + formatTime(timeRange.endTime())).append("\n\n");
+        prompt.append("Matched rooms:\n").append(formatRoomContext(matchedRooms)).append("\n\n");
+        prompt.append("All rooms:\n").append(formatRoomContext(allRooms)).append("\n\n");
+        prompt.append("Safe fallback answer if data is insufficient:\n").append(fallbackAnswer);
+        return prompt.toString();
+    }
+
+    private String formatRoomContext(List<AiSuggestedRoomResponse> rooms) {
+        if (rooms.isEmpty()) {
+            return "No rooms.";
+        }
+
+        return rooms.stream()
+                .map(room -> "- " + room.getRoomName()
+                        + " | type: " + room.getRoomTypeName()
+                        + " | price: " + formatMoney(room.getPricePerHour())
+                        + "/hour | capacity: " + (room.getCapacity() == null ? "unknown" : room.getCapacity())
+                        + " | status: " + room.getStatus()
+                        + " | available in requested time: " + room.getAvailableInRequestedTime()
+                        + " | reason: " + room.getReason())
+                .reduce((first, second) -> first + "\n" + second)
+                .orElse("No rooms.");
+    }
+
     private String capacityText(AiSuggestedRoomResponse room) {
-        return room.getCapacity() == null ? ", chưa có dữ liệu sức chứa" : ", tối đa " + room.getCapacity() + " người";
+        return room.getCapacity() == null ? ", chua co du lieu suc chua" : ", toi da " + room.getCapacity() + " nguoi";
     }
 
     private String statusText(AiSuggestedRoomResponse room) {
-        if (room.getStatus() == RoomStatus.BAO_TRI) {
-            return ", đang bảo trì";
+        if (room.getStatus() == RoomStatus.MAINTENANCE) {
+            return ", dang bao tri";
         }
         if (Boolean.TRUE.equals(room.getAvailableInRequestedTime())) {
-            return ", đang trống";
+            return ", dang trong";
         }
         if (Boolean.FALSE.equals(room.getAvailableInRequestedTime())) {
-            return ", đã có lịch";
+            return ", da co lich";
         }
         return "";
     }
@@ -365,18 +451,23 @@ public class AiConsultantServiceImpl implements AiConsultantService {
 
     private void validateTimeRange(LocalDateTime startTime, LocalDateTime endTime) {
         if (!startTime.isBefore(endTime)) {
-            throw new IllegalArgumentException("Thời gian bắt đầu phải nhỏ hơn thời gian kết thúc");
+            throw new IllegalArgumentException("Thoi gian bat dau phai nho hon thoi gian ket thuc");
         }
     }
 
     private String normalize(String value) {
         String lowerCaseValue = value.toLowerCase();
         String normalizedValue = Normalizer.normalize(lowerCaseValue, Normalizer.Form.NFD);
-        return normalizedValue.replaceAll("\\p{M}", "").replace('đ', 'd');
+        return normalizedValue.replaceAll("\\p{M}", "")
+                .replace('\u0111', 'd')
+                .replace('\u0110', 'D');
     }
 
     private String formatMoney(BigDecimal amount) {
-        return amount.stripTrailingZeros().toPlainString() + "đ";
+        if (amount == null) {
+            return "chua co gia";
+        }
+        return amount.stripTrailingZeros().toPlainString() + " VND";
     }
 
     private String formatTime(LocalDateTime time) {

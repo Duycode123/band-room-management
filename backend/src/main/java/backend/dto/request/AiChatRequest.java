@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 @Setter
 public class AiChatRequest {
 
-    @NotBlank(message = "Câu hỏi không được để trống")
+    @NotBlank(message = "Cau hoi khong duoc de trong")
     private String message;
 
     private LocalDateTime startTime;

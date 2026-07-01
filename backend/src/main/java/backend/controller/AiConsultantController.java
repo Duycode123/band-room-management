@@ -7,8 +7,8 @@ import backend.service.AiConsultantService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,7 +27,7 @@ public class AiConsultantController {
         return ResponseEntity.ok(
                 ApiResponse.<AiChatResponse>builder()
                         .success(true)
-                        .message("AI tư vấn phòng thành công")
+                        .message("AI tu van phong thanh cong")
                         .data(aiConsultantService.chat(request))
                         .build()
         );
@@ -38,7 +38,7 @@ public class AiConsultantController {
         return ResponseEntity.ok(
                 ApiResponse.<List<String>>builder()
                         .success(true)
-                        .message("Láº¥y cĂ¢u há»i gá»£i Ă½ thĂ nh cĂ´ng")
+                        .message("Lay cau hoi goi y thanh cong")
                         .data(aiConsultantService.getSuggestedQuestions())
                         .build()
         );
