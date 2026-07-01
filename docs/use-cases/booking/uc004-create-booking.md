@@ -29,12 +29,13 @@ Allow an authenticated customer to select a valid room/time range, see the expec
 1. Customer opens the booking flow for a room.
 2. Frontend requests available slots for a selected time window.
 3. Backend returns free slots based on existing blocking bookings and room status.
-4. Customer selects a start time, end time, and payment method.
+4. Customer selects a start time, end time, payment method, and optional coupon code.
 5. Frontend requests cost calculation.
 6. Backend calculates price based on room hourly rate and duration.
 7. Customer confirms booking.
 8. Backend validates the request again, checks availability under concurrency control, and creates the booking.
 9. Backend stores the booking with pending-payment status and returns booking summary data.
+10. For online SePay payment, backend creates a pending payment transaction using the booking code as the transfer reference.
 
 ## Alternate and Error Flows
 
@@ -73,7 +74,8 @@ Allow an authenticated customer to select a valid room/time range, see the expec
 ## Known Gaps / Follow-up
 
 - Full payment completion flow is not fully represented by current controller sources.
-- Instrument add-ons, coupon application, and richer checkout breakdown from backlog are not yet covered in this backend path.
+- Instrument add-ons are not yet covered in this backend path.
+- Coupon usage limits and richer coupon campaign rules are not yet covered.
 - Booking detail for customers is not yet a separate endpoint.
 
 ## Hexagonal Refactor Notes

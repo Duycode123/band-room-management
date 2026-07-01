@@ -19,12 +19,17 @@ import backend.booking.application.port.in.query.GetRoomAvailabilityQuery;
 import backend.booking.application.port.in.query.ListBookingsForManagementQuery;
 import backend.booking.application.port.out.LoadBookingPort;
 import backend.booking.application.port.out.LoadCustomerPort;
+import backend.booking.application.port.out.LoadDiscountCodeForBookingPort;
 import backend.booking.application.port.out.LoadReviewPort;
 import backend.booking.application.port.out.LoadRoomPort;
 import backend.booking.application.port.out.LoadUserPort;
 import backend.booking.application.port.out.SaveBookingPort;
+import backend.booking.application.port.out.SavePaymentTransactionPort;
 import backend.booking.application.port.out.SearchCustomerBookingsPort;
 import backend.booking.application.port.out.model.CustomerBookingHistoryCriteria;
+import backend.coupon.domain.model.CouponValidationResult;
+import backend.coupon.domain.port.in.ValidateCouponCommand;
+import backend.coupon.domain.port.in.ValidateCouponUseCase;
 import backend.dto.response.BookingCostResponse;
 import backend.dto.response.BookingResponse;
 import backend.dto.response.PagedResponse;
@@ -33,12 +38,18 @@ import backend.dto.response.TimeSlotResponse;
 import backend.entity.Booking;
 import backend.entity.BookingStatus;
 import backend.entity.Customer;
+import backend.entity.DiscountCode;
+import backend.entity.PaymentMethod;
+import backend.entity.PaymentProvider;
+import backend.entity.PaymentTransaction;
+import backend.entity.PaymentTransactionStatus;
 import backend.entity.Room;
 import backend.entity.RoomStatus;
 import backend.entity.User;
 import backend.exception.BookingConflictException;
 import backend.exception.ForbiddenException;
 import backend.exception.ResourceNotFoundException;
+import backend.service.CouponUsageTrackingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -66,11 +77,15 @@ public class BookingUseCaseService implements
 
     private final LoadRoomPort loadRoomPort;
     private final LoadCustomerPort loadCustomerPort;
+    private final LoadDiscountCodeForBookingPort loadDiscountCodeForBookingPort;
     private final LoadUserPort loadUserPort;
     private final LoadBookingPort loadBookingPort;
     private final SaveBookingPort saveBookingPort;
+    private final SavePaymentTransactionPort savePaymentTransactionPort;
     private final SearchCustomerBookingsPort searchCustomerBookingsPort;
     private final LoadReviewPort loadReviewPort;
+    private final ValidateCouponUseCase validateCouponUseCase;
+    private final CouponUsageTrackingService couponUsageTrackingService;
 
     @Override
     public BookingCostResponse calculateCost(CalculateBookingCostCommand command) {
@@ -81,7 +96,10 @@ public class BookingUseCaseService implements
 
         BigDecimal totalHours = calculateTotalHours(command.startTime(), command.endTime());
         BigDecimal pricePerHour = room.getRoomType().getPricePerHour();
-        BigDecimal totalAmount = totalHours.multiply(pricePerHour);
+        BigDecimal originalAmount = totalHours.multiply(pricePerHour).setScale(2, RoundingMode.HALF_UP);
+        CouponValidationResult couponResult = validateCouponIfPresent(command.couponCode(), originalAmount);
+        BigDecimal discountAmount = couponResult == null ? BigDecimal.ZERO.setScale(2) : couponResult.discountAmount();
+        BigDecimal totalAmount = couponResult == null ? originalAmount : couponResult.payableAmount();
 
         return new BookingCostResponse(
                 room.getId(),
@@ -91,6 +109,9 @@ public class BookingUseCaseService implements
                 command.endTime(),
                 totalHours,
                 pricePerHour,
+                originalAmount,
+                couponResult == null ? null : couponResult.code(),
+                discountAmount,
                 totalAmount
         );
     }
@@ -116,11 +137,15 @@ public class BookingUseCaseService implements
 
         BigDecimal totalHours = calculateTotalHours(command.startTime(), command.endTime());
         BigDecimal pricePerHour = room.getRoomType().getPricePerHour();
-        BigDecimal totalAmount = totalHours.multiply(pricePerHour);
+        BigDecimal originalAmount = totalHours.multiply(pricePerHour).setScale(2, RoundingMode.HALF_UP);
+        CouponValidationResult couponResult = validateCouponIfPresent(command.couponCode(), originalAmount);
+        DiscountCode discountCode = loadDiscountCodeForPaidBooking(couponResult);
+        BigDecimal totalAmount = couponResult == null ? originalAmount : couponResult.payableAmount();
 
         Booking booking = Booking.builder()
                 .customer(customer)
                 .room(room)
+                .discountCode(discountCode)
                 .startTime(command.startTime())
                 .endTime(command.endTime())
                 .paymentMethod(command.paymentMethod())
@@ -138,6 +163,16 @@ public class BookingUseCaseService implements
                     "Phong vua duoc dat boi yeu cau khac trong cung khoang thoi gian",
                     exception
             );
+        }
+
+        if (savedBooking.getPaymentMethod() == PaymentMethod.ONLINE) {
+            savePaymentTransactionPort.savePaymentTransaction(PaymentTransaction.builder()
+                    .booking(savedBooking)
+                    .provider(PaymentProvider.SEPAY)
+                    .transactionReference(savedBooking.getBookingCode())
+                    .amount(savedBooking.getTotalAmount())
+                    .status(PaymentTransactionStatus.PENDING)
+                    .build());
         }
 
         return new BookingResponse(savedBooking);
@@ -253,6 +288,10 @@ public class BookingUseCaseService implements
         booking.setStatus(command.status());
 
         Booking savedBooking = saveBookingPort.save(booking);
+
+        if (savedBooking.getStatus() == BookingStatus.PAID) {
+            couponUsageTrackingService.recordPaidBookingUsage(savedBooking);
+        }
 
         return new BookingResponse(savedBooking);
     }
@@ -450,6 +489,31 @@ public class BookingUseCaseService implements
 
         return BigDecimal.valueOf(minutes)
                 .divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP);
+    }
+
+    private CouponValidationResult validateCouponIfPresent(String couponCode, BigDecimal orderAmount) {
+        if (couponCode == null || couponCode.isBlank()) {
+            return null;
+        }
+
+        CouponValidationResult result = validateCouponUseCase.validate(
+                new ValidateCouponCommand(couponCode, orderAmount)
+        );
+
+        if (!result.valid()) {
+            throw new IllegalArgumentException(result.reason());
+        }
+
+        return result;
+    }
+
+    private DiscountCode loadDiscountCodeForPaidBooking(CouponValidationResult couponResult) {
+        if (couponResult == null) {
+            return null;
+        }
+
+        return loadDiscountCodeForBookingPort.loadDiscountCodeForBooking(couponResult.code())
+                .orElseThrow(() -> new IllegalArgumentException("Coupon khong ton tai"));
     }
 
     private User getCurrentUser(String email) {
