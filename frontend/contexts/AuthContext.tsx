@@ -16,6 +16,13 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
+function clearClientUserCaches() {
+  if (typeof window === 'undefined') return
+
+  const keys = ['user', 'currentUser', 'profile', 'avatarUrl', 'accessToken', 'refreshToken']
+  keys.forEach((key) => window.localStorage.removeItem(key))
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -49,6 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await logoutSession()
     } finally {
       clearStoredCustomerProfile()
+      clearClientUserCaches()
       setUser(null)
       setIsLoading(false)
       window.setTimeout(() => setIsLoggingOut(false), 500)
