@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 public record CalculateBookingCostCommand(
         Integer roomId,
         LocalDateTime startTime,
-        LocalDateTime endTime
+        LocalDateTime endTime,
+        String couponCode
 ) {
 }

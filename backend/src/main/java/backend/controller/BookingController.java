@@ -45,7 +45,8 @@ public class BookingController {
                 new CalculateBookingCostCommand(
                         request.getRoomId(),
                         request.getStartTime(),
-                        request.getEndTime()
+                        request.getEndTime(),
+                        request.getCouponCode()
                 )
         );
 
@@ -65,6 +66,7 @@ public class BookingController {
                         request.getStartTime(),
                         request.getEndTime(),
                         request.getPaymentMethod(),
+                        request.getCouponCode(),
                         request.getNote(),
                         customerEmail
                 )

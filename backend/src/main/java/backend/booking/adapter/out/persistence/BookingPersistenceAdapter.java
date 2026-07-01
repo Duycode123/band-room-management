@@ -3,19 +3,24 @@ package backend.booking.adapter.out.persistence;
 import backend.booking.application.model.PageResult;
 import backend.booking.application.port.out.LoadBookingPort;
 import backend.booking.application.port.out.LoadCustomerPort;
+import backend.booking.application.port.out.LoadDiscountCodeForBookingPort;
 import backend.booking.application.port.out.LoadReviewPort;
 import backend.booking.application.port.out.LoadRoomPort;
 import backend.booking.application.port.out.LoadUserPort;
 import backend.booking.application.port.out.SaveBookingPort;
+import backend.booking.application.port.out.SavePaymentTransactionPort;
 import backend.booking.application.port.out.SearchCustomerBookingsPort;
 import backend.booking.application.port.out.model.CustomerBookingHistoryCriteria;
 import backend.entity.Booking;
 import backend.entity.BookingStatus;
 import backend.entity.Customer;
+import backend.entity.PaymentTransaction;
 import backend.entity.Room;
 import backend.entity.User;
 import backend.repository.BookingRepository;
 import backend.repository.CustomerRepository;
+import backend.repository.DiscountCodeRepository;
+import backend.repository.PaymentTransactionRepository;
 import backend.repository.ReviewRepository;
 import backend.repository.RoomRepository;
 import backend.repository.UserRepository;
@@ -37,17 +42,21 @@ import java.util.Optional;
 public class BookingPersistenceAdapter implements
         LoadRoomPort,
         LoadCustomerPort,
+        LoadDiscountCodeForBookingPort,
         LoadUserPort,
         LoadBookingPort,
         LoadReviewPort,
         SaveBookingPort,
+        SavePaymentTransactionPort,
         SearchCustomerBookingsPort {
 
     private final BookingRepository bookingRepository;
     private final RoomRepository roomRepository;
     private final UserRepository userRepository;
     private final CustomerRepository customerRepository;
+    private final DiscountCodeRepository discountCodeRepository;
     private final ReviewRepository reviewRepository;
+    private final PaymentTransactionRepository paymentTransactionRepository;
 
     @Override
     public Optional<Room> loadRoom(Integer roomId) {
@@ -62,6 +71,11 @@ public class BookingPersistenceAdapter implements
     @Override
     public Optional<Customer> loadCustomerByAccountEmail(String email) {
         return customerRepository.findByAccount_Email(email);
+    }
+
+    @Override
+    public Optional<backend.entity.DiscountCode> loadDiscountCodeForBooking(String code) {
+        return discountCodeRepository.findByCodeIgnoreCase(code);
     }
 
     @Override
@@ -107,6 +121,11 @@ public class BookingPersistenceAdapter implements
     @Override
     public Booking saveAndFlush(Booking booking) {
         return bookingRepository.saveAndFlush(booking);
+    }
+
+    @Override
+    public PaymentTransaction savePaymentTransaction(PaymentTransaction transaction) {
+        return paymentTransactionRepository.save(transaction);
     }
 
     @Override

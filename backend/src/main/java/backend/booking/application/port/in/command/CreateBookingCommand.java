@@ -9,6 +9,7 @@ public record CreateBookingCommand(
         LocalDateTime startTime,
         LocalDateTime endTime,
         PaymentMethod paymentMethod,
+        String couponCode,
         String note,
         String customerEmail
 ) {

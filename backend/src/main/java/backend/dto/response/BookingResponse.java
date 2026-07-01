@@ -33,6 +33,9 @@ public class BookingResponse {
 
     private BigDecimal totalHours;
     private BigDecimal pricePerHour;
+    private BigDecimal originalAmount;
+    private String couponCode;
+    private BigDecimal discountAmount;
     private BigDecimal totalAmount;
 
     private BookingStatus status;
@@ -71,6 +74,13 @@ public class BookingResponse {
         this.endTime = booking.getEndTime();
         this.totalHours = booking.getTotalHours();
         this.pricePerHour = booking.getPricePerHour();
+        this.originalAmount = booking.getTotalHours() == null || booking.getPricePerHour() == null
+                ? null
+                : booking.getTotalHours().multiply(booking.getPricePerHour());
+        this.couponCode = booking.getDiscountCode() == null ? null : booking.getDiscountCode().getCode();
+        this.discountAmount = this.originalAmount == null || booking.getTotalAmount() == null
+                ? null
+                : this.originalAmount.subtract(booking.getTotalAmount()).max(BigDecimal.ZERO);
         this.totalAmount = booking.getTotalAmount();
         this.status = booking.getStatus();
         this.paymentMethod = booking.getPaymentMethod();
