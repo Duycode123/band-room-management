@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { getPostLoginPath, loginSession } from '@/lib/auth'
+import { clearStoredCustomerProfile, fetchCurrentUser } from '@/lib/customer-profile-service'
 import AuthBanner from '@/components/auth/AuthBanner'
 import AuthTabs from '@/components/auth/AuthTabs'
 import {
@@ -34,9 +35,20 @@ export default function LoginPage() {
 
     try {
       const sessionUser = await loginSession(formData.identifier.trim(), formData.password)
+      clearStoredCustomerProfile()
+      const currentProfile = await fetchCurrentUser(sessionUser)
 
       alert('Đăng nhập thành công!')
-      login(sessionUser)
+      login({
+        ...sessionUser,
+        id: currentProfile.id ?? sessionUser.id,
+        role: currentProfile.role,
+        fullName: currentProfile.fullName,
+        name: currentProfile.fullName,
+        email: currentProfile.email,
+        phone: currentProfile.phone,
+        avatarUrl: currentProfile.avatarUrl,
+      })
       router.replace(getRedirectPath(sessionUser.role))
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } }

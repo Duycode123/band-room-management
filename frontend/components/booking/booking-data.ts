@@ -1,4 +1,5 @@
 export type RoomCategory = 'standard' | 'band' | 'recording' | 'premium'
+export type RoomAvailabilityStatus = 'AVAILABLE' | 'ALMOST_FULL' | 'FULL_TODAY'
 
 export type RoomCategoryOption = {
   id: RoomCategory
@@ -25,6 +26,9 @@ export type BookingRoom = {
   includedEquipments: string[]
   addons: string[]
   description: string
+  availabilityStatus: RoomAvailabilityStatus
+  remainingSlots: number
+  nextAvailableSlot?: string
   isAvailable: boolean
   nextAvailableTime?: string
   note: string
@@ -206,6 +210,9 @@ export const bookingRooms: BookingRoom[] = [
     includedEquipments: ['Roland Kit', 'Fender Champ', 'Tai nghe kiểm âm', 'Stand nhạc'],
     addons: ['Dây jack dự phòng', 'Stand micro', 'Backing track setup'],
     description: 'Không gian nhỏ gọn cho luyện cá nhân, warm-up trước show hoặc tập kỹ thuật.',
+    availabilityStatus: 'AVAILABLE',
+    remainingSlots: 3,
+    nextAvailableSlot: 'Hôm nay, 10:00',
     isAvailable: true,
     nextAvailableTime: '10:00',
     note: 'Phù hợp luyện cá nhân, vui lòng giữ âm lượng trong ngưỡng phòng nhỏ.',
@@ -229,6 +236,9 @@ export const bookingRooms: BookingRoom[] = [
     includedEquipments: ['Yamaha DTX', 'Vox AC15', 'Mixer 8 kênh', 'Micro Shure'],
     addons: ['Guitar điện Fender', 'Dây jack dự phòng', 'Tai nghe kiểm âm'],
     description: 'Phòng luyện nhóm nhỏ với setup nhanh, phù hợp acoustic session và duo rehearsal.',
+    availabilityStatus: 'ALMOST_FULL',
+    remainingSlots: 1,
+    nextAvailableSlot: 'Hôm nay, 13:00',
     isAvailable: true,
     nextAvailableTime: '13:00',
     note: 'Ưu tiên setup nhanh cho nhóm nhỏ và kiểm tra monitor trước giờ vào phòng.',
@@ -252,6 +262,9 @@ export const bookingRooms: BookingRoom[] = [
     includedEquipments: ['Roland Kit', 'Fender Amp', 'AKG C414', 'Tai nghe kiểm âm'],
     addons: ['Backing track setup', 'Dây jack dự phòng', 'Stand nhạc'],
     description: 'Pod luyện cá nhân có micro tốt hơn cho vocal take nhanh hoặc luyện nhạc cụ chính.',
+    availabilityStatus: 'FULL_TODAY',
+    remainingSlots: 0,
+    nextAvailableSlot: 'Ngày mai, 09:00',
     isAvailable: false,
     nextAvailableTime: 'Ngày mai 09:00',
     note: 'Phù hợp luyện cá nhân, vui lòng giữ âm lượng trong ngưỡng phòng nhỏ.',
@@ -275,6 +288,9 @@ export const bookingRooms: BookingRoom[] = [
     includedEquipments: ['Trống Tama', 'Marshall Stack', 'Mixer 16 kênh', 'Micro Shure'],
     addons: ['Guitar điện Fender', 'Dây jack dự phòng', 'Stand micro'],
     description: 'Phòng rehearsal chủ lực cho band đầy đủ, âm thanh cân bằng và sân khấu nhỏ.',
+    availabilityStatus: 'AVAILABLE',
+    remainingSlots: 4,
+    nextAvailableSlot: 'Hôm nay, 19:00',
     isAvailable: true,
     nextAvailableTime: '19:00',
     note: 'Cần chuẩn bị phòng trước 15 phút, ưu tiên âm thanh vocal rõ.',
@@ -298,6 +314,9 @@ export const bookingRooms: BookingRoom[] = [
     includedEquipments: ['Pearl Export', 'Orange Combo', 'Mixer 12 kênh', 'Monitor wedge'],
     addons: ['Micro Shure SM58', 'Pedal guitar', 'Dây jack dự phòng'],
     description: 'Không gian rehearsal ấm, hợp band indie, pop-rock và buổi tập setlist dài.',
+    availabilityStatus: 'AVAILABLE',
+    remainingSlots: 3,
+    nextAvailableSlot: 'Hôm nay, 17:00',
     isAvailable: true,
     nextAvailableTime: '17:00',
     note: 'Chuẩn bị monitor rõ vocal và line guitar sạch.',
@@ -321,6 +340,9 @@ export const bookingRooms: BookingRoom[] = [
     includedEquipments: ['Gretsch Kit', 'Fender Twin', 'Mixer 16 kênh', 'Bass amp Ampeg'],
     addons: ['Guitar điện Fender', 'Micro Shure SM58', 'Stand micro'],
     description: 'Phòng xử lý âm mộc, phù hợp jazz, soul, acoustic band và rehearsal cần độ chi tiết.',
+    availabilityStatus: 'ALMOST_FULL',
+    remainingSlots: 1,
+    nextAvailableSlot: 'Hôm nay, 20:00',
     isAvailable: true,
     nextAvailableTime: '20:00',
     note: 'Ưu tiên setup acoustic và giảm bleed cho vocal.',
@@ -344,6 +366,9 @@ export const bookingRooms: BookingRoom[] = [
     includedEquipments: ['Console SSL', 'Genelec Monitor', 'Vocal Booth', 'Rack outboard'],
     addons: ['Kỹ thuật viên thu âm', 'Micro condenser', 'Gói mix nhanh'],
     description: 'Phòng thu kín, kiểm âm chuẩn để thu demo, vocal, podcast và overdub.',
+    availabilityStatus: 'AVAILABLE',
+    remainingSlots: 3,
+    nextAvailableSlot: 'Hôm nay, 15:00',
     isAvailable: true,
     nextAvailableTime: '15:00',
     note: 'Ưu tiên chuẩn bị vocal booth và kiểm tra monitor trước giờ vào phòng.',
@@ -367,6 +392,9 @@ export const bookingRooms: BookingRoom[] = [
     includedEquipments: ['Neumann TLM', 'Apollo Interface', 'Closed Booth', 'Pop filter'],
     addons: ['Kỹ thuật viên thu âm', 'Tai nghe kiểm âm', 'Micro Shure SM58'],
     description: 'Booth khô, sạch, chuyên cho vocal lead, harmony, voice-over và podcast.',
+    availabilityStatus: 'FULL_TODAY',
+    remainingSlots: 0,
+    nextAvailableSlot: 'Ngày mai, 10:00',
     isAvailable: false,
     nextAvailableTime: 'Ngày mai 10:00',
     note: 'Kiểm tra lyric stand và headphone mix trước giờ thu.',
@@ -390,6 +418,9 @@ export const bookingRooms: BookingRoom[] = [
     includedEquipments: ['Genelec 8351', 'SSL UC1', 'MIDI Station', 'Reference DAC'],
     addons: ['Kỹ thuật viên thu âm', 'Gói mix nhanh', 'Tai nghe kiểm âm'],
     description: 'Suite kiểm âm chi tiết cho mixing, arrangement và production session cùng producer.',
+    availabilityStatus: 'ALMOST_FULL',
+    remainingSlots: 1,
+    nextAvailableSlot: 'Hôm nay, 18:00',
     isAvailable: true,
     nextAvailableTime: '18:00',
     note: 'Mang project file và reference track để setup phiên nhanh hơn.',
@@ -413,6 +444,9 @@ export const bookingRooms: BookingRoom[] = [
     includedEquipments: ['DW Collector', 'Mesa Stack', 'Stage Lighting', 'In-ear monitor'],
     addons: ['Kỹ thuật viên thu âm', 'Guitar điện Fender', 'Micro Shure SM58'],
     description: 'Live room rộng, ánh sáng đẹp, phù hợp rehearsal cao cấp và quay session live.',
+    availabilityStatus: 'AVAILABLE',
+    remainingSlots: 3,
+    nextAvailableSlot: 'Hôm nay, 21:00',
     isAvailable: true,
     nextAvailableTime: '21:00',
     note: 'Chuẩn bị ánh sáng sân khấu và line check đầy đủ trước giờ vào phòng.',
@@ -436,6 +470,9 @@ export const bookingRooms: BookingRoom[] = [
     includedEquipments: ['Ludwig Kit', 'Marshall JVM', 'Private Lounge', 'Premium monitors'],
     addons: ['Kỹ thuật viên thu âm', 'Pedal guitar', 'Stand micro'],
     description: 'Phòng premium có lounge riêng cho band cần không gian kín và trải nghiệm chỉn chu.',
+    availabilityStatus: 'FULL_TODAY',
+    remainingSlots: 0,
+    nextAvailableSlot: 'Ngày mai, 14:00',
     isAvailable: false,
     nextAvailableTime: 'Ngày mai 14:00',
     note: 'Chuẩn bị lounge và setup riêng theo yêu cầu khách VIP.',
@@ -459,6 +496,9 @@ export const bookingRooms: BookingRoom[] = [
     includedEquipments: ['SSL Console', 'Focal Trio', 'Producer Desk', 'Private assistant'],
     addons: ['Kỹ thuật viên thu âm', 'Gói mix nhanh', 'Micro condenser'],
     description: 'Suite cao cấp nhất cho production camp, mix review và buổi làm việc riêng với producer.',
+    availabilityStatus: 'AVAILABLE',
+    remainingSlots: 3,
+    nextAvailableSlot: 'Hôm nay, 16:00',
     isAvailable: true,
     nextAvailableTime: '16:00',
     note: 'Chuẩn bị reference monitor, session template và không gian tiếp khách.',

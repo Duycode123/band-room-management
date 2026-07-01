@@ -14,15 +14,19 @@ import {
 } from '@/lib/checkout-data'
 import type { AppliedDiscount } from '@/lib/discount-service'
 import { createPaymentSession, type PaymentMethod } from '@/lib/payment-service'
+import {
+  clearPendingBooking,
+  getPendingBooking,
+  pendingBookingToSearchParams,
+} from '@/lib/pending-booking'
 
 export default function CheckoutPageClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const initialPaymentMethod = getInitialPaymentMethod(searchParams.get('method'))
   const [booking, setBooking] = useState<CheckoutBooking | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(initialPaymentMethod)
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(() => getInitialPaymentMethod(searchParams.get('method')))
   const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null)
   const [isPaying, setIsPaying] = useState(false)
   const [paymentError, setPaymentError] = useState('')
@@ -35,10 +39,23 @@ export default function CheckoutPageClient() {
       setError('')
 
       try {
-        const loadedBooking = await getCheckoutBookingFromParams(new URLSearchParams(searchParams.toString()))
+        const checkoutParams = new URLSearchParams(searchParams.toString())
+
+        if (!checkoutParams.get('bookingId')) {
+          const pendingBooking = getPendingBooking()
+
+          if (pendingBooking) {
+            const pendingParams = pendingBookingToSearchParams(pendingBooking)
+            pendingParams.forEach((value, key) => {
+              checkoutParams.set(key, value)
+            })
+          }
+        }
+
+        const loadedBooking = await getCheckoutBookingFromParams(checkoutParams)
         if (!mounted) return
 
-        if (!searchParams.get('bookingId')) {
+        if (!checkoutParams.get('bookingId')) {
           setError('Thiếu mã đặt phòng. Vui lòng quay lại bước xác nhận đặt phòng.')
           setBooking(null)
           return
@@ -51,7 +68,8 @@ export default function CheckoutPageClient() {
         }
 
         setBooking(loadedBooking)
-        setAppliedDiscount(getAppliedDiscountFromParams(searchParams, loadedBooking))
+        setPaymentMethod(getInitialPaymentMethod(checkoutParams.get('method')))
+        setAppliedDiscount(getAppliedDiscountFromParams(checkoutParams, loadedBooking))
       } catch {
         if (mounted) {
           setError('Không thể tải thông tin thanh toán. Vui lòng thử lại.')
@@ -95,6 +113,10 @@ export default function CheckoutPageClient() {
         amount: summary.total,
         method: paymentMethod,
       })
+
+      if (session.status === 'success') {
+        clearPendingBooking()
+      }
 
       router.push(session.paymentUrl)
     } catch (paymentSessionError) {

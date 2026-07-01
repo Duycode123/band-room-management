@@ -3,20 +3,21 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import BookingRoomCard from '@/components/booking/BookingRoomCard'
 import BookingQuickModal from '@/components/booking/BookingQuickModal'
 import RoomDetailModal from '@/components/booking/RoomDetailModal'
 import AccountMenu from '@/components/layout/AccountMenu'
 import {
   bookingRooms,
-  findBookingRoom,
   roomCategories,
   type BookingRoom,
   type RoomCategory,
 } from '@/components/booking/booking-data'
 import { useAuth } from '@/contexts/AuthContext'
 import { useHomepageLiveData } from '@/hooks/useHomepageLiveData'
+import { fetchPublicBookingRooms } from '@/lib/booking-room-service'
+import { findBookingRoomInCatalog } from '@/lib/room-mappers'
 import {
   formatRelativeTime,
   formatSlotDateLabel,
@@ -58,8 +59,6 @@ const features = [
     description: 'Nhân viên studio hỗ trợ check-in, setup nhạc cụ và xử lý nhanh khi lịch tập thay đổi.',
   },
 ] as const
-
-const rooms = bookingRooms
 
 type RoomCatalogFilter = 'all' | RoomCategory
 
@@ -194,6 +193,7 @@ export default function HomePage() {
   const [availabilityHintVisible, setAvailabilityHintVisible] = useState(false)
   const [quickBooking, setQuickBooking] = useState<QuickBookingState | null>(null)
   const [selectedRoomDetail, setSelectedRoomDetail] = useState<BookingRoom | null>(null)
+  const [rooms, setRooms] = useState<BookingRoom[]>(bookingRooms)
   const [activeRoomCategory, setActiveRoomCategory] = useState<RoomCatalogFilter>('all')
   const visibleRooms =
     activeRoomCategory === 'all' ? rooms : rooms.filter((room) => room.category === activeRoomCategory)
@@ -202,6 +202,26 @@ export default function HomePage() {
     label: category.label,
     count: rooms.filter((room) => room.category === category.id).length,
   }))]
+  const roomCatalogStats = [
+    [String(roomCategories.filter((category) => rooms.some((room) => room.category === category.id)).length), 'Hạng phòng'],
+    [String(rooms.length), 'Phòng tập'],
+    ['Live', 'Cập nhật lịch trống'],
+  ]
+
+  useEffect(() => {
+    let mounted = true
+
+    async function loadRooms() {
+      const data = await fetchPublicBookingRooms()
+      if (mounted) setRooms(data)
+    }
+
+    void loadRooms()
+
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   const scrollToRooms = () => {
     document.getElementById('rooms')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -236,7 +256,7 @@ export default function HomePage() {
       return
     }
 
-    const room = findBookingRoom(nextAvailableSlot.roomId)
+    const room = findBookingRoomInCatalog(nextAvailableSlot.roomId, rooms)
 
     if (!room) {
       handleBookingClick()
@@ -518,11 +538,7 @@ export default function HomePage() {
             </div>
 
             <div className="grid w-full gap-3 sm:grid-cols-3 lg:w-auto">
-              {[
-                ['4', 'Hạng phòng'],
-                ['12', 'Phòng tập'],
-                ['Live', 'Cập nhật lịch trống'],
-              ].map(([value, label]) => (
+              {roomCatalogStats.map(([value, label]) => (
                 <div key={label} className="rounded-xl border border-outline-variant bg-white px-4 py-3 shadow-[var(--shadow-card)]">
                   <p className="font-display text-xl font-bold text-brand-orange">{value}</p>
                   <p className="mt-1 text-xs font-semibold uppercase text-on-surface-variant">{label}</p>
@@ -567,17 +583,26 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {visibleRooms.map((room) => (
-              <BookingRoomCard
-                key={room.id}
-                room={room}
-                renderIcon={(name, className) => <Icon name={name} className={className} />}
-                onOpenDetail={setSelectedRoomDetail}
-                onBook={handleBookRoom}
-              />
-            ))}
-          </div>
+          {visibleRooms.length > 0 ? (
+            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {visibleRooms.map((room) => (
+                <BookingRoomCard
+                  key={room.id}
+                  room={room}
+                  renderIcon={(name, className) => <Icon name={name} className={className} />}
+                  onOpenDetail={setSelectedRoomDetail}
+                  onBook={handleBookRoom}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="mt-10 rounded-xl border border-dashed border-outline-variant bg-white px-6 py-12 text-center shadow-[var(--shadow-card)]">
+              <p className="font-display text-lg font-bold text-on-surface">Chưa có phòng phù hợp</p>
+              <p className="mt-2 text-sm text-on-surface-variant">
+                Vui lòng thử hạng phòng khác hoặc quay lại sau khi admin thêm phòng mới.
+              </p>
+            </div>
+          )}
         </div>
       </section>
 

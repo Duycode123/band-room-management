@@ -6,13 +6,13 @@ import {
   bookingAddOns,
   bookingRooms,
   calculateEndTime,
-  findBookingRoom,
   formatCurrency,
   formatDisplayDate,
   getSelectedAddOns,
   normalizeDuration,
   parseAddonIds,
 } from '@/components/booking/booking-data'
+import { resolveBookingRoom } from '@/lib/booking-room-service'
 import type { AppliedDiscount } from '@/lib/discount-service'
 import type { PaymentMethod, PaymentStatus } from '@/lib/payment-service'
 
@@ -113,7 +113,7 @@ export function getReturnStatusContent(status?: string | null) {
       title: 'Thanh toán thất bại',
       message: 'Giao dịch chưa hoàn tất. Vui lòng thử lại hoặc chọn phương thức khác.',
       primaryLabel: 'Thử lại thanh toán',
-      primaryHref: '/customer/checkout',
+      primaryHref: '/checkout',
     },
     pending: {
       tone: 'pending',
@@ -129,7 +129,7 @@ export function getReturnStatusContent(status?: string | null) {
       title: 'Thanh toán đã bị hủy',
       message: 'Bạn đã hủy quá trình thanh toán. Bạn có thể thử lại bất cứ lúc nào.',
       primaryLabel: 'Thử lại thanh toán',
-      primaryHref: '/customer/checkout',
+      primaryHref: '/checkout',
     },
     unknown: {
       tone: 'unknown',
@@ -159,7 +159,7 @@ export async function getCheckoutBookingFromParams(searchParams: URLSearchParams
   if (!bookingId) return null
 
   const roomId = searchParams.get('roomId') || bookingRooms.find((room) => room.code === bookingId)?.id || 'studio-a'
-  const room = findBookingRoom(roomId) ?? bookingRooms.find((item) => item.code === bookingId)
+  const room = (await resolveBookingRoom(roomId)) ?? bookingRooms.find((item) => item.code === bookingId)
   if (!room) return null
 
   const date = searchParams.get('date') || DEFAULT_BOOKING_DATE

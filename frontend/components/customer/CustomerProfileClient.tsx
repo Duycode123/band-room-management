@@ -36,7 +36,7 @@ export default function CustomerProfileClient() {
     email: '',
     phone: '',
   })
-  const [avatarPreview, setAvatarPreview] = useState<string | undefined>()
+  const [avatarPreview, setAvatarPreview] = useState<string | null | undefined>()
   const [profileMessage, setProfileMessage] = useState<Message | null>(null)
   const [isFetchingProfile, setIsFetchingProfile] = useState(true)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
@@ -45,6 +45,13 @@ export default function CustomerProfileClient() {
     let mounted = true
 
     const loadProfile = async () => {
+      setProfile(null)
+      setProfileForm({
+        fullName: '',
+        email: '',
+        phone: '',
+      })
+      setAvatarPreview(undefined)
       setIsFetchingProfile(true)
       try {
         const currentProfile = await fetchCurrentUser(user)
@@ -57,7 +64,7 @@ export default function CustomerProfileClient() {
           phone: currentProfile.phone,
           avatarUrl: currentProfile.avatarUrl,
         })
-        setAvatarPreview(currentProfile.avatarUrl)
+        setAvatarPreview(currentProfile.avatarUrl ?? null)
       } catch {
         if (!mounted) return
         setProfileMessage({ type: 'error', text: 'Không thể tải thông tin hồ sơ. Vui lòng thử lại.' })
@@ -92,7 +99,7 @@ export default function CustomerProfileClient() {
   })
   const displayEmail = profileForm.email || profile?.email || ''
   const avatarInitial = getInitials(displayName, displayEmail)
-  const avatarUrl = avatarPreview || profile?.avatarUrl
+  const avatarUrl = avatarPreview !== undefined ? avatarPreview || undefined : profile?.avatarUrl
   const role = profile?.role || user?.role || 'CUSTOMER'
 
   const validateProfile = () => {
@@ -145,7 +152,7 @@ export default function CustomerProfileClient() {
       if (currentPreview?.startsWith('blob:')) {
         URL.revokeObjectURL(currentPreview)
       }
-      return undefined
+      return null
     })
     if (avatarInputRef.current) {
       avatarInputRef.current.value = ''

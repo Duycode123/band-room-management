@@ -3,18 +3,19 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import BandRoomHeader from '@/components/layout/BandRoomHeader'
+import { useAuth } from '@/contexts/AuthContext'
 import {
   DEFAULT_BOOKING_DATE,
   DEFAULT_START_TIME,
   EMPTY_NOTE_TEXT,
+  bookingRooms,
   calculateEndTime,
   findBookingRoom,
   formatCurrency,
   formatDisplayDate,
   getAddOnsTotal,
-  getBookingRoomOrFallback,
   getRoomSubtotal,
   getSelectedAddOns,
   normalizeDuration,
@@ -24,14 +25,25 @@ import {
   type PaymentMethod,
   type PaymentMethodId,
 } from '@/components/booking/booking-data'
+import { resolveBookingRoom } from '@/lib/booking-room-service'
 import { validateDiscountCode, type AppliedDiscount } from '@/lib/discount-service'
+import {
+  CHECKOUT_PATH,
+  pendingBookingToSearchParams,
+  savePendingBooking,
+  type PendingBooking,
+} from '@/lib/pending-booking'
 
 export default function BookingConfirmationClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth()
   const roomId = searchParams.get('roomId')
-  const room = getBookingRoomOrFallback(roomId)
-  const roomMissing = Boolean(roomId && !findBookingRoom(roomId))
+  const staticRoom = useMemo(() => findBookingRoom(roomId), [roomId])
+  const fallbackRoom = staticRoom ?? bookingRooms[0]
+  const [room, setRoom] = useState(fallbackRoom)
+  const [roomMissing, setRoomMissing] = useState(Boolean(roomId && !staticRoom))
+  const [isResolvingRoom, setIsResolvingRoom] = useState(Boolean(roomId && !staticRoom))
   const date = searchParams.get('date') || DEFAULT_BOOKING_DATE
   const startTime = searchParams.get('startTime') || DEFAULT_START_TIME
   const duration = normalizeDuration(searchParams.get('duration'))
@@ -53,6 +65,29 @@ export default function BookingConfirmationClient() {
   const [discountMessage, setDiscountMessage] = useState('')
   const [isApplyingDiscount, setIsApplyingDiscount] = useState(false)
   const activePaymentMethod = paymentMethods.find((method) => method.id === paymentMethod) ?? paymentMethods[0]
+
+  useEffect(() => {
+    let mounted = true
+
+    setRoom(fallbackRoom)
+    setRoomMissing(Boolean(roomId && !staticRoom))
+    setIsResolvingRoom(Boolean(roomId && !staticRoom))
+
+    async function loadRoom() {
+      const resolvedRoom = await resolveBookingRoom(roomId)
+      if (!mounted) return
+
+      setRoom(resolvedRoom ?? fallbackRoom)
+      setRoomMissing(Boolean(roomId && !resolvedRoom))
+      setIsResolvingRoom(false)
+    }
+
+    void loadRoom()
+
+    return () => {
+      mounted = false
+    }
+  }, [fallbackRoom, roomId, staticRoom])
 
   const handleApplyDiscount = async () => {
     const code = discountCode.trim()
@@ -100,6 +135,16 @@ export default function BookingConfirmationClient() {
   }
 
   const handleConfirm = () => {
+    if (isAuthLoading) {
+      setConfirmError('Hệ thống đang kiểm tra phiên đăng nhập. Vui lòng thử lại sau vài giây.')
+      return
+    }
+
+    if (isResolvingRoom) {
+      setConfirmError('Đang tải thông tin phòng. Vui lòng thử lại sau vài giây.')
+      return
+    }
+
     if (!roomId || roomMissing) {
       setConfirmError('Vui lòng quay lại homepage và chọn một phòng hợp lệ.')
       setBookingConfirmed(false)
@@ -115,24 +160,30 @@ export default function BookingConfirmationClient() {
     setConfirmError('')
     setBookingConfirmed(false)
 
-    const params = new URLSearchParams({
+    const pendingBooking: PendingBooking = {
       bookingId: room.code,
       roomId: room.id,
       date,
       startTime,
       endTime,
-      duration: String(duration),
-      addons: selectedAddonIds.join(','),
+      duration,
+      addons: selectedAddonIds,
       note: note === EMPTY_NOTE_TEXT ? '' : note,
       method: paymentMethod,
-    })
-
-    if (appliedDiscount) {
-      params.set('discountCode', appliedDiscount.code)
-      params.set('discountAmount', String(discountAmount))
     }
 
-    router.push(`/customer/checkout?${params.toString()}`)
+    if (appliedDiscount) {
+      pendingBooking.discountCode = appliedDiscount.code
+      pendingBooking.discountAmount = discountAmount
+    }
+
+    if (!isAuthenticated) {
+      savePendingBooking(pendingBooking)
+      router.push(`/login?redirect=${encodeURIComponent(CHECKOUT_PATH)}`)
+      return
+    }
+
+    router.push(`${CHECKOUT_PATH}?${pendingBookingToSearchParams(pendingBooking).toString()}`)
   }
 
   return (
@@ -165,7 +216,7 @@ export default function BookingConfirmationClient() {
           </span>
         </div>
 
-        {roomMissing && (
+        {roomMissing && !isResolvingRoom && (
           <div className="mb-6 rounded-2xl border border-[#FF7518]/30 bg-[#FFE8D6] px-4 py-3 text-sm font-medium text-[#6B3200]">
             Không tìm thấy phòng đã chọn. Hệ thống đang hiển thị phòng đầu tiên để bạn tiếp tục kiểm tra.
           </div>

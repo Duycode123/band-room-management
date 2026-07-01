@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { logoutSession, restoreSession, type AuthUser } from '@/lib/auth'
+import { clearStoredCustomerProfile } from '@/lib/customer-profile-service'
 
 interface AuthContextType {
   user: AuthUser | null
@@ -47,6 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await logoutSession()
     } finally {
+      clearStoredCustomerProfile()
       setUser(null)
       setIsLoading(false)
       window.setTimeout(() => setIsLoggingOut(false), 500)

@@ -2,12 +2,14 @@
 
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { useEffect } from 'react'
 import {
   formatCurrency,
   getPaymentMethodLabel,
   getReturnStatusContent,
   normalizePaymentStatus,
 } from '@/lib/checkout-data'
+import { clearPendingBooking } from '@/lib/pending-booking'
 
 export default function PaymentReturnStatus() {
   const searchParams = useSearchParams()
@@ -16,9 +18,15 @@ export default function PaymentReturnStatus() {
   const method = searchParams.get('method')
   const amount = Number(searchParams.get('amount') || 0)
   const content = getReturnStatusContent(searchParams.get('status'))
-  const retryHref = bookingId ? `/customer/checkout?bookingId=${encodeURIComponent(bookingId)}` : '/#rooms'
+  const retryHref = bookingId ? `/checkout?bookingId=${encodeURIComponent(bookingId)}` : '/#rooms'
   const primaryHref = content.primaryLabel === 'Thử lại thanh toán' ? retryHref : content.primaryHref
   const missingBooking = !bookingId
+
+  useEffect(() => {
+    if (status === 'success') {
+      clearPendingBooking()
+    }
+  }, [status])
 
   return (
     <main className="min-h-screen bg-[#F5F2EC] px-6 py-10 text-[#1A1C1E]">
