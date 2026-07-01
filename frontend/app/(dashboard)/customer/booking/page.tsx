@@ -1,21 +1,22 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
 import AuthGuard from '@/components/AuthGuard'
 import BookingDatePicker from '@/components/booking/BookingDatePicker'
-import BookingStepSection from '@/components/booking/BookingStepSection'
-import BookingSummary from '@/components/booking/BookingSummary'
 import RoomCard from '@/components/booking/RoomCard'
 import TimeSlotGrid from '@/components/booking/TimeSlotGrid'
-import CustomerPageHeader from '@/components/customer/CustomerPageHeader'
-import CustomerShell from '@/components/customer/CustomerShell'
 import { useAvailableSlots } from '@/hooks/useAvailableSlots'
-import { createBooking, fetchRooms } from '@/lib/booking/bookingApi'
-import { getTodayKey } from '@/lib/booking/dateUtils'
-import { getSelectedSlots } from '@/lib/booking/slotSelection'
+import { createBooking, fetchRooms, formatPrice } from '@/lib/booking/bookingApi'
+import { formatDateLong, getTodayKey } from '@/lib/booking/dateUtils'
+import { formatSlotRange, getSelectedSlots } from '@/lib/booking/slotSelection'
 import type { PracticeRoom } from '@/lib/booking/types'
 
 export default function CustomerBookingPage() {
+  const router = useRouter()
+  const { logout } = useAuth()
   const [rooms, setRooms] = useState<PracticeRoom[]>([])
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState(getTodayKey)
@@ -28,6 +29,7 @@ export default function CustomerBookingPage() {
     useAvailableSlots(selectedRoomId, selectedDate)
 
   const selectedSlots = getSelectedSlots(slots)
+  const selectedHours = selectedSlots.length
 
   useEffect(() => {
     fetchRooms().then((data) => {
@@ -35,6 +37,11 @@ export default function CustomerBookingPage() {
       setSelectedRoomId((current) => current ?? data[0]?.id ?? null)
     })
   }, [])
+
+  const handleLogout = useCallback(async () => {
+    await logout()
+    router.push('/login')
+  }, [logout, router])
 
   const handleConfirm = useCallback(async () => {
     if (!selectedRoomId || selectedSlots.length === 0) {
@@ -60,25 +67,42 @@ export default function CustomerBookingPage() {
 
   return (
     <AuthGuard allowedRoles={['CUSTOMER']}>
-      <CustomerShell>
-        <CustomerPageHeader
-          eyebrow="Đặt lịch tập"
-          title="Đặt phòng tập nhạc"
-          description="Chọn studio yêu thích, ngày tập và khung giờ trống — lịch cập nhật theo thời gian thực."
-          breadcrumbs={[
-            { label: 'Trang chủ', href: '/customer/dashboard' },
-            { label: 'Đặt phòng' },
-          ]}
-        />
+      <main className="min-h-screen bg-brand-bgGray">
+        <header className="border-b border-outline-variant bg-white">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
+            <div>
+              <p className="font-display text-xs font-medium uppercase tracking-[0.2em] text-brand-orange">
+                Đặt lịch
+              </p>
+              <h1 className="font-display text-2xl font-bold tracking-tight text-on-surface">
+                Đặt phòng tập nhạc
+              </h1>
+            </div>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/customer/dashboard"
+                className="rounded-lg border border-outline px-4 py-2 font-display text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container-low"
+              >
+                Dashboard
+              </Link>
+              <button
+                type="button"
+                onClick={() => void handleLogout()}
+                className="rounded-lg bg-inverse-surface px-4 py-2 font-display text-sm font-medium text-inverse-on-surface"
+              >
+                Đăng xuất
+              </button>
+            </div>
+          </div>
+        </header>
 
-        <div className="mx-auto grid max-w-6xl gap-6 px-5 py-6 sm:px-8 lg:grid-cols-[1fr_340px]">
+        <div className="mx-auto grid max-w-6xl gap-6 p-6 lg:grid-cols-[1fr_320px]">
           <div className="space-y-6">
-            <BookingStepSection
-              step={1}
-              title="Chọn phòng tập"
-              description="Mỗi studio có thiết bị và mức giá khác nhau — chọn phòng phù hợp với band của bạn."
-            >
-              <div className="grid gap-4 sm:grid-cols-2">
+            {/* Chọn phòng */}
+            <section className="rounded-xl border border-outline-variant bg-white p-6 shadow-[var(--shadow-card)]">
+              <h2 className="font-display text-lg font-semibold text-on-surface">1. Chọn phòng tập</h2>
+              <p className="mt-1 text-sm text-on-surface-variant">Chọn studio phù hợp với nhu cầu của bạn.</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {rooms.map((room) => (
                   <RoomCard
                     key={room.id}
@@ -91,20 +115,25 @@ export default function CustomerBookingPage() {
                   />
                 ))}
               </div>
-            </BookingStepSection>
+            </section>
 
-            <BookingStepSection
-              step={2}
-              title="Chọn ngày & khung giờ"
-              description="Lịch trống cập nhật mỗi 15 giây. Có thể chọn nhiều giờ liên tiếp."
-              action={
-                lastUpdated ? (
-                  <div className="flex flex-wrap items-center gap-2 rounded-full border border-outline-variant bg-white px-3 py-1.5">
+            {/* Chọn ngày + lịch real-time */}
+            <section className="rounded-xl border border-outline-variant bg-white p-6 shadow-[var(--shadow-card)]">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="font-display text-lg font-semibold text-on-surface">2. Chọn ngày & khung giờ</h2>
+                  <p className="mt-1 text-sm text-on-surface-variant">
+                    Lịch trống cập nhật theo thời gian thực mỗi 15 giây. Có thể chọn nhiều giờ liên tiếp.
+                  </p>
+                </div>
+                {lastUpdated && (
+                  <div className="flex items-center gap-2">
                     <span className="relative flex h-2 w-2">
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-orange opacity-60" />
                       <span className="relative inline-flex h-2 w-2 rounded-full bg-brand-orange" />
                     </span>
-                    <span className="text-[11px] text-on-surface-variant">
+                    <span className="text-xs text-on-surface-variant">
+                      Cập nhật{' '}
                       {lastUpdated.toLocaleTimeString('vi-VN', {
                         hour: '2-digit',
                         minute: '2-digit',
@@ -114,40 +143,42 @@ export default function CustomerBookingPage() {
                     <button
                       type="button"
                       onClick={refresh}
-                      className="rounded-full bg-surface-container-low px-2 py-0.5 font-display text-[10px] font-semibold text-on-surface-variant hover:bg-primary-container/30 hover:text-brand-orange"
+                      className="rounded-md border border-outline px-2 py-1 font-display text-[11px] font-medium text-on-surface-variant hover:bg-surface-container-low"
                     >
                       Làm mới
                     </button>
                   </div>
-                ) : undefined
-              }
-            >
-              <BookingDatePicker
-                value={selectedDate}
-                onChange={(dateKey) => {
-                  setSelectedDate(dateKey)
-                  setMessage('')
-                }}
-              />
+                )}
+              </div>
+
+              <div className="mt-5">
+                <BookingDatePicker
+                  value={selectedDate}
+                  onChange={(dateKey) => {
+                    setSelectedDate(dateKey)
+                    setMessage('')
+                  }}
+                />
+              </div>
 
               {error && (
-                <p className="mt-4 rounded-xl border border-error/20 bg-error-container px-4 py-3 text-xs text-error">
+                <p className="mt-4 rounded-lg border border-error/20 bg-error-container px-3 py-2 text-xs text-error">
                   {error}
                 </p>
               )}
 
-              <div className="mt-6">
+              <div className="mt-5">
                 <TimeSlotGrid
                   slots={slots}
                   isLoading={isLoading}
-                  selectedCount={selectedSlots.length}
+                  selectedCount={selectedHours}
                   onClearSelection={clearSelection}
                   emptyMessage={
                     selectedRoomId
                       ? 'Đang tải lịch trống...'
                       : '← Chọn phòng ở bước 1 để xem khung giờ.'
                   }
-                  hint="Click khung trống để chọn — click liền kề để thêm giờ. Click lại để bỏ chọn (chỉ đầu/cuối dải)."
+                  hint="Click 1 lần vào khung trống để chọn (click liền kề để thêm giờ). Click lại để bỏ chọn; chỉ bỏ được khung ở đầu hoặc cuối dải đã chọn."
                   onSelect={(id) => {
                     selectSlot(id)
                     setMessage('')
@@ -159,34 +190,86 @@ export default function CustomerBookingPage() {
                 />
               </div>
 
-              <div className="mt-5 flex flex-wrap gap-4 rounded-xl bg-surface-container-low px-4 py-3 text-[11px] text-on-surface-variant">
-                <LegendItem color="bg-white border border-outline" label="Trống" />
-                <LegendItem color="bg-gradient-to-br from-brand-orange to-[#FF8C3A]" label="Đã chọn" />
-                <LegendItem color="bg-surface-container" label="Đã đặt" />
-                <LegendItem color="bg-surface-container-low" label="Đã qua" />
+              <div className="mt-4 flex flex-wrap gap-4 text-[11px] text-on-surface-variant">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded border border-outline bg-white" /> Trống
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded bg-brand-orange" /> Đã chọn
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded bg-surface-container line-through" /> Đã đặt
+                </span>
               </div>
-            </BookingStepSection>
+            </section>
           </div>
 
-          <BookingSummary
-            room={selectedRoom}
-            selectedDate={selectedDate}
-            selectedSlots={selectedSlots}
-            message={message}
-            isSubmitting={isSubmitting}
-            onConfirm={() => void handleConfirm()}
-          />
-        </div>
-      </CustomerShell>
-    </AuthGuard>
-  )
-}
+          {/* Tóm tắt đặt phòng */}
+          <aside className="h-fit rounded-xl border border-outline-variant bg-white p-6 shadow-[var(--shadow-card)] lg:sticky lg:top-6">
+            <h2 className="font-display text-lg font-semibold text-on-surface">Tóm tắt</h2>
 
-function LegendItem({ color, label }: { color: string; label: string }) {
-  return (
-    <span className="flex items-center gap-1.5">
-      <span className={['h-3.5 w-3.5 rounded-md', color].join(' ')} />
-      {label}
-    </span>
+            <dl className="mt-4 space-y-3 text-sm">
+              <div>
+                <dt className="text-xs uppercase tracking-wider text-on-surface-variant">Phòng</dt>
+                <dd className="mt-0.5 font-medium text-on-surface">
+                  {selectedRoom?.name ?? '—'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wider text-on-surface-variant">Ngày</dt>
+                <dd className="mt-0.5 font-medium text-on-surface">
+                  {selectedDate ? formatDateLong(selectedDate) : '—'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wider text-on-surface-variant">Khung giờ</dt>
+                <dd className="mt-0.5 font-medium text-on-surface">
+                  {selectedSlots.length > 0 ? formatSlotRange(selectedSlots) : '—'}
+                </dd>
+                {selectedHours > 0 && (
+                  <dd className="mt-0.5 text-xs text-on-surface-variant">
+                    {selectedHours} giờ × {selectedRoom ? formatPrice(selectedRoom.pricePerHour) : '—'}/giờ
+                  </dd>
+                )}
+              </div>
+              <div className="border-t border-outline-variant pt-3">
+                <dt className="text-xs uppercase tracking-wider text-on-surface-variant">Tổng tiền</dt>
+                <dd className="mt-0.5 font-display text-xl font-bold text-brand-orange">
+                  {selectedRoom && selectedHours > 0
+                    ? formatPrice(selectedRoom.pricePerHour * selectedHours)
+                    : '—'}
+                </dd>
+              </div>
+            </dl>
+
+            {message && (
+              <p
+                className={[
+                  'mt-4 rounded-lg px-3 py-2 text-xs',
+                  message.includes('thành công')
+                    ? 'border border-secondary-container/50 bg-secondary-container/20 text-secondary'
+                    : 'border border-error/20 bg-error-container text-error',
+                ].join(' ')}
+              >
+                {message}
+              </p>
+            )}
+
+            <button
+              type="button"
+              disabled={!selectedRoom || selectedHours === 0 || isSubmitting}
+              onClick={handleConfirm}
+              className="mt-5 flex h-12 w-full cursor-pointer items-center justify-center rounded-lg bg-brand-orange font-display text-sm font-medium text-white transition-all hover:bg-brand-orangeHover active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
+            >
+              {isSubmitting ? 'Đang xử lý...' : 'Xác nhận đặt phòng'}
+            </button>
+
+            <p className="mt-3 text-center text-[11px] text-on-surface-variant">
+              * Demo FE — sẽ kết nối API backend khi sẵn sàng
+            </p>
+          </aside>
+        </div>
+      </main>
+    </AuthGuard>
   )
 }
