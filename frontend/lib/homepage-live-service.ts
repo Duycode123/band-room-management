@@ -1,33 +1,30 @@
 import api from '@/lib/api'
 import { fetchAvailableSlots, fetchRooms } from '@/lib/booking/bookingApi'
 import type { PracticeRoom, TimeSlot } from '@/lib/booking/types'
+import {
+  getHomepageSummary,
+  type HomepageSummary,
+  type NextAvailableSlot,
+  type RecentActivity,
+} from '@/lib/public/homepage-api'
+
+export type { HomepageSummary, NextAvailableSlot, RecentActivity }
 
 export type AvailabilityTone = 'success' | 'warning' | 'muted'
 
 export type AvailabilityStatus = {
-  status: 'OPEN' | 'LOW_AVAILABILITY' | 'FULLY_BOOKED' | 'CLOSING_SOON' | 'CLOSED'
+  status: 'OPEN' | 'LOW_AVAILABILITY' | 'FULLY_BOOKED' | 'CLOSED'
   label: string
   count: number
   tone: AvailabilityTone
 }
 
-export type RecentActivity = {
-  id: string
-  customerName: string
-  roomName: string
-  action: 'BOOKED' | 'PAID' | 'CHECKED_IN' | 'CANCELLED'
-  createdAt: string
+export async function fetchHomepageSummary() {
+  return getHomepageSummary()
 }
 
-export type NextAvailableSlot = {
-  roomId: string
-  roomName: string
-  date: string
-  startTime: string
-  endTime: string
-  duration: number
-  pricePerHour: number
-}
+export function getAvailabilityStatus(summary: HomepageSummary): AvailabilityStatus {
+  const availableCount = summary.availableRoomsToday
 
 type ApiResponse<T> = {
   success: boolean
@@ -89,6 +86,10 @@ function createAvailabilityStatus(availableCount: number, hours: StudioBusinessH
     return {
       status: 'CLOSED',
       label: `Da dong cua · Mo lai luc ${hours.openTime} ngay mai`,
+  if (!summary.studioOpen) {
+    return {
+      status: 'CLOSED',
+      label: 'Đã đóng · Xem lịch trống ngày mai',
       count: availableCount,
       tone: 'muted',
     }
@@ -143,6 +144,11 @@ export function maskCustomerName(customerName: string) {
 
 export function formatRelativeTime(createdAt: string, now = new Date()) {
   const createdDate = new Date(createdAt)
+
+  if (Number.isNaN(createdDate.getTime())) {
+    return 'gần đây'
+  }
+
   const diffInMinutes = Math.max(0, Math.round((now.getTime() - createdDate.getTime()) / 60000))
 
   if (diffInMinutes < 1) return 'vua xong'
@@ -156,13 +162,6 @@ export function getActivityActionLabel(action: RecentActivity['action']) {
   if (action === 'PAID') return 'da thanh toan'
   if (action === 'CHECKED_IN') return 'da check-in'
   return 'da dat'
-}
-
-export function getRecentActivities(activities: RecentActivity[]) {
-  return activities
-    .filter((activity) => publicActivityActions.has(activity.action))
-    .sort((first, second) => new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime())
-    .slice(0, 3)
 }
 
 export function formatSlotDateLabel(date: string, now = new Date()) {

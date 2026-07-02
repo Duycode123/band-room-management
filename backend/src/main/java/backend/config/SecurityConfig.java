@@ -87,7 +87,7 @@ public class SecurityConfig {
                                 "/api/ai/chat",
                                 "/api/ai/suggested-questions"
                         ).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/rooms/**", "/api/room-types/**", "/api/reviews", "/api/reviews/rooms/**", "/api/homepage/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/rooms/**", "/api/room-types/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/bookings/calculate-cost").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/coupons/validate").permitAll()
                         .requestMatchers("/api/auth/session", "/api/v1/auth/session").authenticated()
