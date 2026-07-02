@@ -3,8 +3,8 @@ package backend.booking.application.service;
 import backend.booking.application.model.PageResult;
 import backend.booking.application.port.in.CalculateBookingCostUseCase;
 import backend.booking.application.port.in.CancelBookingForManagementUseCase;
+import backend.booking.application.port.in.CancelCustomerBookingUseCase;
 import backend.booking.application.port.in.CreateBookingUseCase;
-import backend.booking.application.port.in.GetCustomerBookingDetailUseCase;
 import backend.booking.application.port.in.GetBookingManagementDetailUseCase;
 import backend.booking.application.port.in.GetCustomerBookingHistoryUseCase;
 import backend.booking.application.port.in.GetRoomAvailabilityUseCase;
@@ -12,46 +12,36 @@ import backend.booking.application.port.in.ListBookingsForManagementUseCase;
 import backend.booking.application.port.in.UpdateBookingStatusUseCase;
 import backend.booking.application.port.in.command.CalculateBookingCostCommand;
 import backend.booking.application.port.in.command.CancelBookingForManagementCommand;
+import backend.booking.application.port.in.command.CancelCustomerBookingCommand;
 import backend.booking.application.port.in.command.CreateBookingCommand;
 import backend.booking.application.port.in.command.UpdateBookingStatusCommand;
 import backend.booking.application.port.in.query.CustomerBookingHistoryQuery;
 import backend.booking.application.port.in.query.GetBookingManagementDetailQuery;
-import backend.booking.application.port.in.query.GetCustomerBookingDetailQuery;
 import backend.booking.application.port.in.query.GetRoomAvailabilityQuery;
 import backend.booking.application.port.in.query.ListBookingsForManagementQuery;
 import backend.booking.application.port.out.LoadBookingPort;
 import backend.booking.application.port.out.LoadCustomerPort;
-import backend.booking.application.port.out.LoadDiscountCodeForBookingPort;
 import backend.booking.application.port.out.LoadReviewPort;
 import backend.booking.application.port.out.LoadRoomPort;
 import backend.booking.application.port.out.LoadUserPort;
 import backend.booking.application.port.out.SaveBookingPort;
-import backend.booking.application.port.out.SavePaymentTransactionPort;
 import backend.booking.application.port.out.SearchCustomerBookingsPort;
 import backend.booking.application.port.out.model.CustomerBookingHistoryCriteria;
-import backend.coupon.domain.model.CouponValidationResult;
-import backend.coupon.domain.port.in.ValidateCouponCommand;
-import backend.coupon.domain.port.in.ValidateCouponUseCase;
 import backend.dto.response.BookingCostResponse;
 import backend.dto.response.BookingResponse;
+import backend.dto.response.CustomerBookingCancellationResponse;
 import backend.dto.response.PagedResponse;
 import backend.dto.response.RoomAvailabilityResponse;
 import backend.dto.response.TimeSlotResponse;
 import backend.entity.Booking;
 import backend.entity.BookingStatus;
 import backend.entity.Customer;
-import backend.entity.DiscountCode;
-import backend.entity.PaymentMethod;
-import backend.entity.PaymentProvider;
-import backend.entity.PaymentTransaction;
-import backend.entity.PaymentTransactionStatus;
 import backend.entity.Room;
 import backend.entity.RoomStatus;
 import backend.entity.User;
 import backend.exception.BookingConflictException;
 import backend.exception.ForbiddenException;
 import backend.exception.ResourceNotFoundException;
-import backend.service.CouponUsageTrackingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -70,25 +60,25 @@ import java.util.List;
 public class BookingUseCaseService implements
         CalculateBookingCostUseCase,
         CreateBookingUseCase,
-        GetCustomerBookingDetailUseCase,
         GetCustomerBookingHistoryUseCase,
         GetRoomAvailabilityUseCase,
         ListBookingsForManagementUseCase,
         GetBookingManagementDetailUseCase,
         UpdateBookingStatusUseCase,
-        CancelBookingForManagementUseCase {
+        CancelBookingForManagementUseCase,
+        CancelCustomerBookingUseCase {
+
+    private static final long CUSTOMER_CANCELLATION_DEADLINE_HOURS = 24;
+    private static final int FULL_REFUND_PERCENTAGE = 100;
 
     private final LoadRoomPort loadRoomPort;
     private final LoadCustomerPort loadCustomerPort;
-    private final LoadDiscountCodeForBookingPort loadDiscountCodeForBookingPort;
     private final LoadUserPort loadUserPort;
     private final LoadBookingPort loadBookingPort;
     private final SaveBookingPort saveBookingPort;
-    private final SavePaymentTransactionPort savePaymentTransactionPort;
     private final SearchCustomerBookingsPort searchCustomerBookingsPort;
     private final LoadReviewPort loadReviewPort;
-    private final ValidateCouponUseCase validateCouponUseCase;
-    private final CouponUsageTrackingService couponUsageTrackingService;
+    private final BookingCancellationNotificationService bookingCancellationNotificationService;
 
     @Override
     public BookingCostResponse calculateCost(CalculateBookingCostCommand command) {
@@ -99,10 +89,7 @@ public class BookingUseCaseService implements
 
         BigDecimal totalHours = calculateTotalHours(command.startTime(), command.endTime());
         BigDecimal pricePerHour = room.getRoomType().getPricePerHour();
-        BigDecimal originalAmount = totalHours.multiply(pricePerHour).setScale(2, RoundingMode.HALF_UP);
-        CouponValidationResult couponResult = validateCouponIfPresent(command.couponCode(), originalAmount);
-        BigDecimal discountAmount = couponResult == null ? BigDecimal.ZERO.setScale(2) : couponResult.discountAmount();
-        BigDecimal totalAmount = couponResult == null ? originalAmount : couponResult.payableAmount();
+        BigDecimal totalAmount = totalHours.multiply(pricePerHour);
 
         return new BookingCostResponse(
                 room.getId(),
@@ -112,9 +99,6 @@ public class BookingUseCaseService implements
                 command.endTime(),
                 totalHours,
                 pricePerHour,
-                originalAmount,
-                couponResult == null ? null : couponResult.code(),
-                discountAmount,
                 totalAmount
         );
     }
@@ -140,15 +124,11 @@ public class BookingUseCaseService implements
 
         BigDecimal totalHours = calculateTotalHours(command.startTime(), command.endTime());
         BigDecimal pricePerHour = room.getRoomType().getPricePerHour();
-        BigDecimal originalAmount = totalHours.multiply(pricePerHour).setScale(2, RoundingMode.HALF_UP);
-        CouponValidationResult couponResult = validateCouponIfPresent(command.couponCode(), originalAmount);
-        DiscountCode discountCode = loadDiscountCodeForPaidBooking(couponResult);
-        BigDecimal totalAmount = couponResult == null ? originalAmount : couponResult.payableAmount();
+        BigDecimal totalAmount = totalHours.multiply(pricePerHour);
 
         Booking booking = Booking.builder()
                 .customer(customer)
                 .room(room)
-                .discountCode(discountCode)
                 .startTime(command.startTime())
                 .endTime(command.endTime())
                 .paymentMethod(command.paymentMethod())
@@ -166,16 +146,6 @@ public class BookingUseCaseService implements
                     "Phong vua duoc dat boi yeu cau khac trong cung khoang thoi gian",
                     exception
             );
-        }
-
-        if (savedBooking.getPaymentMethod() == PaymentMethod.ONLINE) {
-            savePaymentTransactionPort.savePaymentTransaction(PaymentTransaction.builder()
-                    .booking(savedBooking)
-                    .provider(PaymentProvider.SEPAY)
-                    .transactionReference(savedBooking.getBookingCode())
-                    .amount(savedBooking.getTotalAmount())
-                    .status(PaymentTransactionStatus.PENDING)
-                    .build());
         }
 
         return new BookingResponse(savedBooking);
@@ -213,25 +183,6 @@ public class BookingUseCaseService implements
                 bookingPage.first(),
                 bookingPage.last()
         );
-    }
-
-    @Override
-    public BookingResponse getCustomerBookingDetail(GetCustomerBookingDetailQuery query) {
-        if (query.bookingId() == null) {
-            throw new IllegalArgumentException("bookingId khong duoc de trong");
-        }
-
-        Customer customer = loadCustomerPort.loadCustomerByAccountEmail(query.customerEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay ho so khach hang"));
-
-        Booking booking = loadBookingPort.loadBooking(query.bookingId())
-                .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay don dat phong"));
-
-        if (!booking.getCustomer().getId().equals(customer.getId())) {
-            throw new ForbiddenException("Ban khong co quyen xem don dat phong nay");
-        }
-
-        return toBookingResponse(booking);
     }
 
     @Override
@@ -311,10 +262,6 @@ public class BookingUseCaseService implements
 
         Booking savedBooking = saveBookingPort.save(booking);
 
-        if (savedBooking.getStatus() == BookingStatus.PAID) {
-            couponUsageTrackingService.recordPaidBookingUsage(savedBooking);
-        }
-
         return new BookingResponse(savedBooking);
     }
 
@@ -343,6 +290,50 @@ public class BookingUseCaseService implements
         Booking savedBooking = saveBookingPort.save(booking);
 
         return new BookingResponse(savedBooking);
+    }
+
+    @Override
+    @Transactional
+    public CustomerBookingCancellationResponse cancelCustomerBooking(CancelCustomerBookingCommand command) {
+        if (command.bookingId() == null) {
+            throw new IllegalArgumentException("bookingId khong duoc de trong");
+        }
+
+        Customer customer = loadCustomerPort.loadCustomerByAccountEmail(command.customerEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay ho so khach hang"));
+
+        Booking booking = loadBookingPort.loadBooking(command.bookingId())
+                .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay don dat phong"));
+
+        if (booking.getCustomer() == null || !booking.getCustomer().getId().equals(customer.getId())) {
+            throw new ForbiddenException("Ban khong co quyen huy don dat phong nay");
+        }
+
+        validateCustomerCancellationPolicy(booking);
+
+        booking.setStatus(BookingStatus.CANCELLED);
+
+        if (command.reason() != null && !command.reason().isBlank()) {
+            String cancellationNote = "Khach huy lich: " + command.reason().trim();
+            booking.setNote(booking.getNote() == null || booking.getNote().isBlank()
+                    ? cancellationNote
+                    : booking.getNote() + System.lineSeparator() + cancellationNote);
+        }
+
+        Booking savedBooking = saveBookingPort.save(booking);
+        BigDecimal refundAmount = savedBooking.getTotalAmount().setScale(2, RoundingMode.HALF_UP);
+        LocalDateTime expectedRefundAt = bookingCancellationNotificationService.notifyCancellationRefund(
+                savedBooking,
+                refundAmount
+        );
+
+        return new CustomerBookingCancellationResponse(
+                new BookingResponse(savedBooking),
+                refundAmount,
+                FULL_REFUND_PERCENTAGE,
+                resolveRefundMethod(savedBooking),
+                expectedRefundAt
+        );
     }
 
     private void validateCostRequest(CalculateBookingCostCommand command) {
@@ -513,29 +504,34 @@ public class BookingUseCaseService implements
                 .divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP);
     }
 
-    private CouponValidationResult validateCouponIfPresent(String couponCode, BigDecimal orderAmount) {
-        if (couponCode == null || couponCode.isBlank()) {
-            return null;
+    private void validateCustomerCancellationPolicy(Booking booking) {
+        if (booking.getStatus() == BookingStatus.CANCELLED) {
+            throw new IllegalStateException("Don dat phong da duoc huy truoc do");
         }
 
-        CouponValidationResult result = validateCouponUseCase.validate(
-                new ValidateCouponCommand(couponCode, orderAmount)
-        );
-
-        if (!result.valid()) {
-            throw new IllegalArgumentException(result.reason());
+        if (booking.getStatus() == BookingStatus.COMPLETED) {
+            throw new IllegalStateException("Khong the huy don da hoan thanh");
         }
 
-        return result;
+        if (booking.getStatus() != BookingStatus.PAID) {
+            throw new IllegalStateException("Chi ho tro huy va hoan tien cho don da thanh toan");
+        }
+
+        if (booking.getStartTime() == null) {
+            throw new IllegalStateException("Don dat phong khong co thoi gian bat dau hop le");
+        }
+
+        LocalDateTime latestCancellationTime = booking.getStartTime().minusHours(CUSTOMER_CANCELLATION_DEADLINE_HOURS);
+        if (LocalDateTime.now().isAfter(latestCancellationTime)) {
+            throw new IllegalStateException("Chi co the huy lich truoc gio tap toi thieu 24 tieng");
+        }
     }
 
-    private DiscountCode loadDiscountCodeForPaidBooking(CouponValidationResult couponResult) {
-        if (couponResult == null) {
-            return null;
-        }
-
-        return loadDiscountCodeForBookingPort.loadDiscountCodeForBooking(couponResult.code())
-                .orElseThrow(() -> new IllegalArgumentException("Coupon khong ton tai"));
+    private String resolveRefundMethod(Booking booking) {
+        return switch (booking.getPaymentMethod()) {
+            case ONLINE -> "Hoan ve phuong thuc thanh toan online ban dau";
+            case CASH -> "Hoan tien mat tai quay";
+        };
     }
 
     private User getCurrentUser(String email) {
