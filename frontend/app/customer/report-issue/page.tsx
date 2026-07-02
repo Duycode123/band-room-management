@@ -1,32 +1,64 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import {
   CustomerCard,
   CustomerPageHeader,
   CustomerPageShell,
 } from '@/components/customer/CustomerPageShell'
-import { submitCustomerIssueReport } from '@/lib/customer-account-service'
+import {
+  fetchCustomerBookings,
+  submitCustomerIssueReport,
+  type CustomerBookingSummary,
+  type ReportIssueType,
+} from '@/lib/customer-account-service'
 
-const issueTypes = ['Phòng tập', 'Thiết bị', 'Thanh toán', 'Tài khoản', 'Khác']
+const issueTypes: Array<{ value: ReportIssueType; label: string }> = [
+  { value: 'ROOM', label: 'Phong tap' },
+  { value: 'EQUIPMENT', label: 'Thiet bi' },
+  { value: 'PAYMENT', label: 'Thanh toan' },
+  { value: 'ACCOUNT', label: 'Tai khoan' },
+  { value: 'OTHER', label: 'Khac' },
+]
 
 export default function CustomerReportIssuePage() {
-  const [issueType, setIssueType] = useState('')
+  const [issueType, setIssueType] = useState<ReportIssueType | ''>('')
   const [bookingCode, setBookingCode] = useState('')
   const [description, setDescription] = useState('')
+  const [bookings, setBookings] = useState<CustomerBookingSummary[]>([])
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    let mounted = true
+
+    void fetchCustomerBookings()
+      .then((items) => {
+        if (mounted) {
+          setBookings(items)
+        }
+      })
+      .catch(() => {
+        if (mounted) {
+          setBookings([])
+        }
+      })
+
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
     if (!issueType) {
-      setMessage({ type: 'error', text: 'Vui lòng chọn loại sự cố.' })
+      setMessage({ type: 'error', text: 'Vui long chon loai su co.' })
       return
     }
 
     if (!description.trim()) {
-      setMessage({ type: 'error', text: 'Nội dung mô tả không được trống.' })
+      setMessage({ type: 'error', text: 'Noi dung mo ta khong duoc trong.' })
       return
     }
 
@@ -41,9 +73,12 @@ export default function CustomerReportIssuePage() {
       setIssueType('')
       setBookingCode('')
       setDescription('')
-      setMessage({ type: 'success', text: 'Cảm ơn bạn. Chúng tôi đã ghi nhận báo cáo của bạn.' })
-    } catch {
-      setMessage({ type: 'error', text: 'Không thể gửi báo cáo. Vui lòng thử lại.' })
+      setMessage({ type: 'success', text: 'Bao cao su co da duoc gui len backend.' })
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Khong the gui bao cao su co.',
+      })
     } finally {
       setIsSubmitting(false)
     }
@@ -52,25 +87,25 @@ export default function CustomerReportIssuePage() {
   return (
     <CustomerPageShell>
       <CustomerPageHeader
-        title="Báo cáo sự cố"
-        description="Gửi thông tin sự cố để đội ngũ Band Room kiểm tra và hỗ trợ bạn nhanh hơn."
+        title="Bao cao su co"
+        description="Gui thong tin su co de doi ngu Band Room kiem tra va ho tro ban nhanh hon."
       />
 
       <CustomerCard className="max-w-3xl">
         <form onSubmit={handleSubmit} className="grid gap-5">
           <label>
             <span className="mb-1 block font-display text-xs font-bold uppercase tracking-wider text-[#5C5348]">
-              Loại sự cố
+              Loai su co
             </span>
             <select
               value={issueType}
-              onChange={(event) => setIssueType(event.target.value)}
+              onChange={(event) => setIssueType(event.target.value as ReportIssueType | '')}
               className="h-12 w-full rounded-2xl border border-[#C9C2B6] bg-white px-4 text-sm outline-none transition focus:border-[#FF7518] focus:ring-2 focus:ring-[#FF7518]/20"
             >
-              <option value="">Chọn loại sự cố</option>
+              <option value="">Chon loai su co</option>
               {issueTypes.map((type) => (
-                <option key={type} value={type}>
-                  {type}
+                <option key={type.value} value={type.value}>
+                  {type.label}
                 </option>
               ))}
             </select>
@@ -78,19 +113,27 @@ export default function CustomerReportIssuePage() {
 
           <label>
             <span className="mb-1 block font-display text-xs font-bold uppercase tracking-wider text-[#5C5348]">
-              Mã đặt phòng nếu có
+              Ma dat phong neu co
             </span>
             <input
+              list="customer-booking-codes"
               value={bookingCode}
               onChange={(event) => setBookingCode(event.target.value)}
-              placeholder="Ví dụ: BR-2026-0821"
+              placeholder="Vi du: BR00000012"
               className="h-12 w-full rounded-2xl border border-[#C9C2B6] bg-white px-4 text-sm outline-none transition placeholder:text-[#8A8176] focus:border-[#FF7518] focus:ring-2 focus:ring-[#FF7518]/20"
             />
+            <datalist id="customer-booking-codes">
+              {bookings.map((booking) => (
+                <option key={booking.code} value={booking.code}>
+                  {booking.roomName}
+                </option>
+              ))}
+            </datalist>
           </label>
 
           <label>
             <span className="mb-1 block font-display text-xs font-bold uppercase tracking-wider text-[#5C5348]">
-              Nội dung mô tả
+              Noi dung mo ta
             </span>
             <textarea
               value={description}
@@ -118,7 +161,7 @@ export default function CustomerReportIssuePage() {
             disabled={isSubmitting}
             className="h-12 w-fit rounded-2xl bg-[#FF7518] px-6 font-display font-semibold text-white transition hover:bg-[#E6640F] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isSubmitting ? 'Đang gửi' : 'Gửi báo cáo'}
+            {isSubmitting ? 'Dang gui' : 'Gui bao cao'}
           </button>
         </form>
       </CustomerCard>

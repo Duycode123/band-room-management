@@ -81,11 +81,18 @@ public class SecurityConfig {
                                 "/api/v1/auth/refresh",
                                 "/api/v1/auth/logout",
                                 "/api/v1/auth/forgot-password",
-                                "/api/v1/auth/reset-password"
+                                "/api/v1/auth/reset-password",
+                                "/api/payments/vnpay/ipn",
+                                "/api/payments/sepay/webhook",
+                                "/api/ai/chat",
+                                "/api/ai/suggested-questions"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/rooms/**", "/api/room-types/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/bookings/calculate-cost").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/coupons/validate").permitAll()
                         .requestMatchers("/api/auth/session", "/api/v1/auth/session").authenticated()
+                        .requestMatchers("/api/admin/equipment/**").hasAnyRole("ADMIN", "STAFF")
+                        .requestMatchers("/api/admin/bookings/**").hasAnyRole("ADMIN", "STAFF")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/bookings/**").authenticated()
                         .anyRequest().authenticated()

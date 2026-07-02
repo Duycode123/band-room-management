@@ -1,3 +1,33 @@
+import {
+  inferRoomCategoryFromTypeName,
+  mapAdminStatusToBackendStatus,
+  mapBackendRoomToAdminRoom,
+  mapRoomTypeToAdminOption,
+} from '@/lib/room-mappers'
+import {
+  createRoom,
+  fetchRooms,
+  fetchRoomTypes,
+  getRoomApiErrorMessage,
+} from '@/lib/rooms-api'
+import type {
+  AdminRoom,
+  AdminRoomTypeOption,
+  RoomFormData,
+  RoomFormErrors,
+  RoomStatus,
+} from './types'
+
+function pickRoomType(data: RoomFormData, roomTypes: AdminRoomTypeOption[]) {
+  if (data.roomTypeId) {
+    return roomTypes.find((roomType) => roomType.id === data.roomTypeId) ?? null
+  }
+
+  if (data.category) {
+    return roomTypes.find((roomType) => roomType.category === data.category) ?? null
+  }
+
+  return roomTypes[0] ?? null
 import { MOCK_ADMIN_ROOMS } from './mockRooms'
 import type { AdminRoom, RoomFormData, RoomFormErrors, RoomStatus } from './types'
 import { roomCategoryLabels } from './types'
@@ -92,6 +122,25 @@ export function validateRoomForm(data: RoomFormData): RoomFormErrors {
   return errors
 }
 
+export async function getAdminRoomTypes(): Promise<AdminRoomTypeOption[]> {
+  try {
+    const roomTypes = await fetchRoomTypes()
+    return roomTypes.map(mapRoomTypeToAdminOption)
+  } catch (error) {
+    throw new Error(getRoomApiErrorMessage(error, 'Không thể tải hạng phòng từ backend.'))
+  }
+}
+
+export async function getAdminRooms(): Promise<AdminRoom[]> {
+  try {
+    const rooms = await fetchRooms()
+    return rooms.map((room, index) => mapBackendRoomToAdminRoom(room, index))
+  } catch (error) {
+    throw new Error(getRoomApiErrorMessage(error, 'Không thể tải danh sách phòng từ backend.'))
+  }
+}
+
+export async function createAdminRoom(data: RoomFormData): Promise<AdminRoom> {
 export async function getAdminRooms(): Promise<AdminRoom[]> {
   await delay(280)
   return [...roomStore]
@@ -104,6 +153,36 @@ export async function createAdminRoom(data: RoomFormData): Promise<AdminRoom> {
     throw new Error(Object.values(errors)[0])
   }
 
+  const roomTypes = await getAdminRoomTypes()
+  const roomType = pickRoomType(data, roomTypes)
+
+  if (!roomType) {
+    throw new Error('Backend chưa có hạng phòng. Vui lòng tạo hạng phòng trước khi thêm phòng.')
+  }
+
+  try {
+    const room = await createRoom({
+      roomName: data.name.trim(),
+      roomTypeId: roomType.id,
+      status: mapAdminStatusToBackendStatus(data.status || 'active'),
+    })
+
+    return mapBackendRoomToAdminRoom(room)
+  } catch (error) {
+    throw new Error(getRoomApiErrorMessage(error, 'Không thể thêm phòng trên backend.'))
+  }
+}
+
+export async function updateAdminRoom(_id: string, _data: RoomFormData): Promise<AdminRoom | null> {
+  throw new Error('Backend hiện chưa có API cập nhật phòng. Chỉ có thể thêm và xem phòng thật.')
+}
+
+export async function deleteAdminRoom(_id: string): Promise<void> {
+  throw new Error('Backend hiện chưa có API xóa phòng. Không thể xóa phòng thật ở frontend.')
+}
+
+export async function updateRoomStatus(_id: string, _status: RoomStatus): Promise<AdminRoom | null> {
+  throw new Error('Backend hiện chưa có API đổi trạng thái phòng.')
   assertCodeAvailable(data.code)
 
   const equipments = parseEquipments(data.equipments)
@@ -205,6 +284,7 @@ export function toRoomFormData(room: AdminRoom): RoomFormData {
   return {
     name: room.name,
     code: room.code,
+    roomTypeId: room.roomTypeId ?? null,
     category: room.category,
     capacity: room.capacity,
     pricePerHour: room.pricePerHour,
@@ -215,6 +295,23 @@ export function toRoomFormData(room: AdminRoom): RoomFormData {
   }
 }
 
+export function getDefaultRoomForm(roomTypes: AdminRoomTypeOption[] = []): RoomFormData {
+  const roomType = roomTypes[0]
+  const category = roomType?.category ?? inferRoomCategoryFromTypeName('')
+
+  return {
+    ...EMPTY_ROOM_FORM,
+    roomTypeId: roomType?.id ?? null,
+    category,
+    capacity: roomType?.capacity ?? EMPTY_ROOM_FORM.capacity,
+    pricePerHour: roomType?.pricePerHour ?? EMPTY_ROOM_FORM.pricePerHour,
+  }
+}
+
+export const EMPTY_ROOM_FORM: RoomFormData = {
+  name: '',
+  code: '',
+  roomTypeId: null,
 export const EMPTY_ROOM_FORM: RoomFormData = {
   name: '',
   code: '',

@@ -1,6 +1,7 @@
+import axios from 'axios'
 import api from '@/lib/api'
 
-export type CustomerBookingStatus = 'PENDING_PAYMENT' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED'
+export type CustomerBookingStatus = 'PENDING_PAYMENT' | 'PAID' | 'CHECKED_IN' | 'COMPLETED' | 'CANCELLED'
 
 export type CustomerBookingSummary = {
   id: string
@@ -12,43 +13,85 @@ export type CustomerBookingSummary = {
   status: CustomerBookingStatus
 }
 
+export type ReportIssueType = 'ROOM' | 'EQUIPMENT' | 'PAYMENT' | 'ACCOUNT' | 'OTHER'
+
 export type ReportIssuePayload = {
-  issueType: string
+  issueType: ReportIssueType
   bookingCode: string
   description: string
 }
 
-const mockBookings: CustomerBookingSummary[] = [
-  {
-    id: 'booking-1',
-    code: 'BR-2026-0821',
-    roomName: 'Studio A - Phòng Đỏ',
-    date: '28/06/2026',
-    timeRange: '19:00 - 22:00',
-    total: 1050000,
-    status: 'CONFIRMED',
-  },
-  {
-    id: 'booking-2',
-    code: 'BR-2026-0831',
-    roomName: 'The Vault - Thu âm',
-    date: '20/06/2026',
-    timeRange: '14:00 - 16:00',
-    total: 1000000,
-    status: 'COMPLETED',
-  },
-]
+type ApiResponse<T> = {
+  success: boolean
+  message: string
+  data: T
+}
 
-function waitForMockApi(delay = 240) {
-  return new Promise((resolve) => globalThis.setTimeout(resolve, delay))
+type PagedResponse<T> = {
+  content: T[]
+}
+
+type BackendBooking = {
+  bookingId: number
+  bookingCode: string
+  roomName: string
+  startTime: string
+  endTime: string
+  totalAmount: number | string
+  status: CustomerBookingStatus
+}
+
+type ApiErrorResponse = {
+  message?: string
+}
+
+function getApiErrorMessage(error: unknown, fallback: string) {
+  if (axios.isAxiosError<ApiErrorResponse>(error)) {
+    return error.response?.data?.message || fallback
+  }
+
+  return fallback
+}
+
+function parseAmount(value: number | string | null | undefined) {
+  const normalized = typeof value === 'string' ? Number(value) : value
+  return Number.isFinite(normalized) ? Number(normalized) : 0
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date(value))
+}
+
+function formatTime(value: string) {
+  return new Intl.DateTimeFormat('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value))
+}
+
+function mapBooking(booking: BackendBooking): CustomerBookingSummary {
+  return {
+    id: String(booking.bookingId),
+    code: booking.bookingCode,
+    roomName: booking.roomName,
+    date: formatDate(booking.startTime),
+    timeRange: `${formatTime(booking.startTime)} - ${formatTime(booking.endTime)}`,
+    total: parseAmount(booking.totalAmount),
+    status: booking.status,
+  }
 }
 
 export function formatBookingStatus(status: CustomerBookingStatus) {
   const labels: Record<CustomerBookingStatus, string> = {
-    PENDING_PAYMENT: 'Chờ thanh toán',
-    CONFIRMED: 'Đã xác nhận',
-    CANCELLED: 'Đã hủy',
-    COMPLETED: 'Hoàn tất',
+    PENDING_PAYMENT: 'Cho thanh toan',
+    PAID: 'Da thanh toan',
+    CHECKED_IN: 'Da check-in',
+    COMPLETED: 'Hoan tat',
+    CANCELLED: 'Da huy',
   }
 
   return labels[status]
@@ -56,18 +99,24 @@ export function formatBookingStatus(status: CustomerBookingStatus) {
 
 export async function fetchCustomerBookings(): Promise<CustomerBookingSummary[]> {
   try {
-    const response = await api.get<CustomerBookingSummary[]>('/api/customer/bookings')
-    return response.data
-  } catch {
-    await waitForMockApi()
-    return mockBookings
+    const response = await api.get<ApiResponse<PagedResponse<BackendBooking>>>('/api/bookings/my/history', {
+      params: { size: 50 },
+    })
+
+    return (response.data.data?.content ?? []).map(mapBooking)
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Khong the tai danh sach booking cua ban.'))
   }
 }
 
 export async function submitCustomerIssueReport(payload: ReportIssuePayload): Promise<void> {
   try {
-    await api.post('/api/customer/report-issue', payload)
-  } catch {
-    await waitForMockApi()
+    await api.post('/api/customer/report-issue', {
+      issueType: payload.issueType,
+      bookingCode: payload.bookingCode.trim() || undefined,
+      description: payload.description.trim(),
+    })
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Khong the gui bao cao su co.'))
   }
 }

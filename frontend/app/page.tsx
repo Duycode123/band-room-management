@@ -3,32 +3,29 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useEffect, useState, type ReactNode } from 'react'
 import BookingRoomCard from '@/components/booking/BookingRoomCard'
 import BookingQuickModal from '@/components/booking/BookingQuickModal'
 import RoomDetailModal from '@/components/booking/RoomDetailModal'
-import AccountMenu from '@/components/layout/AccountMenu'
+import BandRoomHeader from '@/components/layout/BandRoomHeader'
 import {
-  bookingRooms,
-  findBookingRoom,
-  roomCategories,
+  type BookingRoomAvailabilitySummary,
+  type BookingRoomReviewSummary,
+  mapPracticeRoomToBookingRoom,
   type BookingRoom,
-  type RoomCategory,
 } from '@/components/booking/booking-data'
 import { useAuth } from '@/contexts/AuthContext'
 import { useHomepageLiveData } from '@/hooks/useHomepageLiveData'
+import { fetchPublicBookingRooms } from '@/lib/booking-room-service'
+import { findBookingRoomInCatalog } from '@/lib/room-mappers'
+import { fetchAvailableSlots, fetchRooms } from '@/lib/booking/bookingApi'
 import {
   formatRelativeTime,
   formatSlotDateLabel,
   getActivityActionLabel,
-  maskCustomerName,
   type AvailabilityTone,
 } from '@/lib/homepage-live-service'
-
-const navItems = [
-  { label: 'Phòng tập', href: '#rooms' },
-  { label: 'Về chúng tôi', href: '#about' },
-]
+import { fetchRoomReviewSummaries } from '@/lib/public-room-review-service'
 
 const stats = [
   { value: '2.400+', label: 'Lượt đặt mỗi tháng' },
@@ -59,9 +56,14 @@ const features = [
   },
 ] as const
 
-const rooms = bookingRooms
+type RoomCatalogFilter = 'all' | string
 
-type RoomCatalogFilter = 'all' | RoomCategory
+type RoomTierFilter = {
+  id: RoomCatalogFilter
+  label: string
+  description?: string
+  count: number
+}
 
 const steps = [
   {
@@ -157,6 +159,49 @@ type QuickBookingState = {
   initialDuration?: number
 }
 
+function getRoomTierFilterId(room: BookingRoom) {
+  return room.roomTierId ? `tier-${room.roomTierId}` : `legacy-${room.category}`
+}
+
+function getRoomTierLabel(room: BookingRoom) {
+  return room.roomTierName?.trim() || room.categoryLabel
+}
+
+function getRoomTierDescription(room: BookingRoom) {
+  return room.roomTierDescription?.trim() || undefined
+}
+
+function getTodayRoomCatalogDate() {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+async function fetchRoomAvailabilitySummaries(roomIds: string[]) {
+  const date = getTodayRoomCatalogDate()
+  const availabilityEntries = await Promise.all(
+    roomIds.map(async (roomId) => {
+      try {
+        const slots = await fetchAvailableSlots(roomId, date)
+        const firstAvailableSlot = slots.find((slot) => slot.status === 'available')
+        const summary: BookingRoomAvailabilitySummary = {
+          isAvailable: Boolean(firstAvailableSlot),
+          nextAvailableTime: firstAvailableSlot?.start,
+        }
+
+        return [roomId, summary] as const
+      } catch {
+        return [roomId, undefined] as const
+      }
+    }),
+  )
+
+  return new Map<string, BookingRoomAvailabilitySummary | undefined>(availabilityEntries)
+}
+
 function getAvailabilityBadgeClassName(tone: AvailabilityTone) {
   const toneClassName = {
     success: 'border-brand-orange/40 bg-white/10 text-primary-fixed hover:bg-white/15',
@@ -180,36 +225,162 @@ function getAvailabilityDotClassName(tone: AvailabilityTone) {
   return ['h-2 w-2 rounded-full', toneClassName[tone]].join(' ')
 }
 
+function getSlotDurationHours(startTime: string, endTime?: string) {
+  if (!endTime) return 1
+
+  const [startHour, startMinute] = startTime.split(':').map(Number)
+  const [endHour, endMinute] = endTime.split(':').map(Number)
+  const startTotal = (Number.isFinite(startHour) ? startHour : 0) * 60 + (Number.isFinite(startMinute) ? startMinute : 0)
+  const endTotal = (Number.isFinite(endHour) ? endHour : 0) * 60 + (Number.isFinite(endMinute) ? endMinute : 0)
+  const duration = Math.max(1, Math.round((endTotal - startTotal) / 60))
+
+  return duration
+}
+
+function LiveActivitySkeleton() {
+  return (
+    <>
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div key={index} className="flex items-center justify-between gap-3">
+          <div className="h-4 w-44 animate-pulse rounded-full bg-white/10" />
+          <div className="h-3 w-16 animate-pulse rounded-full bg-white/10" />
+        </div>
+      ))}
+    </>
+  )
+}
+
+function NextSlotSkeleton() {
+  return (
+    <div className="mt-3 flex items-end justify-between gap-4">
+      <div className="space-y-2">
+        <div className="h-5 w-36 animate-pulse rounded-full bg-white/10" />
+        <div className="h-4 w-44 animate-pulse rounded-full bg-white/10" />
+      </div>
+      <div className="h-9 w-16 animate-pulse rounded-lg bg-white/10" />
+    </div>
+  )
+}
+
 export default function HomePage() {
   const router = useRouter()
-  const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth()
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth()
   const {
     availabilityStatus,
     recentActivities,
     nextAvailableSlot,
     isLoading: isLiveDataLoading,
     error: liveDataError,
+    refresh: refreshLiveData,
   } = useHomepageLiveData()
-  const [menuOpen, setMenuOpen] = useState(false)
   const [availabilityHintVisible, setAvailabilityHintVisible] = useState(false)
+  const [rooms, setRooms] = useState<BookingRoom[]>([])
+  const [isRoomCatalogLoading, setIsRoomCatalogLoading] = useState(true)
+  const [roomCatalogError, setRoomCatalogError] = useState('')
   const [quickBooking, setQuickBooking] = useState<QuickBookingState | null>(null)
   const [selectedRoomDetail, setSelectedRoomDetail] = useState<BookingRoom | null>(null)
-  const [activeRoomCategory, setActiveRoomCategory] = useState<RoomCatalogFilter>('all')
+  const [rooms, setRooms] = useState<BookingRoom[]>(bookingRooms)
+  const [activeRoomFilter, setActiveRoomFilter] = useState<RoomCatalogFilter>('all')
+  useEffect(() => {
+    let active = true
+
+    void (async () => {
+      setIsRoomCatalogLoading(true)
+      setRoomCatalogError('')
+
+      try {
+        const practiceRooms = await fetchRooms()
+        const [reviewSummaries, availabilitySummaries] = await Promise.all([
+          fetchRoomReviewSummaries().catch(() => null),
+          fetchRoomAvailabilitySummaries(practiceRooms.map((room) => room.id)),
+        ])
+
+        if (!active) return
+
+        setRooms(
+          practiceRooms.map((room) =>
+            mapPracticeRoomToBookingRoom(room, {
+              reviewSummary: reviewSummaries?.get(room.id) as BookingRoomReviewSummary | undefined,
+              availabilitySummary: availabilitySummaries.get(room.id),
+            }),
+          ),
+        )
+      } catch {
+        if (!active) return
+
+        setRooms([])
+        setRoomCatalogError('Không thể tải danh sách phòng từ backend lúc này.')
+      } finally {
+        if (!active) return
+
+        setIsRoomCatalogLoading(false)
+      }
+    })()
+
+    return () => {
+      active = false
+    }
+  }, [])
+
   const visibleRooms =
-    activeRoomCategory === 'all' ? rooms : rooms.filter((room) => room.category === activeRoomCategory)
-  const roomCategoryFilters = [{ id: 'all' as const, label: 'Tất cả', count: rooms.length }, ...roomCategories.map((category) => ({
-    id: category.id,
-    label: category.label,
-    count: rooms.filter((room) => room.category === category.id).length,
-  }))]
+    activeRoomFilter === 'all' ? rooms : rooms.filter((room) => getRoomTierFilterId(room) === activeRoomFilter)
+  const roomTierFilters = [
+    { id: 'all' as const, label: 'Tất cả', description: 'Hiển thị toàn bộ hạng phòng hiện có.', count: rooms.length },
+    ...Array.from(
+      rooms.reduce((filters, room) => {
+        const filterId = getRoomTierFilterId(room)
+        const existingFilter = filters.get(filterId)
+
+        if (existingFilter) {
+          existingFilter.count += 1
+          return filters
+        }
+
+        filters.set(filterId, {
+          id: filterId,
+          label: getRoomTierLabel(room),
+          description: getRoomTierDescription(room),
+          count: 1,
+        })
+        return filters
+      }, new Map<string, RoomTierFilter>()),
+    )
+      .map(([, filter]) => filter)
+      .sort((firstFilter, secondFilter) => firstFilter.label.localeCompare(secondFilter.label, 'vi')),
+  ]
+  const activeRoomTier = roomTierFilters.find((filter) => filter.id === activeRoomFilter) ?? roomTierFilters[0]
+
+  useEffect(() => {
+    if (roomTierFilters.some((filter) => filter.id === activeRoomFilter)) return
+
+    setActiveRoomFilter('all')
+  }, [activeRoomFilter, roomTierFilters])
+  const roomCatalogStats = [
+    [String(roomCategories.filter((category) => rooms.some((room) => room.category === category.id)).length), 'Hạng phòng'],
+    [String(rooms.length), 'Phòng tập'],
+    ['Live', 'Cập nhật lịch trống'],
+  ]
+
+  useEffect(() => {
+    let mounted = true
+
+    async function loadRooms() {
+      const data = await fetchPublicBookingRooms()
+      if (mounted) setRooms(data)
+    }
+
+    void loadRooms()
+
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   const scrollToRooms = () => {
-    document.getElementById('rooms')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    router.push('/rooms')
   }
 
   const handleBookingClick = () => {
-    setMenuOpen(false)
-
     if (isAuthLoading) return
     if (!isAuthenticated) {
       router.push('/login')
@@ -236,10 +407,10 @@ export default function HomePage() {
       return
     }
 
-    const room = findBookingRoom(nextAvailableSlot.roomId)
+    const room = findBookingRoomInCatalog(String(nextAvailableSlot.roomId), rooms)
 
     if (!room) {
-      handleBookingClick()
+      router.push('/rooms')
       return
     }
 
@@ -247,7 +418,7 @@ export default function HomePage() {
       room,
       initialDate: nextAvailableSlot.date,
       initialStartTime: nextAvailableSlot.startTime,
-      initialDuration: nextAvailableSlot.duration,
+      initialDuration: getSlotDurationHours(nextAvailableSlot.startTime, nextAvailableSlot.endTime),
     })
   }
 
@@ -258,101 +429,7 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-brand-bgGray text-on-surface">
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-brand-bgGray/90 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center gap-5 px-5 py-4 sm:px-8">
-          <Link href="/" className="flex shrink-0 items-center gap-3" aria-label="Band Room homepage">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-orange text-white">
-              <Icon name="music" className="h-5 w-5" />
-            </span>
-            <span className="font-display text-lg font-bold">Band Room</span>
-          </Link>
-
-          <nav className="mx-auto hidden items-center gap-6 md:flex">
-            {navItems.map((item) => (
-              <a
-                key={item.label}
-                href={item.href}
-                className="rounded-lg px-4 py-2 font-display text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
-              >
-                {item.label}
-              </a>
-            ))}
-          </nav>
-
-          <div className="hidden items-center gap-3 md:flex">
-            {isAuthenticated && user ? (
-              <AccountMenu />
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  className="px-4 py-2 font-display text-sm font-semibold text-on-surface-variant transition-colors hover:text-on-surface"
-                >
-                  Đăng nhập
-                </Link>
-                <button
-                  type="button"
-                  onClick={handleBookingClick}
-                  disabled={isAuthLoading}
-                  className="rounded-lg bg-brand-orange px-5 py-2.5 font-display text-sm font-semibold text-white shadow-[0_10px_28px_rgba(255,117,24,0.28)] transition-all hover:bg-brand-orangeHover active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
-                >
-                  Đặt phòng
-                </button>
-              </>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setMenuOpen((open) => !open)}
-            className="ml-auto rounded-lg border border-outline bg-white/70 px-3 py-2 font-display text-sm font-semibold text-on-surface md:hidden"
-            aria-expanded={menuOpen}
-            aria-controls="mobile-menu"
-          >
-            {menuOpen ? 'Đóng' : 'Menu'}
-          </button>
-        </div>
-
-        {menuOpen && (
-          <div id="mobile-menu" className="border-t border-outline-variant bg-brand-bgGray px-5 pb-5 md:hidden">
-            <nav className="grid py-2">
-              {navItems.map((item) => (
-                <a
-                  key={item.label}
-                  href={item.href}
-                  onClick={() => setMenuOpen(false)}
-                  className="border-b border-outline-variant py-3 font-display text-sm font-semibold text-on-surface-variant"
-                >
-                  {item.label}
-                </a>
-              ))}
-            </nav>
-            {isAuthenticated && user ? (
-              <div className="mt-4 flex justify-end">
-                <AccountMenu align="full" onNavigate={() => setMenuOpen(false)} />
-              </div>
-            ) : (
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <Link
-                  href="/login"
-                  onClick={() => setMenuOpen(false)}
-                  className="rounded-lg border border-outline bg-white px-4 py-3 text-center font-display text-sm font-semibold text-on-surface"
-                >
-                  Đăng nhập
-                </Link>
-                <button
-                  type="button"
-                  onClick={handleBookingClick}
-                  disabled={isAuthLoading}
-                  className="rounded-lg bg-brand-orange px-4 py-3 font-display text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-70"
-                >
-                  Đặt phòng
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </header>
+      <BandRoomHeader fixed />
 
       <section className="relative flex min-h-[720px] items-center overflow-hidden bg-secondary pt-28 text-white md:min-h-screen">
         <Image
@@ -368,15 +445,19 @@ export default function HomePage() {
 
         <div className="relative mx-auto grid w-full max-w-7xl items-center gap-12 px-5 pb-20 sm:px-8 lg:grid-cols-[1fr_380px]">
           <div className="max-w-3xl">
-            <button
-              type="button"
-              onClick={handleAvailabilityBadgeClick}
-              className={getAvailabilityBadgeClassName(availabilityStatus.tone)}
-              aria-live="polite"
-            >
-              <span className={getAvailabilityDotClassName(availabilityStatus.tone)} />
-              <span>{isLiveDataLoading ? 'Đang cập nhật lịch phòng...' : availabilityStatus.label}</span>
-            </button>
+            {isLiveDataLoading ? (
+              <div className="mb-8 h-10 w-72 animate-pulse rounded-full border border-white/15 bg-white/10" aria-hidden="true" />
+            ) : (
+              <button
+                type="button"
+                onClick={handleAvailabilityBadgeClick}
+                className={getAvailabilityBadgeClassName(availabilityStatus.tone)}
+                aria-live="polite"
+              >
+                <span className={getAvailabilityDotClassName(availabilityStatus.tone)} />
+                <span>{availabilityStatus.label}</span>
+              </button>
+            )}
 
             {availabilityHintVisible && availabilityStatus.status === 'CLOSED' && (
               <p className="-mt-5 mb-8 max-w-md text-sm text-white/55">
@@ -423,11 +504,13 @@ export default function HomePage() {
                 <span className="h-2 w-2 rounded-full bg-brand-orange" />
               </div>
               <div className="space-y-3">
-                {recentActivities.length > 0 ? (
+                {isLiveDataLoading ? (
+                  <LiveActivitySkeleton />
+                ) : recentActivities.length > 0 ? (
                   recentActivities.map((activity) => (
                     <div key={activity.id} className="flex items-center justify-between gap-3 text-sm">
                       <p>
-                        <span className="font-semibold text-white">{maskCustomerName(activity.customerName)}</span>
+                        <span className="font-semibold text-white">{activity.customerDisplayName}</span>
                         <span className="text-white/45"> {getActivityActionLabel(activity.action)} </span>
                         <span className="font-semibold text-primary-fixed">{activity.roomName}</span>
                       </p>
@@ -438,12 +521,21 @@ export default function HomePage() {
                   <p className="text-sm text-white/45">Chưa có hoạt động mới</p>
                 )}
               </div>
-              {liveDataError && <p className="mt-4 text-xs text-white/40">{liveDataError}</p>}
+              {liveDataError && !isLiveDataLoading && (
+                <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+                  <p className="text-xs text-white/55">{liveDataError}</p>
+                  <button type="button" onClick={() => void refreshLiveData()} className="shrink-0 text-xs font-semibold text-primary-fixed hover:text-brand-orange">
+                    Thử lại
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="rounded-xl border border-white/15 bg-secondary/80 p-5 shadow-[0_18px_48px_rgba(0,0,0,0.28)]">
               <p className="font-display text-xs font-semibold uppercase text-on-secondary-container">Khung giờ tiếp theo</p>
-              {nextAvailableSlot ? (
+              {isLiveDataLoading ? (
+                <NextSlotSkeleton />
+              ) : nextAvailableSlot ? (
                 <div className="mt-3 flex items-end justify-between gap-4">
                   <div>
                     <p className="font-display text-lg font-bold text-white">{nextAvailableSlot.roomName}</p>
@@ -519,8 +611,8 @@ export default function HomePage() {
 
             <div className="grid w-full gap-3 sm:grid-cols-3 lg:w-auto">
               {[
-                ['4', 'Hạng phòng'],
-                ['12', 'Phòng tập'],
+                [String(roomTierFilters.length - 1), 'Hạng phòng'],
+                [String(rooms.length), 'Phòng tập'],
                 ['Live', 'Cập nhật lịch trống'],
               ].map(([value, label]) => (
                 <div key={label} className="rounded-xl border border-outline-variant bg-white px-4 py-3 shadow-[var(--shadow-card)]">
@@ -531,53 +623,82 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="mt-8 flex flex-wrap gap-2">
-            {roomCategoryFilters.map((filter) => {
-              const active = activeRoomCategory === filter.id
+          {!isRoomCatalogLoading && rooms.length > 0 && (
+            <div className="mt-8 flex flex-wrap gap-2">
+              {roomTierFilters.map((filter) => {
+                const active = activeRoomFilter === filter.id
 
-              return (
-                <button
-                  key={filter.id}
-                  type="button"
-                  onClick={() => setActiveRoomCategory(filter.id)}
-                  className={[
-                    'rounded-full border px-4 py-2 font-display text-sm font-semibold transition',
-                    active
-                      ? 'border-brand-orange bg-brand-orange text-white shadow-[0_10px_26px_rgba(255,117,24,0.24)]'
-                      : 'border-outline bg-white text-on-surface-variant hover:bg-primary-container hover:text-on-surface',
-                  ].join(' ')}
-                >
-                  {filter.label}
-                  <span className={active ? 'ml-2 text-white/75' : 'ml-2 text-on-surface-variant'}>
-                    {filter.count}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
+                return (
+                  <button
+                    key={filter.id}
+                    type="button"
+                    onClick={() => setActiveRoomFilter(filter.id)}
+                    className={[
+                      'rounded-full border px-4 py-2 font-display text-sm font-semibold transition',
+                      active
+                        ? 'border-brand-orange bg-brand-orange text-white shadow-[0_10px_26px_rgba(255,117,24,0.24)]'
+                        : 'border-outline bg-white text-on-surface-variant hover:bg-primary-container hover:text-on-surface',
+                    ].join(' ')}
+                  >
+                    {filter.label}
+                    <span className={active ? 'ml-2 text-white/75' : 'ml-2 text-on-surface-variant'}>
+                      {filter.count}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
 
           <div className="mt-8 rounded-xl border border-outline-variant bg-white px-5 py-4 shadow-[var(--shadow-card)]">
             <div>
               <p className="font-display text-sm font-bold text-on-surface">
-                {activeRoomCategory === 'all' ? 'Tất cả hạng phòng' : roomCategories.find((category) => category.id === activeRoomCategory)?.label}
+                {activeRoomTier?.label || 'Tất cả hạng phòng'}
               </p>
               <p className="mt-1 text-sm text-on-surface-variant">
-                Đang hiển thị {visibleRooms.length} phòng phù hợp.
+                {roomCatalogError
+                  ? roomCatalogError
+                  : isRoomCatalogLoading
+                    ? 'Đang tải danh sách phòng từ backend.'
+                    : activeRoomTier?.description || `Đang hiển thị ${visibleRooms.length} phòng phù hợp.`}
               </p>
             </div>
           </div>
 
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {visibleRooms.map((room) => (
-              <BookingRoomCard
-                key={room.id}
-                room={room}
-                renderIcon={(name, className) => <Icon name={name} className={className} />}
-                onOpenDetail={setSelectedRoomDetail}
-                onBook={handleBookRoom}
-              />
-            ))}
-          </div>
+          {visibleRooms.length > 0 ? (
+            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {isRoomCatalogLoading ? (
+              <div className="rounded-xl border border-outline-variant bg-white px-5 py-8 text-center text-sm text-on-surface-variant shadow-[var(--shadow-card)] sm:col-span-2 lg:col-span-3">
+                Đang tải room list từ backend...
+              </div>
+            ) : roomCatalogError ? (
+              <div className="rounded-xl border border-[#FF7518]/25 bg-white px-5 py-8 text-center text-sm text-[#6B3200] shadow-[var(--shadow-card)] sm:col-span-2 lg:col-span-3">
+                {roomCatalogError}
+              </div>
+            ) : visibleRooms.length > 0 ? (
+              visibleRooms.map((room) => (
+                  <BookingRoomCard
+                    key={room.id}
+                    room={room}
+                    renderIcon={(name, className) => <Icon name={name} className={className} />}
+                    onOpenDetail={setSelectedRoomDetail}
+                    onBook={handleBookRoom}
+                  />
+                ))
+            ) : (
+              <div className="rounded-xl border border-outline-variant bg-white px-5 py-8 text-center text-sm text-on-surface-variant shadow-[var(--shadow-card)] sm:col-span-2 lg:col-span-3">
+                Backend hiện chưa trả về phòng nào để hiển thị.
+              </div>
+            )}
+            </div>
+          ) : (
+            <div className="mt-10 rounded-xl border border-dashed border-outline-variant bg-white px-6 py-12 text-center shadow-[var(--shadow-card)]">
+              <p className="font-display text-lg font-bold text-on-surface">Chưa có phòng phù hợp</p>
+              <p className="mt-2 text-sm text-on-surface-variant">
+                Vui lòng thử hạng phòng khác hoặc quay lại sau khi admin thêm phòng mới.
+              </p>
+            </div>
+          )}
         </div>
       </section>
 

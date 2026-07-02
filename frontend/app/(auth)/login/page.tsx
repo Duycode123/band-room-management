@@ -1,11 +1,13 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { Suspense, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { getPostLoginPath, loginSession } from '@/lib/auth'
+import { clearStoredCustomerProfile, fetchCurrentUser } from '@/lib/customer-profile-service'
 import AuthBanner from '@/components/auth/AuthBanner'
 import AuthTabs from '@/components/auth/AuthTabs'
+import RegisterSuccessBanner from '@/components/auth/RegisterSuccessBanner'
 import {
   AuthError,
   AuthField,
@@ -34,9 +36,20 @@ export default function LoginPage() {
 
     try {
       const sessionUser = await loginSession(formData.identifier.trim(), formData.password)
+      clearStoredCustomerProfile()
+      const currentProfile = await fetchCurrentUser(sessionUser)
 
       alert('Đăng nhập thành công!')
-      login(sessionUser)
+      login({
+        ...sessionUser,
+        id: currentProfile.id ?? sessionUser.id,
+        role: currentProfile.role,
+        fullName: currentProfile.fullName,
+        name: currentProfile.fullName,
+        email: currentProfile.email,
+        phone: currentProfile.phone,
+        avatarUrl: currentProfile.avatarUrl,
+      })
       router.replace(getRedirectPath(sessionUser.role))
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } }
@@ -58,6 +71,10 @@ export default function LoginPage() {
           <h1 className="font-display text-2xl font-bold tracking-tight text-on-surface">Chào mừng trở lại</h1>
           <p className="mt-1 text-sm text-on-surface-variant">Đăng nhập để tiếp tục đặt phòng tập của bạn.</p>
         </div>
+
+        <Suspense fallback={null}>
+          <RegisterSuccessBanner />
+        </Suspense>
 
         {error && <AuthError message={error} />}
 

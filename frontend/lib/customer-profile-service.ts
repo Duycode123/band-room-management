@@ -15,7 +15,6 @@ export type UpdateCustomerProfilePayload = {
   fullName: string
   email: string
   phone: string
-  avatarUrl?: string
 }
 
 export type ChangeCustomerPasswordPayload = {
@@ -23,8 +22,6 @@ export type ChangeCustomerPasswordPayload = {
   newPassword: string
   confirmPassword: string
 }
-
-const CUSTOMER_PROFILE_KEY = 'bandroom_customer_profile'
 
 type ApiErrorResponse = {
   message?: string
@@ -48,7 +45,7 @@ function waitForMockApi(delay = 260) {
 }
 
 function isSameUserProfile(profile: Partial<CustomerProfile>, user?: AuthUser | null) {
-  if (!user) return true
+  if (!user) return false
 
   const profileId = profile.id ? String(profile.id) : ''
   const userId = user.id ? String(user.id) : ''
@@ -58,7 +55,7 @@ function isSameUserProfile(profile: Partial<CustomerProfile>, user?: AuthUser | 
   if (profileId && userId) return profileId === userId
   if (profileEmail && userEmail) return profileEmail === userEmail
 
-  return true
+  return false
 }
 
 function readStoredCustomerProfile(user?: AuthUser | null): Partial<CustomerProfile> | null {
@@ -69,7 +66,12 @@ function readStoredCustomerProfile(user?: AuthUser | null): Partial<CustomerProf
     if (!rawProfile) return null
 
     const profile = JSON.parse(rawProfile) as Partial<CustomerProfile>
-    return isSameUserProfile(profile, user) ? profile : null
+    if (isSameUserProfile(profile, user)) {
+      return profile
+    }
+
+    window.localStorage.removeItem(CUSTOMER_PROFILE_KEY)
+    return null
   } catch {
     return null
   }
@@ -81,10 +83,17 @@ function writeStoredCustomerProfile(profile: CustomerProfile) {
   window.localStorage.setItem(CUSTOMER_PROFILE_KEY, JSON.stringify(profile))
 }
 
-function getPersistentAvatarUrl(avatarUrl?: string) {
-  if (avatarUrl?.startsWith('blob:')) return undefined
+export function clearStoredCustomerProfile() {
+  if (typeof window === 'undefined') return
 
-  return avatarUrl
+  window.localStorage.removeItem(CUSTOMER_PROFILE_KEY)
+}
+
+function getPersistentAvatarUrl(avatarUrl?: string) {
+  const normalizedAvatarUrl = avatarUrl?.trim()
+  if (!normalizedAvatarUrl || normalizedAvatarUrl.startsWith('blob:')) return undefined
+
+  return normalizedAvatarUrl
 }
 
 export function getInitials(name?: string, email?: string) {
@@ -101,7 +110,7 @@ export function getCustomerDisplayName(user?: AuthUser | CustomerProfile | null)
   if (name) return name
   if (email) return email.split('@')[0] || email
 
-  return 'Khách hàng'
+  return 'Khach hang'
 }
 
 type CurrentUserApiResponse = Partial<CustomerProfile & AuthUser> & {
@@ -120,10 +129,10 @@ function normalizeCurrentUser(currentUser: CurrentUserApiResponse, fallback?: Au
       fallback?.fullName ||
       fallback?.name ||
       getCustomerDisplayName({ email: currentUser.email || fallback?.email, role: normalizedUser.role }) ||
-      'Khách hàng',
+      'Khach hang',
     email: currentUser.email || fallback?.email || '',
     phone: currentUser.phone || fallback?.phone || '',
-    avatarUrl: currentUser.avatarUrl || fallback?.avatarUrl,
+    avatarUrl: getPersistentAvatarUrl(currentUser.avatarUrl) || getPersistentAvatarUrl(fallback?.avatarUrl),
     role: normalizedUser.role,
   }
 }
@@ -133,13 +142,18 @@ export async function fetchCurrentUser(user?: AuthUser | null): Promise<Customer
 
   try {
     const response = await api.get<CurrentUserApiResponse>('/api/users/me')
+    const sameUserStoredAvatar = isSameUserProfile(storedProfile ?? {}, {
+      ...user,
+      id: response.data.id || user?.id,
+      email: response.data.email || user?.email,
+      role: user?.role || 'CUSTOMER',
+    })
+      ? getPersistentAvatarUrl(storedProfile?.avatarUrl)
+      : undefined
     const currentProfile = normalizeCurrentUser(response.data, {
       ...user,
       role: user?.role || storedProfile?.role || 'CUSTOMER',
-      avatarUrl:
-        getPersistentAvatarUrl(response.data.avatarUrl) ||
-        getPersistentAvatarUrl(storedProfile?.avatarUrl) ||
-        getPersistentAvatarUrl(user?.avatarUrl),
+      avatarUrl: sameUserStoredAvatar || getPersistentAvatarUrl(user?.avatarUrl),
       fullName: response.data.fullName || response.data.name || storedProfile?.fullName || user?.fullName,
       name: response.data.name || response.data.fullName || storedProfile?.fullName || user?.name,
       email: response.data.email || storedProfile?.email || user?.email,
@@ -157,19 +171,20 @@ export async function fetchCurrentUser(user?: AuthUser | null): Promise<Customer
 export async function updateCustomerProfile(payload: UpdateCustomerProfilePayload): Promise<CustomerProfile> {
   try {
     const response = await api.put<CustomerProfile>('/api/users/me', payload)
-    const updatedProfile = normalizeCurrentUser(response.data, {
+    return normalizeCurrentUser(response.data, {
       role: response.data.role || 'CUSTOMER',
       fullName: payload.fullName,
       name: payload.fullName,
       email: payload.email,
       phone: payload.phone,
-      avatarUrl: getPersistentAvatarUrl(payload.avatarUrl),
+      avatarUrl: response.data.avatarUrl,
     })
+    updatedProfile.avatarUrl = getPersistentAvatarUrl(payload.avatarUrl)
 
     writeStoredCustomerProfile(updatedProfile)
     return updatedProfile
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Không thể cập nhật thông tin. Vui lòng thử lại.'))
+    throw new Error(getApiErrorMessage(error, 'Khong the cap nhat thong tin. Vui long thu lai.'))
   }
 }
 
@@ -177,6 +192,6 @@ export async function changeCustomerPassword(payload: ChangeCustomerPasswordPayl
   try {
     await api.put('/api/users/me/password', payload)
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Không thể cập nhật mật khẩu. Vui lòng thử lại.'))
+    throw new Error(getApiErrorMessage(error, 'Khong the cap nhat mat khau. Vui long thu lai.'))
   }
 }

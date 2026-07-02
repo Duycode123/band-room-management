@@ -1,7 +1,7 @@
 package backend.entity;
 
 public enum RoomStatus {
-    TRONG,
-    DANG_DUNG,
-    BAO_TRI
+    AVAILABLE,
+    IN_USE,
+    MAINTENANCE
 }

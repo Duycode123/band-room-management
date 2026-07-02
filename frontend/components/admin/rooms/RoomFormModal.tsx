@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react'
 import { validateRoomForm } from '@/lib/admin/rooms/adminRoomApi'
+import type { AdminRoomTypeOption, RoomFormData, RoomFormErrors } from '@/lib/admin/rooms/types'
 import type { RoomFormData, RoomFormErrors } from '@/lib/admin/rooms/types'
 import {
   roomCategoryLabels,
@@ -14,6 +15,7 @@ type RoomFormModalProps = {
   open: boolean
   mode: 'create' | 'edit'
   initialData: RoomFormData
+  roomTypes?: AdminRoomTypeOption[]
   onClose: () => void
   onSubmit: (data: RoomFormData) => Promise<void>
 }
@@ -28,6 +30,7 @@ export default function RoomFormModal({
   open,
   mode,
   initialData,
+  roomTypes = [],
   onClose,
   onSubmit,
 }: RoomFormModalProps) {
@@ -38,15 +41,40 @@ export default function RoomFormModal({
 
   useEffect(() => {
     if (!open) return
-    setForm(initialData)
+    const firstRoomType = roomTypes[0]
+    setForm(
+      firstRoomType && !initialData.roomTypeId
+        ? {
+            ...initialData,
+            roomTypeId: firstRoomType.id,
+            category: firstRoomType.category,
+            capacity: firstRoomType.capacity,
+            pricePerHour: firstRoomType.pricePerHour,
+          }
+        : initialData,
+    )
     setErrors({})
     setServerError('')
     setIsSaving(false)
-  }, [open, initialData])
+  }, [open, initialData, roomTypes])
 
   if (!open) return null
 
   const set = (patch: Partial<RoomFormData>) => setForm((current) => ({ ...current, ...patch }))
+
+  const handleRoomTypeChange = (value: string) => {
+    const roomTypeId = Number(value)
+    const roomType = roomTypes.find((item) => item.id === roomTypeId)
+
+    if (!roomType) return
+
+    set({
+      roomTypeId: roomType.id,
+      category: roomType.category,
+      capacity: roomType.capacity,
+      pricePerHour: roomType.pricePerHour,
+    })
+  }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -138,6 +166,28 @@ export default function RoomFormModal({
                     Hạng phòng <span className="text-error">*</span>
                   </span>
                   <select
+                    value={roomTypes.length > 0 ? String(form.roomTypeId ?? '') : form.category}
+                    onChange={(event) => {
+                      if (roomTypes.length > 0) {
+                        handleRoomTypeChange(event.target.value)
+                        return
+                      }
+
+                      set({ category: event.target.value as RoomFormData['category'] })
+                    }}
+                    className={inputClass}
+                  >
+                    {roomTypes.length > 0
+                      ? roomTypes.map((roomType) => (
+                          <option key={roomType.id} value={roomType.id}>
+                            {roomType.label}
+                          </option>
+                        ))
+                      : roomCategoryOptions.map((category) => (
+                          <option key={category} value={category}>
+                            {roomCategoryLabels[category]}
+                          </option>
+                        ))}
                     value={form.category}
                     onChange={(event) =>
                       set({ category: event.target.value as RoomFormData['category'] })

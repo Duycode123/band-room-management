@@ -58,13 +58,13 @@ export const getSessionRole = async () => {
 }
 
 export const restoreSession = async () => {
+  if (!hasStoredAuthSession()) {
+    throw new Error('No stored auth session')
+  }
+
   try {
     return await getSessionRole()
   } catch (error) {
-    if (!hasStoredAuthSession()) {
-      throw error
-    }
-
     try {
       await refreshSession()
       return await getSessionRole()

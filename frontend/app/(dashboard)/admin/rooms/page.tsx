@@ -16,11 +16,14 @@ import {
   createAdminRoom,
   deleteAdminRoom,
   EMPTY_ROOM_FORM,
+  getAdminRoomTypes,
   getAdminRooms,
+  getDefaultRoomForm,
   toRoomFormData,
   updateAdminRoom,
   updateRoomStatus,
 } from '@/lib/admin/rooms/adminRoomApi'
+import type { AdminRoom, AdminRoomTypeOption, RoomFilters, RoomFormData } from '@/lib/admin/rooms/types'
 import type { AdminRoom, RoomFilters, RoomFormData } from '@/lib/admin/rooms/types'
 
 const DEFAULT_FILTERS: RoomFilters = {
@@ -64,6 +67,7 @@ function filterAndSortRooms(rooms: AdminRoom[], filters: RoomFilters) {
 
 export default function AdminRoomsPage() {
   const [rooms, setRooms] = useState<AdminRoom[]>([])
+  const [roomTypes, setRoomTypes] = useState<AdminRoomTypeOption[]>([])
   const [filters, setFilters] = useState<RoomFilters>(DEFAULT_FILTERS)
   const [isLoading, setIsLoading] = useState(true)
   const [selected, setSelected] = useState<AdminRoom | null>(null)
@@ -74,12 +78,22 @@ export default function AdminRoomsPage() {
   const loadRooms = useCallback(async () => {
     setIsLoading(true)
     try {
+      const [data, typeData] = await Promise.all([
+        getAdminRooms(),
+        getAdminRoomTypes().catch(() => []),
+      ])
+      setRooms(data)
+      setRoomTypes(typeData)
       const data = await getAdminRooms()
       setRooms(data)
       setSelected((current) => {
         if (!current) return null
         return data.find((room) => room.id === current.id) ?? null
       })
+    } catch (error) {
+      setRooms([])
+      setSelected(null)
+      setToast(error instanceof Error ? error.message : 'Không thể tải danh sách phòng từ backend.')
     } finally {
       setIsLoading(false)
     }
@@ -138,6 +152,16 @@ export default function AdminRoomsPage() {
   }
 
   const handleMaintenance = async (room: AdminRoom) => {
+    try {
+      const updated = await updateRoomStatus(room.id, 'maintenance')
+      if (!updated) throw new Error('Không tìm thấy phòng tập.')
+
+      setToast(`${room.name} đã được chuyển sang trạng thái bảo trì.`)
+      setSelected((current) => (current?.id === room.id ? updated : current))
+      await loadRooms()
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : 'Không thể đổi trạng thái phòng.')
+    }
     const updated = await updateRoomStatus(room.id, 'maintenance')
     if (!updated) throw new Error('Không tìm thấy phòng tập.')
 
@@ -169,7 +193,7 @@ export default function AdminRoomsPage() {
               <button
                 type="button"
                 onClick={() =>
-                  setFormModal({ open: true, mode: 'create', data: { ...EMPTY_ROOM_FORM } })
+                  setFormModal({ open: true, mode: 'create', data: getDefaultRoomForm(roomTypes) })
                 }
                 className="inline-flex items-center gap-2 rounded-xl bg-brand-orange px-5 py-2.5 font-display text-sm font-medium text-white shadow-lg shadow-brand-orange/25 transition-all hover:bg-brand-orangeHover active:scale-[0.98]"
               >
@@ -240,7 +264,7 @@ export default function AdminRoomsPage() {
           </section>
 
           <p className="pb-4 text-center text-[11px] text-on-surface-variant">
-            * Demo FE - dữ liệu mock, sẵn sàng thay bằng API quản lý phòng khi tích hợp backend.
+            * Dữ liệu phòng đang đồng bộ từ API backend. Sửa/xóa/trạng thái sẽ bật khi backend có endpoint tương ứng.
           </p>
         </div>
 
@@ -256,6 +280,7 @@ export default function AdminRoomsPage() {
           open={formModal.open}
           mode={formModal.open ? formModal.mode : 'create'}
           initialData={formModal.open ? formModal.data : EMPTY_ROOM_FORM}
+          roomTypes={roomTypes}
           onClose={() => setFormModal({ open: false })}
           onSubmit={formModal.open && formModal.mode === 'edit' ? handleUpdate : handleCreate}
         />

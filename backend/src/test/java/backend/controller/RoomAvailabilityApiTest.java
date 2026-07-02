@@ -1,9 +1,12 @@
 package backend.controller;
 
+import backend.booking.application.port.in.GetRoomAvailabilityUseCase;
+import backend.booking.application.port.in.query.GetRoomAvailabilityQuery;
 import backend.dto.response.RoomAvailabilityResponse;
 import backend.dto.response.TimeSlotResponse;
-import backend.service.BookingService;
-import backend.service.RoomService;
+import backend.room.application.port.in.CreateRoomUseCase;
+import backend.room.application.port.in.GetRoomDetailUseCase;
+import backend.room.application.port.in.ListRoomsUseCase;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -28,10 +31,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class RoomAvailabilityApiTest {
 
     @Mock
-    private RoomService roomService;
+    private ListRoomsUseCase listRoomsUseCase;
 
     @Mock
-    private BookingService bookingService;
+    private GetRoomDetailUseCase getRoomDetailUseCase;
+
+    @Mock
+    private CreateRoomUseCase createRoomUseCase;
+
+    @Mock
+    private GetRoomAvailabilityUseCase getRoomAvailabilityUseCase;
 
     private MockMvc mockMvc;
 
@@ -43,7 +52,12 @@ class RoomAvailabilityApiTest {
                 .build();
 
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new RoomController(roomService, bookingService))
+                .standaloneSetup(new RoomController(
+                        listRoomsUseCase,
+                        getRoomDetailUseCase,
+                        createRoomUseCase,
+                        getRoomAvailabilityUseCase
+                ))
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))
                 .build();
     }
@@ -64,7 +78,8 @@ class RoomAvailabilityApiTest {
                 )
         );
 
-        when(bookingService.getAvailableSlots(10, from, to)).thenReturn(response);
+        when(getRoomAvailabilityUseCase.getAvailableSlots(new GetRoomAvailabilityQuery(10, from, to)))
+                .thenReturn(response);
 
         mockMvc.perform(get("/api/rooms/10/available-slots")
                         .param("from", "2030-01-10T09:00:00")

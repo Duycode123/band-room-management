@@ -6,6 +6,8 @@ export type AdminRoom = {
   id: string
   code: string
   name: string
+  roomTypeId?: number | null
+  roomTypeName?: string
   category: RoomCategory
   categoryLabel: string
   capacity: number
@@ -33,6 +35,7 @@ export type RoomFilters = {
 export type RoomFormData = {
   name: string
   code: string
+  roomTypeId: number | null
   category: RoomCategory | ''
   capacity: number
   pricePerHour: number
@@ -43,6 +46,14 @@ export type RoomFormData = {
 }
 
 export type RoomFormErrors = Partial<Record<keyof RoomFormData, string>>
+
+export type AdminRoomTypeOption = {
+  id: number
+  label: string
+  category: RoomCategory
+  pricePerHour: number
+  capacity: number
+}
 
 export const roomCategoryOptions: RoomCategory[] = ['standard', 'band', 'recording', 'premium']
 

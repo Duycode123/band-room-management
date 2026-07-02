@@ -84,7 +84,7 @@ export default function BookingDatePicker({ value, onChange }: BookingDatePicker
   return (
     <div className="space-y-4">
       {/* Selected date + navigation */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-outline-variant bg-surface-container-low px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-outline-variant bg-gradient-to-r from-surface-container-low to-white px-4 py-3.5 shadow-sm">
         <div className="min-w-0">
           <p className="font-display text-[10px] font-medium uppercase tracking-[0.12em] text-on-surface-variant">
             Ngày đã chọn
@@ -127,8 +127,8 @@ export default function BookingDatePicker({ value, onChange }: BookingDatePicker
       </div>
 
       {/* Rolling window — only bookable days from today */}
-      <div className="overflow-hidden rounded-xl border border-outline-variant bg-white">
-        <div className="flex divide-x divide-outline-variant">
+      <div className="overflow-hidden rounded-2xl border border-outline-variant bg-white shadow-sm">
+        <div className="flex gap-1 p-1.5">
           {weekKeys.map((key) => {
             const selected = value === key
             const today = isToday(key)
@@ -141,15 +141,16 @@ export default function BookingDatePicker({ value, onChange }: BookingDatePicker
                 aria-label={formatDateLong(key)}
                 aria-pressed={selected}
                 className={[
-                  'flex min-h-[4.5rem] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-3 transition-all',
+                  'flex min-h-[4.75rem] min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl py-3 transition-all duration-200',
                   selected
-                    ? 'bg-brand-orange text-white'
-                    : 'bg-white text-on-surface hover:bg-primary-container/15',
+                    ? 'bg-brand-orange text-white shadow-md shadow-brand-orange/30'
+                    : 'text-on-surface hover:bg-primary-container/20',
+                  today && !selected ? 'ring-1 ring-brand-orange/30' : '',
                 ].join(' ')}
               >
                 <span
                   className={[
-                    'font-display text-lg font-semibold leading-none',
+                    'font-display text-lg font-bold leading-none',
                     today && !selected ? 'text-brand-orange' : '',
                   ].join(' ')}
                 >

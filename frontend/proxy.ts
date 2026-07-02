@@ -23,8 +23,6 @@ export const config = {
   matcher: [
     '/admin/:path*',
     '/staff/:path*',
-    '/customer/booking',
-    '/customer/booking/:path*',
     '/customer/checkout',
     '/customer/checkout/:path*',
     '/customer/profile',
@@ -40,6 +38,5 @@ export const config = {
     '/customer/accessibility',
     '/customer/accessibility/:path*',
     '/profile/:path*',
-    '/booking/confirmation/:path*',
   ],
 }

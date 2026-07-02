@@ -1,15 +1,14 @@
 'use client'
 
 import Image from 'next/image'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import {
   formatCurrency,
   formatRelativeTime,
   maskCustomerName,
-  roomReviews,
   type BookingRoom,
-  type RoomCategory,
 } from '@/components/booking/booking-data'
+import { fetchPublicReviewsByRoomId } from '@/lib/public-room-review-service'
 import {
   getAverageReviewRating,
   getRoomReviewsByRoomId,
@@ -23,13 +22,6 @@ type RoomDetailModalProps = {
   onBook: (room: BookingRoom) => void
 }
 
-const suitableServicesByCategory: Record<RoomCategory, string[]> = {
-  standard: ['Luyện tập cá nhân', 'Warm-up trước show', 'Luyện kỹ thuật'],
-  band: ['Tập band', 'Rehearsal setlist', 'Chuẩn bị biểu diễn'],
-  recording: ['Thu âm', 'Mixing', 'Podcast', 'Sản xuất nhạc'],
-  premium: ['Tập band cao cấp', 'Sản xuất nhạc', 'Live session', 'Private rehearsal'],
-}
-
 const roomPolicies = [
   'Có thể hủy trước 2 giờ',
   'Đến đúng giờ để giữ lịch',
@@ -37,10 +29,23 @@ const roomPolicies = [
 ]
 
 function getAvailabilityLabel(room: BookingRoom) {
+  if (!room.availabilityKnown) return 'Xem lịch trống theo thời gian thực'
   if (!room.isAvailable) return 'Kín lịch hôm nay'
   if (room.nextAvailableTime) return `Trống từ ${room.nextAvailableTime}`
 
   return 'Còn trống hôm nay'
+}
+
+function getAvailabilityDescription(room: BookingRoom) {
+  if (!room.availabilityKnown) {
+    return 'Backend chưa trả về trạng thái phòng theo thời gian thực. Bạn vẫn có thể mở lịch để kiểm tra khung giờ trống.'
+  }
+
+  if (room.isAvailable) {
+    return 'Dữ liệu lịch trống đang được đồng bộ trực tiếp từ backend cho ngày hôm nay.'
+  }
+
+  return 'Backend đang cho biết phòng đã kín lịch trong hôm nay. Bạn có thể chọn ngày khác để kiểm tra lại.'
 }
 
 function getAvatarInitial(customerName?: string) {
@@ -48,8 +53,10 @@ function getAvatarInitial(customerName?: string) {
 }
 
 function renderRatingStars(rating: number) {
+  const filledStars = Math.max(0, Math.min(5, Math.round(rating)))
+
   return Array.from({ length: 5 }, (_, index) => (
-    <span key={index} className={index < rating ? 'text-[#FF7518]' : 'text-[#D8D1C7]'}>
+    <span key={index} className={index < filledStars ? 'text-[#FF7518]' : 'text-[#D8D1C7]'}>
       ★
     </span>
   ))
@@ -77,7 +84,10 @@ function ReviewItem({ review }: { review: BookingReview }) {
           {review.tags && review.tags.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">
               {review.tags.map((tag) => (
-                <span key={tag} className="rounded-full border border-[#FF7518]/25 bg-[#FFE8D6] px-2.5 py-1 text-[11px] font-semibold text-[#6B3200]">
+                <span
+                  key={tag}
+                  className="rounded-full border border-[#FF7518]/25 bg-[#FFE8D6] px-2.5 py-1 text-[11px] font-semibold text-[#6B3200]"
+                >
                   {tag}
                 </span>
               ))}
@@ -97,6 +107,9 @@ function ReviewItem({ review }: { review: BookingReview }) {
 }
 
 export default function RoomDetailModal({ room, open, onClose, onBook }: RoomDetailModalProps) {
+  const [backendReviews, setBackendReviews] = useState<BookingReview[]>([])
+  const [isLoadingReviews, setIsLoadingReviews] = useState(false)
+
   useEffect(() => {
     if (!open) return
 
@@ -110,13 +123,46 @@ export default function RoomDetailModal({ room, open, onClose, onBook }: RoomDet
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [onClose, open])
 
+  useEffect(() => {
+    if (!open || !room) return
+
+    let active = true
+    setIsLoadingReviews(true)
+
+    void fetchPublicReviewsByRoomId(room.id)
+      .then((reviews) => {
+        if (!active) return
+
+        setBackendReviews(reviews)
+      })
+      .catch(() => {
+        if (!active) return
+
+        setBackendReviews([])
+      })
+      .finally(() => {
+        if (!active) return
+
+        setIsLoadingReviews(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [open, room])
+
   if (!open || !room) return null
 
-  const suitableServices = suitableServicesByCategory[room.category]
   const availabilityLabel = getAvailabilityLabel(room)
-  const reviews = getRoomReviewsByRoomId(room.id, roomReviews)
+  const reviews = getRoomReviewsByRoomId(room.id, backendReviews)
   const averageRating = getAverageReviewRating(reviews)
   const visibleReviews = reviews.slice(0, 2)
+  const displayRating = reviews.length > 0 ? averageRating : room.rating
+  const factualDetails = [
+    { label: 'Loại phòng', value: room.type },
+    { label: 'Vị trí', value: room.location },
+    { label: 'Sức chứa', value: room.capacity },
+  ]
 
   return (
     <div
@@ -131,13 +177,22 @@ export default function RoomDetailModal({ room, open, onClose, onBook }: RoomDet
         onClick={(event) => event.stopPropagation()}
       >
         <div className="relative aspect-[16/9] min-h-[220px] overflow-hidden rounded-t-[24px] bg-[#042A16] sm:aspect-[21/9]">
-          <Image
-            src={room.image}
-            alt={room.name}
-            fill
-            sizes="(min-width: 768px) 880px, 100vw"
-            className={`object-cover ${room.imageClassName}`}
-          />
+          {room.image ? (
+            <Image
+              src={room.image}
+              alt={room.name}
+              fill
+              sizes="(min-width: 768px) 880px, 100vw"
+              className={`object-cover ${room.imageClassName}`}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_top,#FFE8D6,transparent_52%),linear-gradient(135deg,#042A16,#0B3E24)] px-6 text-center">
+              <div>
+                <p className="font-display text-2xl font-bold text-white">{room.name}</p>
+                <p className="mt-3 text-sm text-white/72">Backend chưa cung cấp ảnh cho phòng này.</p>
+              </div>
+            </div>
+          )}
           <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(4,42,22,0.86),rgba(4,42,22,0.2)_55%,rgba(4,42,22,0.1))]" />
           <button
             type="button"
@@ -152,14 +207,18 @@ export default function RoomDetailModal({ room, open, onClose, onBook }: RoomDet
               <span className="rounded-full bg-[#FFE8D6] px-3 py-1 font-display text-xs font-bold uppercase text-[#042A16]">
                 {room.categoryLabel}
               </span>
-              <span className="rounded-full bg-[#FF7518] px-3 py-1 font-display text-xs font-bold uppercase text-white">
-                {room.badge}
-              </span>
+              {room.badge && (
+                <span className="rounded-full bg-[#FF7518] px-3 py-1 font-display text-xs font-bold uppercase text-white">
+                  {room.badge}
+                </span>
+              )}
             </div>
             <h2 id="room-detail-title" className="font-display text-3xl font-bold text-white sm:text-4xl">
               {room.name}
             </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/72">{room.description}</p>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/72">
+              {room.description || 'Backend chưa cung cấp mô tả chi tiết cho phòng này.'}
+            </p>
           </div>
         </div>
 
@@ -169,7 +228,9 @@ export default function RoomDetailModal({ room, open, onClose, onBook }: RoomDet
               <div className="grid gap-4 sm:grid-cols-3">
                 <div>
                   <p className="font-display text-xs font-bold uppercase text-[#5C5348]">Rating</p>
-                  <p className="mt-1 font-display text-xl font-bold text-[#1A1C1E]">{room.rating}/5</p>
+                  <p className="mt-1 font-display text-xl font-bold text-[#1A1C1E]">
+                    {typeof displayRating === 'number' ? `${displayRating.toFixed(1)}/5` : 'Chưa có'}
+                  </p>
                 </div>
                 <div>
                   <p className="font-display text-xs font-bold uppercase text-[#5C5348]">Sức chứa</p>
@@ -199,37 +260,44 @@ export default function RoomDetailModal({ room, open, onClose, onBook }: RoomDet
             </section>
 
             <section className="rounded-xl border border-[#E8E4DC] bg-white p-5 shadow-[0_12px_34px_rgba(26,28,30,0.06)]">
-              <h3 className="font-display text-lg font-bold text-[#1A1C1E]">Dịch vụ phù hợp</h3>
-              <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                {suitableServices.map((item) => (
-                  <div key={item} className="flex items-center gap-2 text-sm font-medium text-[#5C5348]">
-                    <span className="h-2 w-2 rounded-full bg-[#FF7518]" />
-                    {item}
+              <h3 className="font-display text-lg font-bold text-[#1A1C1E]">Thông tin phòng</h3>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                {factualDetails.map((item) => (
+                  <div key={item.label} className="rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4">
+                    <p className="font-display text-xs font-bold uppercase text-[#5C5348]">{item.label}</p>
+                    <p className="mt-2 text-sm font-medium leading-6 text-[#1A1C1E]">{item.value}</p>
                   </div>
                 ))}
               </div>
             </section>
+
             <section className="rounded-xl border border-[#E8E4DC] bg-white p-5 shadow-[0_12px_34px_rgba(26,28,30,0.06)]">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h3 className="font-display text-lg font-bold text-[#1A1C1E]">Đánh giá từ khách hàng</h3>
                   <p className="mt-1 text-sm text-[#5C5348]">
-                    {reviews.length > 0 ? `${reviews.length} đánh giá gần nhất` : 'Chưa có đánh giá'}
+                    {isLoadingReviews
+                      ? 'Đang tải đánh giá từ backend'
+                      : reviews.length > 0
+                        ? `${reviews.length} đánh giá gần nhất`
+                        : 'Chưa có đánh giá'}
                   </p>
                 </div>
                 {reviews.length > 0 && (
                   <div className="shrink-0 text-right">
-                    <p className="font-display text-xl font-bold text-[#FF7518]">
-                      {averageRating.toFixed(1)}/5
-                    </p>
+                    <p className="font-display text-xl font-bold text-[#FF7518]">{averageRating.toFixed(1)}/5</p>
                     <div className="mt-1 flex justify-end text-xs" aria-label={`${averageRating.toFixed(1)} trên 5 sao`}>
-                      {renderRatingStars(Math.round(averageRating))}
+                      {renderRatingStars(averageRating)}
                     </div>
                   </div>
                 )}
               </div>
 
-              {reviews.length > 0 ? (
+              {isLoadingReviews ? (
+                <div className="mt-4 rounded-2xl border border-dashed border-[#E8E4DC] bg-[#FAF8F4] p-4 text-sm leading-6 text-[#5C5348]">
+                  Đang đồng bộ đánh giá công khai từ backend...
+                </div>
+              ) : reviews.length > 0 ? (
                 <div className="mt-4 grid gap-3">
                   {visibleReviews.map((review) => (
                     <ReviewItem key={review.id} review={review} />
@@ -247,7 +315,7 @@ export default function RoomDetailModal({ room, open, onClose, onBook }: RoomDet
             <section className="rounded-xl border border-[#E8E4DC] bg-white p-5 shadow-[0_12px_34px_rgba(26,28,30,0.06)]">
               <p className="font-display text-xs font-bold uppercase text-[#FF7518]">Trạng thái hôm nay</p>
               <p className="mt-2 font-display text-2xl font-bold text-[#1A1C1E]">{availabilityLabel}</p>
-              <p className="mt-2 text-sm leading-6 text-[#5C5348]">{room.note}</p>
+              <p className="mt-2 text-sm leading-6 text-[#5C5348]">{getAvailabilityDescription(room)}</p>
             </section>
 
             <section className="rounded-xl border border-[#E8E4DC] bg-white p-5 shadow-[0_12px_34px_rgba(26,28,30,0.06)]">
