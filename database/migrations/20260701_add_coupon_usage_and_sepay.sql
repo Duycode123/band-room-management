@@ -2,8 +2,39 @@
 
 DO $$
 BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = 'discount_code'
+    ) THEN
+        RAISE EXCEPTION 'discount_code table not found. Apply the English schema rename migrations first.';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = 'customer'
+    ) THEN
+        RAISE EXCEPTION 'customer table not found. Apply the English schema rename migrations first.';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = 'booking'
+    ) THEN
+        RAISE EXCEPTION 'booking table not found. Apply the English schema rename migrations first.';
+    END IF;
+
     IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'payment_provider') THEN
         ALTER TYPE payment_provider ADD VALUE IF NOT EXISTS 'SEPAY';
+    ELSIF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'cong_thanh_toan') THEN
+        ALTER TYPE cong_thanh_toan ADD VALUE IF NOT EXISTS 'SEPAY';
+    ELSE
+        RAISE EXCEPTION 'payment_provider enum not found. Apply the payment transaction migrations first.';
     END IF;
 END $$;
 

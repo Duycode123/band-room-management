@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import BookingRoomCard from '@/components/booking/BookingRoomCard'
 import BookingQuickModal from '@/components/booking/BookingQuickModal'
 import RoomDetailModal from '@/components/booking/RoomDetailModal'
@@ -12,12 +12,11 @@ import {
   type BookingRoomAvailabilitySummary,
   type BookingRoomReviewSummary,
   mapPracticeRoomToBookingRoom,
+  roomCategories,
   type BookingRoom,
 } from '@/components/booking/booking-data'
 import { useAuth } from '@/contexts/AuthContext'
 import { useHomepageLiveData } from '@/hooks/useHomepageLiveData'
-import { fetchPublicBookingRooms } from '@/lib/booking-room-service'
-import { findBookingRoomInCatalog } from '@/lib/room-mappers'
 import { fetchAvailableSlots, fetchRooms } from '@/lib/booking/bookingApi'
 import {
   formatRelativeTime,
@@ -248,7 +247,6 @@ export default function HomePage() {
   const [roomCatalogError, setRoomCatalogError] = useState('')
   const [quickBooking, setQuickBooking] = useState<QuickBookingState | null>(null)
   const [selectedRoomDetail, setSelectedRoomDetail] = useState<BookingRoom | null>(null)
-  const [rooms, setRooms] = useState<BookingRoom[]>(bookingRooms)
   const [activeRoomFilter, setActiveRoomFilter] = useState<RoomCatalogFilter>('all')
   useEffect(() => {
     let active = true
@@ -329,21 +327,6 @@ export default function HomePage() {
     [String(rooms.length), 'Phòng tập'],
     ['Live', 'Cập nhật lịch trống'],
   ]
-
-  useEffect(() => {
-    let mounted = true
-
-    async function loadRooms() {
-      const data = await fetchPublicBookingRooms()
-      if (mounted) setRooms(data)
-    }
-
-    void loadRooms()
-
-    return () => {
-      mounted = false
-    }
-  }, [])
 
   const scrollToRooms = () => {
     document.getElementById('rooms')?.scrollIntoView({ behavior: 'smooth', block: 'start' })

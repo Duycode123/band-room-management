@@ -38,7 +38,7 @@ public class DiscountCode {
     @Column(name = "type", nullable = false, columnDefinition = "discount_type")
     private DiscountType type;
 
-    @Column(name = "value", nullable = false, precision = 12, scale = 2)
+    @Column(name = "\"value\"", nullable = false, precision = 12, scale = 2)
     private BigDecimal value;
 
     @Column(name = "min_order_value", precision = 12, scale = 2)

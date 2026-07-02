@@ -2,12 +2,14 @@ import axios from 'axios'
 import api from '@/lib/api'
 
 export type PaymentMethod = 'bank_transfer' | 'e_wallet' | 'cash'
+export type PaymentOption = 'deposit' | 'full'
 
 export type PaymentStatus = 'success' | 'failed' | 'pending' | 'cancelled'
 
 export type CreatePaymentSessionPayload = {
   bookingId: number
   method: PaymentMethod
+  paymentOption: PaymentOption
 }
 
 export type CreatePaymentSessionResponse = {
@@ -78,6 +80,7 @@ export async function createPaymentSession(
     const response = await api.post<ApiResponse<BackendPaymentSession>>('/api/payments/sessions', {
       bookingId: payload.bookingId,
       method: payload.method,
+      paymentOption: payload.paymentOption,
     })
 
     return {
@@ -86,7 +89,7 @@ export async function createPaymentSession(
       status: response.data.data.status,
     }
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the tao giao dich thanh toan.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể tạo giao dịch thanh toán.'))
   }
 }
 
@@ -105,6 +108,6 @@ export async function getPaymentTransactionDetail(paymentId: string): Promise<Pa
       paidAt: response.data.data.paidAt,
     }
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the kiem tra giao dich thanh toan.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể kiểm tra giao dịch thanh toán.'))
   }
 }

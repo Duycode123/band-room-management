@@ -1,14 +1,13 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/contexts/AuthContext'
+import { useCallback, useEffect, useState } from 'react'
 import AuthGuard from '@/components/AuthGuard'
 import BookingDatePicker from '@/components/booking/BookingDatePicker'
 import RoomCard from '@/components/booking/RoomCard'
 import TimeSlotGrid from '@/components/booking/TimeSlotGrid'
+import { useAuth } from '@/contexts/AuthContext'
 import { useAvailableSlots } from '@/hooks/useAvailableSlots'
 import { fetchRooms, formatPrice } from '@/lib/booking/bookingApi'
 import { formatDateLong, getTodayKey } from '@/lib/booking/dateUtils'
@@ -18,7 +17,6 @@ import type { PracticeRoom } from '@/lib/booking/types'
 export default function CustomerBookingPage() {
   const router = useRouter()
   const { logout } = useAuth()
-  const router = useRouter()
   const [rooms, setRooms] = useState<PracticeRoom[]>([])
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState(getTodayKey)
@@ -26,24 +24,32 @@ export default function CustomerBookingPage() {
   const [message, setMessage] = useState('')
 
   const selectedRoom = rooms.find((room) => room.id === selectedRoomId) ?? null
-
   const { slots, isLoading, lastUpdated, error, refresh, selectSlot, deselectSlot, clearSelection } =
     useAvailableSlots(selectedRoomId, selectedDate)
-
   const selectedSlots = getSelectedSlots(slots)
   const selectedHours = selectedSlots.length
 
   useEffect(() => {
-    fetchRooms().then((data) => {
-      setRooms(data)
-      setSelectedRoomId((current) => current ?? data[0]?.id ?? null)
-    })
-  }, [])
+    let active = true
 
-  const handleLogout = useCallback(async () => {
-    await logout()
-    router.push('/login')
-  }, [logout, router])
+    void fetchRooms()
+      .then((data) => {
+        if (!active) return
+
+        setRooms(data)
+        setSelectedRoomId((current) => current ?? data[0]?.id ?? null)
+      })
+      .catch(() => {
+        if (!active) return
+
+        setRooms([])
+        setSelectedRoomId(null)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   const handleLogout = useCallback(async () => {
     await logout()
@@ -97,12 +103,13 @@ export default function CustomerBookingPage() {
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
             <div>
               <p className="font-display text-xs font-medium uppercase tracking-[0.2em] text-brand-orange">
-                Đặt lịch
+                 Đặt lịch
               </p>
               <h1 className="font-display text-2xl font-bold tracking-tight text-on-surface">
-                Đặt phòng tập nhạc
+                 Đặt phòng tập nhạc
               </h1>
             </div>
+
             <div className="flex items-center gap-3">
               <Link
                 href="/customer/dashboard"
@@ -115,7 +122,7 @@ export default function CustomerBookingPage() {
                 onClick={() => void handleLogout()}
                 className="rounded-lg bg-inverse-surface px-4 py-2 font-display text-sm font-medium text-inverse-on-surface"
               >
-                Đăng xuất
+                 Đăng xuất
               </button>
             </div>
           </div>
@@ -123,10 +130,12 @@ export default function CustomerBookingPage() {
 
         <div className="mx-auto grid max-w-6xl gap-6 p-6 lg:grid-cols-[1fr_320px]">
           <div className="space-y-6">
-            {/* Chọn phòng */}
             <section className="rounded-xl border border-outline-variant bg-white p-6 shadow-[var(--shadow-card)]">
               <h2 className="font-display text-lg font-semibold text-on-surface">1. Chọn phòng tập</h2>
-              <p className="mt-1 text-sm text-on-surface-variant">Chọn studio phù hợp với nhu cầu của bạn.</p>
+              <p className="mt-1 text-sm text-on-surface-variant">
+                Chọn studio phù hợp với nhu cầu của bạn.
+              </p>
+
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {rooms.map((room) => (
                   <RoomCard
@@ -142,15 +151,15 @@ export default function CustomerBookingPage() {
               </div>
             </section>
 
-            {/* Chọn ngày + lịch real-time */}
             <section className="rounded-xl border border-outline-variant bg-white p-6 shadow-[var(--shadow-card)]">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h2 className="font-display text-lg font-semibold text-on-surface">2. Chọn ngày & khung giờ</h2>
+                  <h2 className="font-display text-lg font-semibold text-on-surface">2. Chọn ngày và khung giờ</h2>
                   <p className="mt-1 text-sm text-on-surface-variant">
-                    Lịch trống được tải từ endpoint BE và tự làm mới theo thời gian thực mỗi 15 giây.
+                    Lịch trống đang được tải từ backend và tự động cập nhật.
                   </p>
                 </div>
+
                 {lastUpdated && (
                   <div className="flex items-center gap-2">
                     <span className="relative flex h-2 w-2">
@@ -201,9 +210,9 @@ export default function CustomerBookingPage() {
                   emptyMessage={
                     selectedRoomId
                       ? 'Đang tải lịch trống từ backend...'
-                      : '← Chọn phòng ở bước 1 để xem khung giờ.'
+                      : 'Chọn phòng ở bước 1 để xem khung giờ.'
                   }
-                  hint="Click 1 lần vào khung trống để chọn (click liền kề để thêm giờ). Click lại để bỏ chọn; chỉ bỏ được khung ở đầu hoặc cuối dải đã chọn."
+                  hint="Bấm vào khung trống để chọn. Chỉ có thể bỏ khung ở đầu hoặc cuối dải đã chọn."
                   onSelect={(id) => {
                     selectSlot(id)
                     setMessage('')
@@ -215,16 +224,6 @@ export default function CustomerBookingPage() {
                 />
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-4 text-[11px] text-on-surface-variant">
-                <span className="flex items-center gap-1.5">
-                  <span className="h-3 w-3 rounded border border-outline bg-white" /> Trống
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="h-3 w-3 rounded bg-brand-orange" /> Đã chọn
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="h-3 w-3 rounded bg-surface-container line-through" /> Đã đặt
-                </span>
               <div className="mt-5 flex flex-wrap gap-4 rounded-xl bg-surface-container-low px-4 py-3 text-[11px] text-on-surface-variant">
                 <LegendItem color="bg-white border border-outline" label="Trống" />
                 <LegendItem color="bg-gradient-to-br from-brand-orange to-[#FF8C3A]" label="Đã chọn" />
@@ -234,53 +233,46 @@ export default function CustomerBookingPage() {
             </section>
           </div>
 
-          {/* Tóm tắt đặt phòng */}
           <aside className="h-fit rounded-xl border border-outline-variant bg-white p-6 shadow-[var(--shadow-card)] lg:sticky lg:top-6">
             <h2 className="font-display text-lg font-semibold text-on-surface">Tóm tắt</h2>
 
             <dl className="mt-4 space-y-3 text-sm">
               <div>
                 <dt className="text-xs uppercase tracking-wider text-on-surface-variant">Phòng</dt>
-                <dd className="mt-0.5 font-medium text-on-surface">
-                  {selectedRoom?.name ?? '—'}
-                </dd>
+                <dd className="mt-0.5 font-medium text-on-surface">{selectedRoom?.name ?? '-'}</dd>
               </div>
+
               <div>
                 <dt className="text-xs uppercase tracking-wider text-on-surface-variant">Ngày</dt>
                 <dd className="mt-0.5 font-medium text-on-surface">
-                  {selectedDate ? formatDateLong(selectedDate) : '—'}
+                  {selectedDate ? formatDateLong(selectedDate) : '-'}
                 </dd>
               </div>
+
               <div>
                 <dt className="text-xs uppercase tracking-wider text-on-surface-variant">Khung giờ</dt>
                 <dd className="mt-0.5 font-medium text-on-surface">
-                  {selectedSlots.length > 0 ? formatSlotRange(selectedSlots) : '—'}
+                  {selectedSlots.length > 0 ? formatSlotRange(selectedSlots) : '-'}
                 </dd>
                 {selectedHours > 0 && (
                   <dd className="mt-0.5 text-xs text-on-surface-variant">
-                    {selectedHours} giờ × {selectedRoom ? formatPrice(selectedRoom.pricePerHour) : '—'}/giờ
+                    {selectedHours} giờ x {selectedRoom ? formatPrice(selectedRoom.pricePerHour) : '-'}/giờ
                   </dd>
                 )}
               </div>
+
               <div className="border-t border-outline-variant pt-3">
                 <dt className="text-xs uppercase tracking-wider text-on-surface-variant">Tổng tiền</dt>
                 <dd className="mt-0.5 font-display text-xl font-bold text-brand-orange">
                   {selectedRoom && selectedHours > 0
                     ? formatPrice(selectedRoom.pricePerHour * selectedHours)
-                    : '—'}
+                    : '-'}
                 </dd>
               </div>
             </dl>
 
             {message && (
-              <p
-                className={[
-                  'mt-4 rounded-lg px-3 py-2 text-xs',
-                  message.includes('thành công')
-                    ? 'border border-secondary-container/50 bg-secondary-container/20 text-secondary'
-                    : 'border border-error/20 bg-error-container text-error',
-                ].join(' ')}
-              >
+              <p className="mt-4 rounded-lg border border-error/20 bg-error-container px-3 py-2 text-xs text-error">
                 {message}
               </p>
             )}
@@ -295,11 +287,20 @@ export default function CustomerBookingPage() {
             </button>
 
             <p className="mt-3 text-center text-[11px] text-on-surface-variant">
-              * Demo FE — sẽ kết nối API backend khi sẵn sàng
+              Sau bước này, hệ thống sẽ tạo booking thật rồi chuyển sang checkout.
             </p>
           </aside>
         </div>
       </main>
     </AuthGuard>
+  )
+}
+
+function LegendItem({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="flex items-center gap-2">
+      <span className={['h-3 w-3 rounded', color].join(' ')} />
+      {label}
+    </span>
   )
 }

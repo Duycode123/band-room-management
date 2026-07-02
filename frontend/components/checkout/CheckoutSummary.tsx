@@ -1,10 +1,6 @@
 'use client'
 
-import {
-  calculateCheckoutSummary,
-  formatCurrency,
-  type CheckoutBooking,
-} from '@/lib/checkout-data'
+import { calculateCheckoutSummary, formatCurrency, type CheckoutBooking } from '@/lib/checkout-data'
 import type { AppliedDiscount } from '@/lib/discount-service'
 
 export default function CheckoutSummary({
@@ -48,7 +44,11 @@ function PaymentRow({ label, value, green = false }: { label: string; value: str
   return (
     <div className="flex items-center justify-between gap-3 py-1.5 text-sm">
       <span className="min-w-0 text-[#5C5348]">{label}</span>
-      <span className={['shrink-0 text-nowrap text-right font-semibold', green ? 'text-[#0A4D27]' : 'text-[#1A1C1E]'].join(' ')}>
+      <span
+        className={['shrink-0 text-nowrap text-right font-semibold', green ? 'text-[#0A4D27]' : 'text-[#1A1C1E]'].join(
+          ' ',
+        )}
+      >
         {value}
       </span>
     </div>

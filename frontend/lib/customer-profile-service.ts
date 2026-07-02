@@ -2,6 +2,8 @@ import axios from 'axios'
 import api from '@/lib/api'
 import { normalizeAuthUser, type AuthUser, type UserRole } from '@/lib/auth'
 
+const CUSTOMER_PROFILE_KEY = 'band-room-management.customer-profile'
+
 export type CustomerProfile = {
   id?: string | number
   fullName: string
@@ -110,7 +112,7 @@ export function getCustomerDisplayName(user?: AuthUser | CustomerProfile | null)
   if (name) return name
   if (email) return email.split('@')[0] || email
 
-  return 'Khach hang'
+  return 'Khách hàng'
 }
 
 type CurrentUserApiResponse = Partial<CustomerProfile & AuthUser> & {
@@ -129,7 +131,7 @@ function normalizeCurrentUser(currentUser: CurrentUserApiResponse, fallback?: Au
       fallback?.fullName ||
       fallback?.name ||
       getCustomerDisplayName({ email: currentUser.email || fallback?.email, role: normalizedUser.role }) ||
-      'Khach hang',
+      'Khách hàng',
     email: currentUser.email || fallback?.email || '',
     phone: currentUser.phone || fallback?.phone || '',
     avatarUrl: getPersistentAvatarUrl(currentUser.avatarUrl) || getPersistentAvatarUrl(fallback?.avatarUrl),
@@ -171,7 +173,7 @@ export async function fetchCurrentUser(user?: AuthUser | null): Promise<Customer
 export async function updateCustomerProfile(payload: UpdateCustomerProfilePayload): Promise<CustomerProfile> {
   try {
     const response = await api.put<CustomerProfile>('/api/users/me', payload)
-    return normalizeCurrentUser(response.data, {
+    const updatedProfile = normalizeCurrentUser(response.data, {
       role: response.data.role || 'CUSTOMER',
       fullName: payload.fullName,
       name: payload.fullName,
@@ -179,12 +181,11 @@ export async function updateCustomerProfile(payload: UpdateCustomerProfilePayloa
       phone: payload.phone,
       avatarUrl: response.data.avatarUrl,
     })
-    updatedProfile.avatarUrl = getPersistentAvatarUrl(payload.avatarUrl)
 
     writeStoredCustomerProfile(updatedProfile)
     return updatedProfile
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the cap nhat thong tin. Vui long thu lai.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể cập nhật thông tin. Vui lòng thử lại.'))
   }
 }
 
@@ -192,6 +193,6 @@ export async function changeCustomerPassword(payload: ChangeCustomerPasswordPayl
   try {
     await api.put('/api/users/me/password', payload)
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the cap nhat mat khau. Vui long thu lai.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể cập nhật mật khẩu. Vui lòng thử lại.'))
   }
 }

@@ -9,25 +9,32 @@ import CheckoutSummary from '@/components/checkout/CheckoutSummary'
 import BandRoomHeader from '@/components/layout/BandRoomHeader'
 import {
   calculateCheckoutSummary,
+  formatCurrency,
   getCheckoutBookingFromParams,
   type CheckoutBooking,
 } from '@/lib/checkout-data'
-import { createPaymentSession, type PaymentMethod } from '@/lib/payment-service'
 import {
   clearPendingBooking,
   getPendingBooking,
   pendingBookingToSearchParams,
 } from '@/lib/pending-booking'
+import {
+  createPaymentSession,
+  type PaymentMethod,
+  type PaymentOption,
+} from '@/lib/payment-service'
+
+const DEPOSIT_AMOUNT = 50000
 
 export default function CheckoutPageClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const confirmationHref = `/customer/booking/confirmation?${searchParams.toString()}`
-  const initialPaymentMethod = getInitialPaymentMethod(searchParams.get('method'))
   const [booking, setBooking] = useState<CheckoutBooking | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(initialPaymentMethod)
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(getInitialPaymentMethod(searchParams.get('method')))
+  const [paymentOption, setPaymentOption] = useState<PaymentOption>(getInitialPaymentOption(searchParams.get('paymentOption')))
   const [isPaying, setIsPaying] = useState(false)
   const [paymentError, setPaymentError] = useState('')
 
@@ -43,7 +50,6 @@ export default function CheckoutPageClient() {
 
         if (!checkoutParams.get('bookingId')) {
           const pendingBooking = getPendingBooking()
-
           if (pendingBooking) {
             const pendingParams = pendingBookingToSearchParams(pendingBooking)
             pendingParams.forEach((value, key) => {
@@ -55,24 +61,24 @@ export default function CheckoutPageClient() {
         const loadedBooking = await getCheckoutBookingFromParams(checkoutParams)
         if (!mounted) return
 
-        if (!searchParams.get('bookingId')) {
+        if (!checkoutParams.get('bookingId')) {
           setError('Thiếu mã đặt phòng. Vui lòng quay lại bước xác nhận đặt phòng.')
           setBooking(null)
           return
         }
 
         if (!loadedBooking) {
-          setError('Khong tim thay thong tin checkout tu backend.')
+          setError('Không tìm thấy thông tin checkout từ hệ thống.')
           setBooking(null)
           return
         }
 
         setBooking(loadedBooking)
+        setPaymentOption(getInitialPaymentOption(checkoutParams.get('paymentOption')))
         setPaymentMethod(getInitialPaymentMethod(checkoutParams.get('method')))
-        setAppliedDiscount(getAppliedDiscountFromParams(checkoutParams, loadedBooking))
       } catch {
         if (mounted) {
-          setError('Khong the tai thong tin thanh toan. Vui long thu lai.')
+          setError('Không thể tải thông tin thanh toán. Vui lòng thử lại.')
         }
       } finally {
         if (mounted) {
@@ -88,19 +94,31 @@ export default function CheckoutPageClient() {
     }
   }, [searchParams])
 
-  const summary = useMemo(
-    () => (booking ? calculateCheckoutSummary(booking, null) : null),
-    [booking],
-  )
+  useEffect(() => {
+    if (paymentOption === 'deposit' && paymentMethod === 'cash') {
+      setPaymentMethod('bank_transfer')
+      return
+    }
+
+    if (paymentOption === 'full' && paymentMethod !== 'cash') {
+      setPaymentMethod('cash')
+    }
+  }, [paymentMethod, paymentOption])
+
+  const summary = useMemo(() => (booking ? calculateCheckoutSummary(booking, null) : null), [booking])
+  const amountToPayNow = useMemo(() => {
+    if (!summary) return 0
+    return paymentOption === 'deposit' ? Math.min(DEPOSIT_AMOUNT, summary.total) : summary.total
+  }, [paymentOption, summary])
 
   const handlePay = async () => {
     if (!booking || !summary) {
-      setPaymentError('Khong tim thay thong tin dat phong de thanh toan.')
+      setPaymentError('Không tìm thấy thông tin đặt phòng để thanh toán.')
       return
     }
 
     if (!booking.backendBookingId) {
-      setPaymentError('Checkout nay chua gan voi booking backend hop le.')
+      setPaymentError('Không tìm thấy mã booking hợp lệ để tạo giao dịch thanh toán.')
       return
     }
 
@@ -111,6 +129,7 @@ export default function CheckoutPageClient() {
       const session = await createPaymentSession({
         bookingId: booking.backendBookingId,
         method: paymentMethod,
+        paymentOption,
       })
 
       if (session.status === 'success') {
@@ -122,7 +141,7 @@ export default function CheckoutPageClient() {
       setPaymentError(
         paymentSessionError instanceof Error
           ? paymentSessionError.message
-          : 'Khong the tao giao dich. Vui long thu lai.',
+          : 'Không thể tạo giao dịch. Vui lòng thử lại.',
       )
     } finally {
       setIsPaying(false)
@@ -137,37 +156,41 @@ export default function CheckoutPageClient() {
         <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-end">
           <div>
             <div className="mb-2 flex flex-wrap items-center gap-2 font-display text-sm text-[#5C5348]">
-              <Link href="/" className="hover:text-[#1A1C1E]">Trang chu</Link>
+              <Link href="/" className="hover:text-[#1A1C1E]">
+                Trang chủ
+              </Link>
               <span>/</span>
-              <Link href={confirmationHref} className="hover:text-[#1A1C1E]">Xac nhan dat phong</Link>
+              <Link href={confirmationHref} className="hover:text-[#1A1C1E]">
+                Xác nhận đặt phòng
+              </Link>
               <span>/</span>
-              <span className="text-[#1A1C1E]">Thanh toan</span>
+              <span className="text-[#1A1C1E]">Thanh toán</span>
             </div>
-            <h1 className="font-display text-4xl font-bold tracking-tight">Thanh toan dat phong</h1>
+            <h1 className="font-display text-4xl font-bold tracking-tight">Thanh toán đặt phòng</h1>
             <p className="mt-2 text-[#5C5348]">
-              Checkout dang doc lai thong tin booking tu backend truoc khi tao phien thanh toan.
+              Hệ thống đang đọc lại booking từ backend trước khi tạo phiên thanh toán tạm thời.
             </p>
           </div>
           <span className="w-fit rounded-full bg-[#FFE8D6] px-4 py-2 font-display text-sm font-bold text-[#6B3200]">
-            Buoc thanh toan
+            Bước thanh toán
           </span>
         </div>
 
         {isLoading && (
           <div className="rounded-[24px] border border-[#E8E4DC] bg-white p-6 shadow-[0_4px_24px_rgba(26,28,30,0.06)]">
-            <p className="font-display text-lg font-semibold">Dang tai thong tin thanh toan...</p>
+            <p className="font-display text-lg font-semibold">Đang tải thông tin thanh toán...</p>
           </div>
         )}
 
         {!isLoading && error && (
           <div className="rounded-[24px] border border-[#C62828]/20 bg-white p-6 shadow-[0_4px_24px_rgba(26,28,30,0.06)]">
-            <h2 className="font-display text-xl font-bold text-[#C62828]">Khong the mo checkout</h2>
+            <h2 className="font-display text-xl font-bold text-[#C62828]">Không thể mở checkout</h2>
             <p className="mt-2 text-[#5C5348]">{error}</p>
             <Link
               href="/customer/booking"
               className="mt-5 inline-flex h-12 items-center justify-center rounded-2xl bg-[#FF7518] px-6 font-display font-semibold text-white transition hover:bg-[#E6640F]"
             >
-              Quay lai chon phong
+              Quay lại chọn phòng
             </Link>
           </div>
         )}
@@ -181,33 +204,62 @@ export default function CheckoutPageClient() {
             <aside className="w-full max-w-md rounded-[24px] border border-[#E8E4DC] bg-white p-4 shadow-[0_4px_18px_rgba(26,28,30,0.06)] sm:p-5 lg:sticky lg:top-24 lg:col-span-1 lg:max-h-[calc(100vh-7rem)] lg:justify-self-end lg:overflow-y-auto">
               <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="mb-1 text-xs font-semibold text-[#5C5348]">Ma: {booking.bookingId}</p>
-                  <p className="font-display text-xs font-bold uppercase tracking-wider text-[#5C5348]">Tom tat thanh toan</p>
-                  <h2 className="mt-1 font-display text-xl font-bold">Thanh toan</h2>
+                  <p className="mb-1 text-xs font-semibold text-[#5C5348]">Mã: {booking.bookingId}</p>
+                  <p className="font-display text-xs font-bold uppercase tracking-wider text-[#5C5348]">
+                    Tóm tắt thanh toán
+                  </p>
+                  <h2 className="mt-1 font-display text-xl font-bold">Thanh toán</h2>
                 </div>
                 <span className="rounded-full bg-[#E8F5EC] px-3 py-1 font-display text-xs font-bold text-[#0A4D27]">
-                  Dong bo backend
+                  Đã tạo booking
                 </span>
               </div>
 
-              <CheckoutSummary
-                booking={booking}
-                appliedDiscount={null}
-              />
+              <CheckoutSummary booking={booking} appliedDiscount={null} />
 
-              <div className="mt-4 grid gap-2 text-xs leading-5 text-[#5C5348]">
-                <p className="rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] px-3 py-2.5">
-                  Add-on va discount khong con duoc tinh local trong checkout nay.
-                </p>
-                <p className="rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] px-3 py-2.5">
-                  Tong tien dang lay theo booking backend.
-                </p>
+              <div className="mt-4 grid gap-3">
+                <div className="rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-3">
+                  <p className="font-display text-sm font-bold text-[#1A1C1E]">Lựa chọn thanh toán</p>
+                  <div className="mt-3 grid gap-2">
+                    <PaymentOptionButton
+                      active={paymentOption === 'deposit'}
+                      title="Đặt cọc 50.000 VND"
+                      description="Tạm thời chỉ hỗ trợ thanh toán online ở lựa chọn này."
+                      onClick={() => {
+                        setPaymentOption('deposit')
+                        setPaymentError('')
+                      }}
+                    />
+                    <PaymentOptionButton
+                      active={paymentOption === 'full'}
+                      title="Thanh toán toàn bộ"
+                      description="Tạm thời đi theo hướng thanh toán tại quầy."
+                      onClick={() => {
+                        setPaymentOption('full')
+                        setPaymentError('')
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm text-[#5C5348]">Cần thanh toán lúc này</span>
+                    <span className="font-display text-xl font-bold text-[#FF7518]">
+                      {formatCurrency(amountToPayNow)}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-[#5C5348]">
+                    Do SePay chưa nối xong, nút thanh toán hiện chỉ mô phỏng kết quả thành công để kiểm tra giao diện.
+                  </p>
+                </div>
               </div>
 
               <div className="mt-5">
                 <CheckoutPaymentMethods
                   bookingId={booking.bookingId}
                   method={paymentMethod}
+                  paymentOption={paymentOption}
                   onChange={(method) => {
                     setPaymentMethod(method)
                     setPaymentError('')
@@ -227,7 +279,11 @@ export default function CheckoutPageClient() {
                 disabled={isPaying}
                 className="mt-5 h-12 w-full rounded-2xl bg-[#FF7518] font-display font-semibold text-white shadow-[0_8px_18px_rgba(255,117,24,0.22)] transition hover:bg-[#E6640F] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isPaying ? 'Dang tao giao dich...' : 'Thanh toan ngay'}
+                {isPaying
+                  ? 'Đang tạo giao dịch...'
+                  : paymentOption === 'deposit'
+                    ? `Thanh toán cọc ${formatCurrency(amountToPayNow)}`
+                    : 'Xác nhận thanh toán toàn bộ'}
               </button>
             </aside>
           </div>
@@ -237,10 +293,42 @@ export default function CheckoutPageClient() {
   )
 }
 
+function PaymentOptionButton({
+  active,
+  title,
+  description,
+  onClick,
+}: {
+  active: boolean
+  title: string
+  description: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        'rounded-2xl border px-3 py-3 text-left transition',
+        active
+          ? 'border-[#FF7518] bg-[#FFE8D6] text-[#6B3200]'
+          : 'border-[#E8E4DC] bg-white text-[#5C5348] hover:bg-[#FAF8F4]',
+      ].join(' ')}
+    >
+      <p className="font-display text-sm font-bold">{title}</p>
+      <p className="mt-1 text-xs leading-5">{description}</p>
+    </button>
+  )
+}
+
 function getInitialPaymentMethod(value: string | null): PaymentMethod {
   if (value === 'bank_transfer' || value === 'e_wallet' || value === 'cash') {
     return value
   }
 
   return 'bank_transfer'
+}
+
+function getInitialPaymentOption(value: string | null): PaymentOption {
+  return value === 'full' ? 'full' : 'deposit'
 }

@@ -20,6 +20,7 @@ The current backend source clearly models these areas:
 - customer and staff identities
 - room and room type data
 - booking data
+- discount code and coupon usage data
 - review and admin review response data
 - payment transaction data
 - customer issue report data
@@ -34,6 +35,8 @@ Core model/entity classes currently present in backend source:
 - `RoomType`
 - `Equipment`
 - `Booking`
+- `DiscountCode`
+- `CouponUsage`
 - `Review`
 - `ReviewAdminResponse`
 - `PaymentTransaction`
@@ -47,6 +50,7 @@ Core model/entity classes currently present in backend source:
 - `database/migrations/20260628_rename_vn_schema_to_en.sql`
 - `database/migrations/20260630_complete_vn_schema_to_en.sql`
 - `database/migrations/20260630_add_review_response_table.sql`
+- `database/migrations/20260701_add_coupon_usage_and_sepay.sql`
 - `database/migrations/20260701_add_customer_issue_report_and_counter_provider.sql`
 - `database/sample-data/seed_rooms_and_equipment.sql`
 - `database/sample-data/seed_bookings_and_reviews.sql`
@@ -170,7 +174,27 @@ If the change is part of the Vietnamese-to-English rename:
 - Payment and booking timeout behavior should stay aligned with booking-expiry logic in the backend.
 - Enum-backed statuses deserve explicit documentation because they affect filters, transitions, and reporting.
 - `payment_provider` now includes `COUNTER` for pay-at-counter checkout sessions alongside online providers such as `VNPAY`.
+- `payment_provider` also includes `SEPAY` for the upcoming dedicated online checkout integration.
+- `coupon_usage` records the exact discount amount actually consumed by one paid booking and enforces one usage row per booking through `booking_id` uniqueness.
 - `customer_issue_report` stores customer-submitted support issues, optionally linked to one owned booking, and keeps a small explicit lifecycle (`OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`).
+
+## Coupon Usage Table
+
+`coupon_usage` is the persistence record of a coupon that was actually consumed after payment is confirmed.
+
+- Purpose: preserve the coupon, customer, booking, and exact discount amount used for a paid booking.
+- Main relationships:
+  - `discount_code_id -> discount_code.id`
+  - `customer_id -> customer.id`
+  - `booking_id -> booking.id`
+- Uniqueness and concurrency:
+  - `booking_id` is unique, so one booking can consume at most one coupon usage row.
+  - `discount_amount` must be non-negative.
+- Lifecycle fields:
+  - `used_at` records when the usage row was written.
+- Migration:
+  - `database/migrations/20260701_add_coupon_usage_and_sepay.sql`
+  - This migration assumes the English schema tables (`discount_code`, `customer`, `booking`) already exist.
 
 ## Migration Guidance For The Rename
 
@@ -200,7 +224,6 @@ The source SRS and backlog mention additional domains that are not yet represent
 
 - instrument rental details
 - customer review flows
-- coupons and discount usage
 - maintenance workflow
 - notifications
 - staff attendance and shift planning

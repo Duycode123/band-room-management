@@ -9,4 +9,5 @@ public class CreatePaymentSessionRequest {
 
     private Integer bookingId;
     private String method;
+    private String paymentOption;
 }

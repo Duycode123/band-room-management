@@ -47,7 +47,7 @@ class PaymentCheckoutUseCaseServiceTest {
     }
 
     @Test
-    void createsOnlinePaymentAndMarksBookingPaid() {
+    void createsDepositPaymentSessionAndKeepsBookingPending() {
         Booking booking = booking(12, PaymentMethod.CASH);
         when(bookingRepository.findByIdAndCustomer_Account_Email(12, "customer@example.com"))
                 .thenReturn(Optional.of(booking));
@@ -60,6 +60,7 @@ class PaymentCheckoutUseCaseServiceTest {
         PaymentSessionResult result = paymentCheckoutUseCaseService.createPaymentSession(
                 12,
                 "e_wallet",
+                "deposit",
                 "customer@example.com"
         );
 
@@ -68,10 +69,10 @@ class PaymentCheckoutUseCaseServiceTest {
         verify(bookingRepository).save(booking);
 
         PaymentTransaction savedTransaction = transactionCaptor.getValue();
-        assertEquals(PaymentProvider.VNPAY, savedTransaction.getProvider());
-        assertEquals(PaymentTransactionStatus.SUCCEEDED, savedTransaction.getStatus());
-        assertEquals(new BigDecimal("450000"), savedTransaction.getAmount());
-        assertEquals(BookingStatus.PAID, booking.getStatus());
+        assertEquals(PaymentProvider.SEPAY, savedTransaction.getProvider());
+        assertEquals(PaymentTransactionStatus.PENDING, savedTransaction.getStatus());
+        assertEquals(new BigDecimal("50000"), savedTransaction.getAmount());
+        assertEquals(BookingStatus.PENDING_PAYMENT, booking.getStatus());
         assertEquals(PaymentMethod.ONLINE, booking.getPaymentMethod());
         assertEquals("e_wallet", result.method());
         assertEquals("success", result.status());
@@ -79,7 +80,7 @@ class PaymentCheckoutUseCaseServiceTest {
     }
 
     @Test
-    void createsCashPaymentAndKeepsBookingPending() {
+    void createsFullCashPaymentSessionAndKeepsBookingPending() {
         Booking booking = booking(25, PaymentMethod.ONLINE);
         when(bookingRepository.findByIdAndCustomer_Account_Email(25, "customer@example.com"))
                 .thenReturn(Optional.of(booking));
@@ -92,6 +93,7 @@ class PaymentCheckoutUseCaseServiceTest {
         PaymentSessionResult result = paymentCheckoutUseCaseService.createPaymentSession(
                 25,
                 "cash",
+                "full",
                 "customer@example.com"
         );
 
@@ -102,10 +104,11 @@ class PaymentCheckoutUseCaseServiceTest {
         PaymentTransaction savedTransaction = transactionCaptor.getValue();
         assertEquals(PaymentProvider.COUNTER, savedTransaction.getProvider());
         assertEquals(PaymentTransactionStatus.PENDING, savedTransaction.getStatus());
+        assertEquals(new BigDecimal("450000"), savedTransaction.getAmount());
         assertEquals(BookingStatus.PENDING_PAYMENT, booking.getStatus());
         assertEquals(PaymentMethod.CASH, booking.getPaymentMethod());
         assertEquals("cash", result.method());
-        assertEquals("pending", result.status());
+        assertEquals("success", result.status());
     }
 
     private Booking booking(int id, PaymentMethod paymentMethod) {

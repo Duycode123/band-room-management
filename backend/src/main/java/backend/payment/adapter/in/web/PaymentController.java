@@ -25,6 +25,7 @@ public class PaymentController {
         PaymentSessionResult data = paymentCheckoutUseCaseService.createPaymentSession(
                 request.getBookingId(),
                 request.getMethod(),
+                request.getPaymentOption(),
                 authentication.getName()
         );
 

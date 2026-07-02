@@ -10,6 +10,8 @@ spring.datasource.driver-class-name=org.postgresql.Driver
 spring.jpa.hibernate.ddl-auto=validate
 spring.jpa.show-sql=true
 spring.jpa.properties.hibernate.format_sql=true
+spring.sql.init.mode=always
+spring.sql.init.platform=postgresql
 
 # ===== Mail (Gmail SMTP) =====
 # Use a Gmail App Password (https://myaccount.google.com/apppasswords), NOT your account password.

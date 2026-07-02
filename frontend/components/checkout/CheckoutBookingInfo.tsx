@@ -1,13 +1,12 @@
-import {
-  formatDisplayDate,
-  type CheckoutBooking,
-} from '@/lib/checkout-data'
+import { formatDisplayDate, type CheckoutBooking } from '@/lib/checkout-data'
 
 export default function CheckoutBookingInfo({ booking }: { booking: CheckoutBooking }) {
   return (
     <section className="rounded-[24px] border border-[#E8E4DC] bg-white p-6 shadow-[0_4px_24px_rgba(26,28,30,0.06)]">
       <div className="mb-5">
-        <p className="font-display text-xs font-bold uppercase tracking-wider text-[#5C5348]">Booking đã xác nhận</p>
+        <p className="font-display text-xs font-bold uppercase tracking-wider text-[#5C5348]">
+          Booking đã được tạo
+        </p>
         <h2 className="mt-1 font-display text-xl font-bold">{booking.roomName}</h2>
         <span className="mt-3 inline-flex rounded-full bg-[#FFE8D6] px-3 py-1 font-display text-xs font-bold text-[#6B3200]">
           {booking.bookingId}
@@ -28,7 +27,7 @@ export default function CheckoutBookingInfo({ booking }: { booking: CheckoutBook
       />
 
       <div className="mt-6 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4 text-sm text-[#5C5348]">
-        Mã đặt phòng sẽ được gửi sau khi thanh toán thành công.
+        Bước tiếp theo sẽ tạo phiên thanh toán tạm thời. Trạng thái booking trong hệ thống vẫn giữ là chờ thanh toán.
       </div>
     </section>
   )

@@ -1,19 +1,11 @@
 import {
-  DEFAULT_BOOKING_DATE,
-  DEFAULT_DURATION,
-  DEFAULT_START_TIME,
-  EMPTY_NOTE_TEXT,
-  bookingAddOns,
-  bookingRooms,
-  calculateEndTime,
-  findBookingRoom,
+  detectRoomCategory,
   formatCurrency,
   formatDisplayDate,
 } from '@/components/booking/booking-data'
 import { fetchRooms } from '@/lib/booking/bookingApi'
-import { resolveBookingRoom } from '@/lib/booking-room-service'
-import type { AppliedDiscount } from '@/lib/discount-service'
 import { getBookingDetail } from '@/lib/customer-booking-service'
+import type { AppliedDiscount } from '@/lib/discount-service'
 import type { PaymentMethod, PaymentStatus } from '@/lib/payment-service'
 
 export type CheckoutBooking = {
@@ -32,11 +24,11 @@ export type CheckoutBooking = {
   location: string
   pricePerHour: number
   equipments: string[]
-  addons: {
+  addons: Array<{
     id: string
     name: string
     price: number
-  }[]
+  }>
   discount: number
   serviceFee: number
   note?: string
@@ -59,22 +51,25 @@ export const paymentMethodOptions: Array<{
 }> = [
   {
     id: 'bank_transfer',
-    label: 'Chuyen khoan ngan hang',
-    description: 'Backend tao phien thanh toan va chuyen ban sang trang ket qua giao dich.',
+    label: 'Chuyển khoản ngân hàng',
+    description: 'Dùng cho đặt cọc online. SePay sẽ được tích hợp sau.',
   },
   {
     id: 'e_wallet',
-    label: 'Vi dien tu',
-    description: 'Backend luu giao dich online va dong bo trang thai thanh toan.',
+    label: 'Ví điện tử',
+    description: 'Tạm thời mô phỏng luồng thanh toán online để kiểm tra checkout.',
   },
   {
     id: 'cash',
-    label: 'Thanh toan tai quay',
-    description: 'Booking duoc giu o trang thai cho thanh toan tai studio.',
+    label: 'Thanh toán tại quầy',
+    description: 'Phù hợp với phương án thanh toán toàn bộ tại studio.',
   },
 ]
 
-export function calculateCheckoutSummary(booking: CheckoutBooking, appliedDiscount?: AppliedDiscount | null): CheckoutSummary {
+export function calculateCheckoutSummary(
+  booking: CheckoutBooking,
+  appliedDiscount?: AppliedDiscount | null,
+): CheckoutSummary {
   const roomPrice = booking.pricePerHour * booking.duration
   const addonsTotal = booking.addons.reduce((total, addon) => total + addon.price, 0)
   const subtotal = roomPrice + addonsTotal
@@ -94,8 +89,10 @@ export function calculateCheckoutSummary(booking: CheckoutBooking, appliedDiscou
 export { formatCurrency, formatDisplayDate }
 
 export function getPaymentMethodLabel(method?: string | null) {
-  return paymentMethodOptions.find((option) => option.id === method)?.label
-    ?? (method === 'online' ? 'Thanh toan online' : 'Chua xac dinh')
+  return (
+    paymentMethodOptions.find((option) => option.id === method)?.label ??
+    (method === 'online' ? 'Thanh toán online' : method === 'cash' ? 'Thanh toán tại quầy' : 'Chưa xác định')
+  )
 }
 
 export function getReturnStatusContent(status?: string | null) {
@@ -105,41 +102,42 @@ export function getReturnStatusContent(status?: string | null) {
     success: {
       tone: 'success',
       icon: 'OK',
-      title: 'Thanh toan thanh cong',
-      message: 'Booking cua ban da duoc cap nhat thanh toan tren backend.',
-      primaryLabel: 'Xem lich dat phong',
+      title: 'Thanh toán thành công',
+      message:
+        'Giao diện đang mô phỏng thanh toán thành công để kiểm thử. Booking trên hệ thống vẫn đang ở trạng thái chờ thanh toán cho tới khi tích hợp SePay hoàn tất.',
+      primaryLabel: 'Xem lịch đặt phòng',
       primaryHref: '/customer/bookings',
     },
     failed: {
       tone: 'failed',
       icon: '!',
       title: 'Thanh toán thất bại',
-      message: 'Giao dịch chưa hoàn tất. Vui lòng thử lại hoặc chọn phương thức khác.',
+      message: 'Giao dịch chưa hoàn tất. Vui lòng thử lại hoặc chọn cách thanh toán khác.',
       primaryLabel: 'Thử lại thanh toán',
       primaryHref: '/customer/checkout',
     },
     pending: {
       tone: 'pending',
       icon: '...',
-      title: 'Dang cho thanh toan',
-      message: 'Backend da luu phien thanh toan va dang cho xac nhan hoan tat.',
-      primaryLabel: 'Xem lich dat phong',
+      title: 'Đang chờ thanh toán',
+      message: 'Phiên thanh toán tạm thời đã được tạo và đang chờ hệ thống đối soát.',
+      primaryLabel: 'Xem lịch đặt phòng',
       primaryHref: '/customer/bookings',
     },
     cancelled: {
       tone: 'cancelled',
-      icon: '×',
+      icon: 'X',
       title: 'Thanh toán đã bị hủy',
-      message: 'Bạn đã hủy quá trình thanh toán. Bạn có thể thử lại bất cứ lúc nào.',
+      message: 'Bạn có thể quay lại checkout bất cứ lúc nào.',
       primaryLabel: 'Thử lại thanh toán',
       primaryHref: '/customer/checkout',
     },
     unknown: {
       tone: 'unknown',
       icon: '?',
-      title: 'Khong xac dinh duoc trang thai thanh toan',
-      message: 'Vui long kiem tra lai giao dich hoac lien he ho tro.',
-      primaryLabel: 'Quay ve trang chu',
+      title: 'Không xác định được trạng thái thanh toán',
+      message: 'Vui lòng kiểm tra giao dịch hoặc liên hệ hỗ trợ.',
+      primaryLabel: 'Quay về trang chủ',
       primaryHref: '/',
     },
   } as const
@@ -159,16 +157,28 @@ export async function getCheckoutBookingFromParams(searchParams: URLSearchParams
   const bookingId = searchParams.get('bookingId')
   if (!bookingId) return null
 
-  const roomId = searchParams.get('roomId') || bookingRooms.find((room) => room.code === bookingId)?.id || 'studio-a'
-  const room = (await resolveBookingRoom(roomId)) ?? bookingRooms.find((item) => item.code === bookingId)
-  if (!room) return null
+  const rawBackendBookingId = Number(searchParams.get('backendBookingId'))
+  const backendBookingId = Number.isFinite(rawBackendBookingId) && rawBackendBookingId > 0 ? rawBackendBookingId : undefined
 
-  const date = searchParams.get('date') || DEFAULT_BOOKING_DATE
-  const startTime = searchParams.get('startTime') || DEFAULT_START_TIME
-  const duration = normalizeDuration(searchParams.get('duration') || DEFAULT_DURATION)
-  const addonIds = parseAddonIds(searchParams.get('addons'))
-  const selectedAddOns = addonIds.length > 0 ? getSelectedAddOns(addonIds) : bookingAddOns.slice(0, 2)
-  const note = searchParams.get('note')?.trim() || EMPTY_NOTE_TEXT
+  const booking = await getBookingDetail(bookingId, backendBookingId)
+  if (!booking) {
+    return null
+  }
+
+  const rooms = await fetchRooms().catch(() => [])
+  const room = rooms.find((item) => item.id === booking.roomId)
+  const duration = calculateDurationHours(
+    booking.startDateTime,
+    booking.endDateTime,
+    booking.startTime,
+    booking.endTime,
+  )
+  const categoryLabel = room?.roomTypeName?.trim() || inferCategoryLabel(searchParams.get('roomType'))
+  const image = getSafeImageUrl(room?.imageUrl)
+  const pricePerHour = room?.pricePerHour ?? inferPricePerHour(booking.totalAmount, duration)
+  const capacity = room ? `Tối đa ${room.capacity} người` : 'Chưa rõ sức chứa'
+  const location = room?.location || 'Band Room Studio'
+  const equipments = room?.equipment?.length ? room.equipment : [categoryLabel]
 
   return {
     bookingId: booking.bookingId,
@@ -181,7 +191,7 @@ export async function getCheckoutBookingFromParams(searchParams: URLSearchParams
     date: normalizeDateLabel(booking.startDateTime, booking.date),
     startTime: booking.startTime,
     endTime: booking.endTime,
-    duration: calculateDurationHours(booking.startDateTime, booking.endDateTime, booking.startTime, booking.endTime),
+    duration,
     capacity,
     location,
     pricePerHour,
@@ -196,28 +206,22 @@ export async function getCheckoutBookingFromParams(searchParams: URLSearchParams
 
 function inferCategoryLabel(roomType?: string | null) {
   if (roomType?.trim()) return roomType.trim()
+
   const category = detectRoomCategory(roomType)
-  return category === 'recording'
-    ? 'Recording Room'
-    : category === 'premium'
-      ? 'Premium Room'
-      : category === 'band'
-        ? 'Band Rehearsal Room'
-        : 'Practice Room'
+  if (category === 'recording') return 'Recording Room'
+  if (category === 'premium') return 'Premium Room'
+  if (category === 'band') return 'Band Rehearsal Room'
+  return 'Practice Room'
 }
 
-function inferEquipments(equipments?: string | null, fallback?: string) {
-  const items = (equipments || '')
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean)
-
-  return items.length > 0 ? items : [fallback || 'Practice Room']
+function inferPricePerHour(totalAmount: number, duration: number) {
+  if (duration <= 0) return totalAmount
+  return Math.round(totalAmount / duration)
 }
 
-function inferPricePerHour(rawPricePerHour: string | null, totalAmount: number) {
-  const parsed = Number(rawPricePerHour)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : totalAmount
+function getSafeImageUrl(value?: string | null) {
+  const normalized = value?.trim()
+  return normalized && normalized.startsWith('/') ? normalized : undefined
 }
 
 function normalizeDateLabel(rawDateTime: string | undefined, fallbackDateLabel: string) {

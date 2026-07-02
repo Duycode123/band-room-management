@@ -7,11 +7,14 @@ import backend.booking.application.port.in.query.GetCustomerBookingDetailQuery;
 import backend.booking.application.port.in.query.GetRoomAvailabilityQuery;
 import backend.booking.application.port.out.LoadBookingPort;
 import backend.booking.application.port.out.LoadCustomerPort;
+import backend.booking.application.port.out.LoadDiscountCodeForBookingPort;
 import backend.booking.application.port.out.LoadReviewPort;
 import backend.booking.application.port.out.LoadRoomPort;
 import backend.booking.application.port.out.LoadUserPort;
 import backend.booking.application.port.out.SaveBookingPort;
+import backend.booking.application.port.out.SavePaymentTransactionPort;
 import backend.booking.application.port.out.SearchCustomerBookingsPort;
+import backend.coupon.domain.port.in.ValidateCouponUseCase;
 import backend.dto.response.BookingResponse;
 import backend.dto.response.PagedResponse;
 import backend.dto.response.RoomAvailabilityResponse;
@@ -25,6 +28,7 @@ import backend.entity.RoomType;
 import backend.entity.User;
 import backend.exception.BookingConflictException;
 import backend.exception.ForbiddenException;
+import backend.service.CouponUsageTrackingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -54,6 +58,9 @@ class BookingUseCaseServiceTest {
     private LoadCustomerPort loadCustomerPort;
 
     @Mock
+    private LoadDiscountCodeForBookingPort loadDiscountCodeForBookingPort;
+
+    @Mock
     private LoadUserPort loadUserPort;
 
     @Mock
@@ -63,10 +70,19 @@ class BookingUseCaseServiceTest {
     private SaveBookingPort saveBookingPort;
 
     @Mock
+    private SavePaymentTransactionPort savePaymentTransactionPort;
+
+    @Mock
     private SearchCustomerBookingsPort searchCustomerBookingsPort;
 
     @Mock
     private LoadReviewPort loadReviewPort;
+
+    @Mock
+    private ValidateCouponUseCase validateCouponUseCase;
+
+    @Mock
+    private CouponUsageTrackingService couponUsageTrackingService;
 
     private BookingUseCaseService bookingUseCaseService;
 
@@ -75,11 +91,15 @@ class BookingUseCaseServiceTest {
         bookingUseCaseService = new BookingUseCaseService(
                 loadRoomPort,
                 loadCustomerPort,
+                loadDiscountCodeForBookingPort,
                 loadUserPort,
                 loadBookingPort,
                 saveBookingPort,
+                savePaymentTransactionPort,
                 searchCustomerBookingsPort,
-                loadReviewPort
+                loadReviewPort,
+                validateCouponUseCase,
+                couponUsageTrackingService
         );
     }
 
@@ -146,6 +166,7 @@ class BookingUseCaseServiceTest {
                 endTime,
                 PaymentMethod.CASH,
                 null,
+                null,
                 account.getEmail()
         );
 
@@ -183,6 +204,7 @@ class BookingUseCaseServiceTest {
                 startTime,
                 endTime,
                 PaymentMethod.CASH,
+                null,
                 null,
                 account.getEmail()
         );

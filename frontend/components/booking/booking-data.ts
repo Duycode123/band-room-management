@@ -31,6 +31,9 @@ export type BookingRoom = {
   includedEquipments: string[]
   addons: string[]
   description?: string
+  availabilityStatus?: RoomAvailabilityStatus
+  remainingSlots?: number
+  nextAvailableSlot?: string
   isAvailable: boolean
   availabilityKnown?: boolean
   nextAvailableTime?: string
@@ -137,6 +140,15 @@ export function mapPracticeRoomToBookingRoom(
   const description = room.description?.trim() || roomTierDescription
   const availabilitySummary = options.availabilitySummary
   const reviewSummary = options.reviewSummary
+  const availabilityStatus = !availabilitySummary
+    ? undefined
+    : availabilitySummary.isAvailable
+      ? 'AVAILABLE'
+      : 'FULL_TODAY'
+  const nextAvailableSlot = availabilitySummary?.nextAvailableTime
+    ? `Hom nay, ${availabilitySummary.nextAvailableTime}`
+    : undefined
+  const remainingSlots = availabilitySummary?.isAvailable ? 3 : 0
 
   return {
     id: room.id,
@@ -160,6 +172,9 @@ export function mapPracticeRoomToBookingRoom(
     includedEquipments: fallbackEquipments,
     addons: [],
     description,
+    availabilityStatus,
+    remainingSlots,
+    nextAvailableSlot,
     isAvailable: availabilitySummary?.isAvailable ?? false,
     availabilityKnown: Boolean(availabilitySummary),
     nextAvailableTime: availabilitySummary?.nextAvailableTime,
