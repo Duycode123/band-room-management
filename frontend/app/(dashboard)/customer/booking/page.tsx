@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -9,7 +10,7 @@ import BookingDatePicker from '@/components/booking/BookingDatePicker'
 import RoomCard from '@/components/booking/RoomCard'
 import TimeSlotGrid from '@/components/booking/TimeSlotGrid'
 import { useAvailableSlots } from '@/hooks/useAvailableSlots'
-import { createBooking, fetchRooms, formatPrice } from '@/lib/booking/bookingApi'
+import { fetchRooms, formatPrice } from '@/lib/booking/bookingApi'
 import { formatDateLong, getTodayKey } from '@/lib/booking/dateUtils'
 import { formatSlotRange, getSelectedSlots } from '@/lib/booking/slotSelection'
 import type { PracticeRoom } from '@/lib/booking/types'
@@ -17,13 +18,14 @@ import type { PracticeRoom } from '@/lib/booking/types'
 export default function CustomerBookingPage() {
   const router = useRouter()
   const { logout } = useAuth()
+  const router = useRouter()
   const [rooms, setRooms] = useState<PracticeRoom[]>([])
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState(getTodayKey)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState('')
 
-  const selectedRoom = rooms.find((r) => r.id === selectedRoomId) ?? null
+  const selectedRoom = rooms.find((room) => room.id === selectedRoomId) ?? null
 
   const { slots, isLoading, lastUpdated, error, refresh, selectSlot, deselectSlot, clearSelection } =
     useAvailableSlots(selectedRoomId, selectedDate)
@@ -43,27 +45,50 @@ export default function CustomerBookingPage() {
     router.push('/login')
   }, [logout, router])
 
-  const handleConfirm = useCallback(async () => {
-    if (!selectedRoomId || selectedSlots.length === 0) {
+  const handleLogout = useCallback(async () => {
+    await logout()
+    router.push('/login')
+  }, [logout, router])
+
+  const handleConfirm = useCallback(() => {
+    if (!selectedRoom || selectedSlots.length === 0) {
       setMessage('Vui lòng chọn phòng và ít nhất một khung giờ.')
       return
     }
+
+    const startSlot = selectedSlots[0]
+    const endSlot = selectedSlots[selectedSlots.length - 1]
+
+    if (!startSlot || !endSlot) {
+      setMessage('Không xác định được khung giờ đặt phòng.')
+      return
+    }
+
     setIsSubmitting(true)
     setMessage('')
-    const result = await createBooking({
-      roomId: selectedRoomId,
+
+    const params = new URLSearchParams({
+      source: 'dashboard-booking',
+      roomId: selectedRoom.id,
+      roomName: selectedRoom.name,
+      roomType: selectedRoom.roomTypeName || '',
+      roomCapacity: String(selectedRoom.capacity),
+      roomLocation: selectedRoom.location || '',
+      roomDescription: selectedRoom.description || '',
+      roomHighlights: selectedRoom.equipment.join(','),
+      pricePerHour: String(selectedRoom.pricePerHour),
       date: selectedDate,
-      slotIds: selectedSlots.map((s) => s.id),
+      startTime: startSlot.start,
+      endTime: endSlot.end,
+      duration: String(selectedSlots.length),
     })
-    setIsSubmitting(false)
-    setMessage(result.message)
-    if (result.success) {
-      clearSelection()
-      refresh()
-    } else {
-      refresh()
+
+    if (selectedRoom.imageUrl) {
+      params.set('roomImage', selectedRoom.imageUrl)
     }
-  }, [selectedRoomId, selectedSlots, selectedDate, refresh, clearSelection])
+
+    router.push(`/customer/booking/confirmation?${params.toString()}`)
+  }, [router, selectedDate, selectedRoom, selectedSlots])
 
   return (
     <AuthGuard allowedRoles={['CUSTOMER']}>
@@ -123,7 +148,7 @@ export default function CustomerBookingPage() {
                 <div>
                   <h2 className="font-display text-lg font-semibold text-on-surface">2. Chọn ngày & khung giờ</h2>
                   <p className="mt-1 text-sm text-on-surface-variant">
-                    Lịch trống cập nhật theo thời gian thực mỗi 15 giây. Có thể chọn nhiều giờ liên tiếp.
+                    Lịch trống được tải từ endpoint BE và tự làm mới theo thời gian thực mỗi 15 giây.
                   </p>
                 </div>
                 {lastUpdated && (
@@ -175,7 +200,7 @@ export default function CustomerBookingPage() {
                   onClearSelection={clearSelection}
                   emptyMessage={
                     selectedRoomId
-                      ? 'Đang tải lịch trống...'
+                      ? 'Đang tải lịch trống từ backend...'
                       : '← Chọn phòng ở bước 1 để xem khung giờ.'
                   }
                   hint="Click 1 lần vào khung trống để chọn (click liền kề để thêm giờ). Click lại để bỏ chọn; chỉ bỏ được khung ở đầu hoặc cuối dải đã chọn."
@@ -200,6 +225,11 @@ export default function CustomerBookingPage() {
                 <span className="flex items-center gap-1.5">
                   <span className="h-3 w-3 rounded bg-surface-container line-through" /> Đã đặt
                 </span>
+              <div className="mt-5 flex flex-wrap gap-4 rounded-xl bg-surface-container-low px-4 py-3 text-[11px] text-on-surface-variant">
+                <LegendItem color="bg-white border border-outline" label="Trống" />
+                <LegendItem color="bg-gradient-to-br from-brand-orange to-[#FF8C3A]" label="Đã chọn" />
+                <LegendItem color="bg-surface-container" label="Đã đặt / không khả dụng" />
+                <LegendItem color="bg-surface-container-low" label="Đã qua" />
               </div>
             </section>
           </div>

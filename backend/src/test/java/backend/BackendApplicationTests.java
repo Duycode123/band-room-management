@@ -1,6 +1,7 @@
 package backend;
 
 import backend.equipment.adapter.out.persistence.EquipmentRepository;
+import backend.entity.Customer;
 import backend.entity.Role;
 import backend.entity.Room;
 import backend.entity.RoomStatus;
@@ -27,13 +28,16 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -275,6 +279,7 @@ class BackendApplicationTests {
         when(userRepository.existsByEmail("new-customer@example.com")).thenReturn(false);
         when(customerRepository.existsByPhone("0912345678")).thenReturn(false);
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         mockMvc.perform(post("/api/auth/register")
                         .contentType("application/json")
@@ -283,11 +288,16 @@ class BackendApplicationTests {
                                   "fullName": "Nguyen Van A",
                                   "email": "new-customer@example.com",
                                   "phone": "0912345678",
+                                  "dateOfBirth": "2000-05-20",
                                   "password": "secret123"
                                 }
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.role").value("CUSTOMER"));
+
+        verify(customerRepository).save(argThat(customer ->
+                LocalDate.of(2000, 5, 20).equals(customer.getDateOfBirth())
+        ));
     }
 
     @Test

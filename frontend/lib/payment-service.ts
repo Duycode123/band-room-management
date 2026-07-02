@@ -1,10 +1,12 @@
+import axios from 'axios'
+import api from '@/lib/api'
+
 export type PaymentMethod = 'bank_transfer' | 'e_wallet' | 'cash'
 
 export type PaymentStatus = 'success' | 'failed' | 'pending' | 'cancelled'
 
 export type CreatePaymentSessionPayload = {
-  bookingId: string
-  amount: number
+  bookingId: number
   method: PaymentMethod
 }
 
@@ -14,28 +16,95 @@ export type CreatePaymentSessionResponse = {
   status: PaymentStatus
 }
 
-const mockDelay = 900
+export type PaymentTransactionDetail = {
+  paymentId: string
+  bookingId: number
+  bookingCode: string
+  method: string
+  status: PaymentStatus
+  amount: number
+  createdAt?: string | null
+  paidAt?: string | null
+}
+
+type ApiResponse<T> = {
+  success: boolean
+  message: string
+  data: T
+}
+
+type BackendPaymentSession = {
+  paymentId: string
+  bookingId: number
+  bookingCode: string
+  method: string
+  status: PaymentStatus
+  amount: number | string
+  paymentUrl: string
+}
+
+type BackendPaymentTransaction = {
+  paymentId: string
+  bookingId: number
+  bookingCode: string
+  method: string
+  status: PaymentStatus
+  amount: number | string
+  createdAt?: string | null
+  paidAt?: string | null
+}
+
+type ApiErrorResponse = {
+  message?: string
+}
+
+function getApiErrorMessage(error: unknown, fallback: string) {
+  if (axios.isAxiosError<ApiErrorResponse>(error)) {
+    return error.response?.data?.message || fallback
+  }
+
+  return fallback
+}
+
+function parseAmount(value: number | string | null | undefined) {
+  const normalized = typeof value === 'string' ? Number(value) : value
+  return Number.isFinite(normalized) ? Number(normalized) : 0
+}
 
 export async function createPaymentSession(
   payload: CreatePaymentSessionPayload,
 ): Promise<CreatePaymentSessionResponse> {
-  await new Promise((resolve) => globalThis.setTimeout(resolve, mockDelay))
+  try {
+    const response = await api.post<ApiResponse<BackendPaymentSession>>('/api/payments/sessions', {
+      bookingId: payload.bookingId,
+      method: payload.method,
+    })
 
-  if (!payload.bookingId || !payload.amount || !payload.method) {
-    throw new Error('Không thể tạo giao dịch. Vui lòng kiểm tra lại thông tin thanh toán.')
+    return {
+      paymentUrl: response.data.data.paymentUrl,
+      paymentId: response.data.data.paymentId,
+      status: response.data.data.status,
+    }
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Khong the tao giao dich thanh toan.'))
   }
+}
 
-  const status: PaymentStatus = payload.method === 'cash' ? 'pending' : 'success'
-  const searchParams = new URLSearchParams({
-    bookingId: payload.bookingId,
-    status,
-    method: payload.method,
-    amount: String(payload.amount),
-  })
+export async function getPaymentTransactionDetail(paymentId: string): Promise<PaymentTransactionDetail> {
+  try {
+    const response = await api.get<ApiResponse<BackendPaymentTransaction>>(`/api/payments/transactions/${paymentId}`)
 
-  return {
-    paymentUrl: `/payment/return?${searchParams.toString()}`,
-    paymentId: `PAY-${Date.now()}`,
-    status,
+    return {
+      paymentId: response.data.data.paymentId,
+      bookingId: response.data.data.bookingId,
+      bookingCode: response.data.data.bookingCode,
+      method: response.data.data.method,
+      status: response.data.data.status,
+      amount: parseAmount(response.data.data.amount),
+      createdAt: response.data.data.createdAt,
+      paidAt: response.data.data.paidAt,
+    }
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Khong the kiem tra giao dich thanh toan.'))
   }
 }

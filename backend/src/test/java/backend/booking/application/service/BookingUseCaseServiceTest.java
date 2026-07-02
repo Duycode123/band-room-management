@@ -3,6 +3,7 @@ package backend.booking.application.service;
 import backend.booking.application.model.PageResult;
 import backend.booking.application.port.in.command.CreateBookingCommand;
 import backend.booking.application.port.in.query.CustomerBookingHistoryQuery;
+import backend.booking.application.port.in.query.GetCustomerBookingDetailQuery;
 import backend.booking.application.port.in.query.GetRoomAvailabilityQuery;
 import backend.booking.application.port.out.LoadBookingPort;
 import backend.booking.application.port.out.LoadCustomerPort;
@@ -23,6 +24,7 @@ import backend.entity.RoomStatus;
 import backend.entity.RoomType;
 import backend.entity.User;
 import backend.exception.BookingConflictException;
+import backend.exception.ForbiddenException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -214,6 +216,32 @@ class BookingUseCaseServiceTest {
         assertEquals(1, response.content().size());
         assertEquals(Boolean.TRUE, response.content().get(0).getAlreadyReviewed());
         assertEquals(Boolean.FALSE, response.content().get(0).getCanReview());
+    }
+
+    @Test
+    void rejectsCustomerBookingDetailForAnotherCustomer() {
+        User ownerAccount = User.builder().id(7).email("customer@example.com").build();
+        Customer currentCustomer = Customer.builder().id(7).account(ownerAccount).build();
+        Customer otherCustomer = Customer.builder()
+                .id(8)
+                .account(User.builder().id(8).email("other@example.com").build())
+                .build();
+        Booking booking = bookingAt(
+                LocalDateTime.of(2030, 1, 10, 10, 0),
+                LocalDateTime.of(2030, 1, 10, 12, 0)
+        );
+        booking.setId(12);
+        booking.setCustomer(otherCustomer);
+
+        when(loadCustomerPort.loadCustomerByAccountEmail(ownerAccount.getEmail())).thenReturn(Optional.of(currentCustomer));
+        when(loadBookingPort.loadBooking(12)).thenReturn(Optional.of(booking));
+
+        assertThrows(
+                ForbiddenException.class,
+                () -> bookingUseCaseService.getCustomerBookingDetail(
+                        new GetCustomerBookingDetailQuery(12, ownerAccount.getEmail())
+                )
+        );
     }
 
     private Room availableRoom() {

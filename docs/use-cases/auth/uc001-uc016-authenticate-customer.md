@@ -33,7 +33,7 @@ Allow a customer to register, sign in, refresh session, sign out, inspect the cu
 ### Register
 
 1. Customer opens the registration screen.
-2. Customer submits registration data.
+2. Customer submits registration data, including date of birth when the frontend collects it.
 3. Backend validates required fields and uniqueness constraints.
 4. Backend hashes the password and creates the account.
 5. Backend returns a successful registration response.
@@ -86,6 +86,7 @@ Allow a customer to register, sign in, refresh session, sign out, inspect the cu
 ## Data Touched
 
 - `User`
+- `Customer`
 - `RevokedToken`
 - reset token fields on user account
 

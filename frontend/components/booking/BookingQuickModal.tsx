@@ -6,12 +6,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import BookingSchedulePicker from '@/components/booking/BookingSchedulePicker'
 import {
   DEFAULT_DURATION,
-  bookingAddOns,
   formatCurrency,
   getTodayDateString,
-  getAddOnsTotal,
   getRoomSubtotal,
-  getSelectedAddOns,
+  isApiBackedBookingRoom,
   normalizeDuration,
   type BookingRoom,
 } from '@/components/booking/booking-data'
@@ -41,14 +39,10 @@ export default function BookingQuickModal({
   const [duration, setDuration] = useState(hasInitialTime ? normalizeDuration(initialDuration ?? DEFAULT_DURATION) : 0)
   const [endTime, setEndTime] = useState('')
   const [selectedSlots, setSelectedSlots] = useState<string[]>([])
-  const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([])
   const [note, setNote] = useState('')
   const [error, setError] = useState('')
 
   const roomSubtotal = useMemo(() => getRoomSubtotal(room, duration), [room, duration])
-  const selectedAddOns = useMemo(() => getSelectedAddOns(selectedAddonIds), [selectedAddonIds])
-  const addOnsTotal = useMemo(() => getAddOnsTotal(selectedAddOns), [selectedAddOns])
-  const estimatedTotal = roomSubtotal + addOnsTotal
 
   useEffect(() => {
     if (!open) return
@@ -59,21 +53,11 @@ export default function BookingQuickModal({
     setDuration(shouldPrefillTime ? normalizeDuration(initialDuration ?? DEFAULT_DURATION) : 0)
     setEndTime('')
     setSelectedSlots([])
-    setSelectedAddonIds([])
     setNote('')
     setError('')
   }, [initialDate, initialDuration, initialStartTime, open, room.id])
 
   if (!open) return null
-
-  const toggleAddon = (addonId: string) => {
-    setSelectedAddonIds((currentIds) =>
-      currentIds.includes(addonId)
-        ? currentIds.filter((id) => id !== addonId)
-        : [...currentIds, addonId],
-    )
-    setError('')
-  }
 
   const handleScheduleChange = useCallback((value: BookingScheduleValue) => {
     setDate(value.date)
@@ -86,7 +70,7 @@ export default function BookingQuickModal({
 
   const handleContinue = () => {
     if (!date || !startTime || !endTime || duration < 1 || selectedSlots.length === 0) {
-      setError('Vui lòng chọn khung giờ đặt phòng.')
+      setError('Vui long chon khung gio dat phong.')
       return
     }
 
@@ -97,9 +81,24 @@ export default function BookingQuickModal({
       endTime,
       duration: String(duration),
       slots: selectedSlots.join(','),
-      addons: selectedAddonIds.join(','),
       note,
     })
+
+    if (isApiBackedBookingRoom(room)) {
+      params.set('source', 'api-booking')
+      params.set('roomName', room.name)
+      params.set('roomType', room.type)
+      params.set('roomCapacity', room.capacity.replace(/[^\d]/g, ''))
+      params.set('roomLocation', room.location)
+      if (room.description) {
+        params.set('roomDescription', room.description)
+      }
+      params.set('roomHighlights', room.includedEquipments.join(','))
+      params.set('pricePerHour', String(room.pricePerHour))
+      if (room.image) {
+        params.set('roomImage', room.image)
+      }
+    }
 
     router.push(`/customer/booking/confirmation?${params.toString()}`)
   }
@@ -109,10 +108,10 @@ export default function BookingQuickModal({
       <div className="max-h-[90vh] w-full max-w-[620px] overflow-y-auto rounded-[24px] border border-[#E8E4DC] bg-white p-6 shadow-[0_12px_48px_rgba(26,28,30,0.18)]">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <p className="font-display text-xs font-bold uppercase tracking-[0.18em] text-[#FF7518]">Đặt phòng</p>
-            <h2 className="mt-1 font-display text-2xl font-bold tracking-tight text-[#1A1C1E]">Xác nhận nhanh</h2>
+            <p className="font-display text-xs font-bold uppercase tracking-[0.18em] text-[#FF7518]">Dat phong</p>
+            <h2 className="mt-1 font-display text-2xl font-bold tracking-tight text-[#1A1C1E]">Xac nhan nhanh</h2>
             <p className="mt-1 text-sm text-[#5C5348]">
-              Kiểm tra lịch, thiết bị thuê thêm và chi phí trước khi tiếp tục đặt phòng.
+              Quick booking nay da bo add-on mock va chi giu thong tin ma backend hien dang xu ly duoc.
             </p>
           </div>
 
@@ -120,29 +119,42 @@ export default function BookingQuickModal({
             type="button"
             onClick={onClose}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E8E4DC] text-xl leading-none text-[#5C5348] transition hover:bg-[#FAF8F4]"
-            aria-label="Đóng modal"
+            aria-label="Dong modal"
           >
             X
           </button>
         </div>
 
         <div className="grid gap-5 sm:grid-cols-[170px_1fr]">
-          <Image
-            src={room.image}
-            alt={room.name}
-            width={340}
-            height={250}
-            className={`h-[150px] w-full rounded-2xl object-cover ${room.imageClassName}`}
-            priority
-          />
+          {room.image ? (
+            <Image
+              src={room.image}
+              alt={room.name}
+              width={340}
+              height={250}
+              className={`h-[150px] w-full rounded-2xl object-cover ${room.imageClassName}`}
+              priority
+            />
+          ) : (
+            <div className="flex h-[150px] w-full items-center justify-center rounded-2xl bg-[radial-gradient(circle_at_top,#FFE8D6,transparent_55%),linear-gradient(135deg,#F5F2EC,#E8E4DC)] px-4 text-center">
+              <div>
+                <p className="font-display text-lg font-bold text-[#6B3200]">{room.name}</p>
+                <p className="mt-2 text-sm text-[#5C5348]">Backend chua cung cap anh phong.</p>
+              </div>
+            </div>
+          )}
 
           <div>
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <h3 className="font-display text-xl font-bold text-[#1A1C1E]">{room.name}</h3>
-              <span className="rounded-full bg-[#FFE8D6] px-3 py-1 font-display text-xs font-semibold uppercase tracking-wide text-[#6B3200]">
-                {room.badge}
-              </span>
-              <span className="font-display text-sm font-semibold text-[#B45309]">★ {room.rating}</span>
+              {room.badge && (
+                <span className="rounded-full bg-[#FFE8D6] px-3 py-1 font-display text-xs font-semibold uppercase tracking-wide text-[#6B3200]">
+                  {room.badge}
+                </span>
+              )}
+              {typeof room.rating === 'number' && (
+                <span className="font-display text-sm font-semibold text-[#B45309]">★ {room.rating.toFixed(1)}</span>
+              )}
             </div>
 
             <div className="space-y-2 text-sm text-[#5C5348]">
@@ -152,7 +164,7 @@ export default function BookingQuickModal({
 
             <p className="mt-4 font-display text-2xl font-bold text-[#1A1C1E]">
               {formatCurrency(room.pricePerHour)}
-              <span className="ml-1 text-sm font-medium text-[#5C5348]">/ giờ</span>
+              <span className="ml-1 text-sm font-medium text-[#5C5348]">/ gio</span>
             </p>
           </div>
         </div>
@@ -175,67 +187,30 @@ export default function BookingQuickModal({
           className="mt-6"
         />
 
-        <section className="mt-6">
-          <div className="mb-3 flex items-end justify-between gap-4">
-            <div>
-              <h3 className="font-display text-lg font-bold text-[#1A1C1E]">Dịch vụ thuê thêm</h3>
-              <p className="mt-1 text-sm text-[#5C5348]">Chọn thiết bị cần chuẩn bị thêm cho buổi tập.</p>
-            </div>
-            <span className="shrink-0 font-display text-sm font-bold text-[#FF7518]">
-              {formatCurrency(addOnsTotal)}
-            </span>
-          </div>
-
-          <div className="grid gap-2 sm:grid-cols-2">
-            {bookingAddOns.map((addon) => {
-              const selected = selectedAddonIds.includes(addon.id)
-
-              return (
-                <label
-                  key={addon.id}
-                  className={[
-                    'flex cursor-pointer items-center gap-3 rounded-2xl border p-3 transition',
-                    selected
-                      ? 'border-[#FF7518] bg-[#FFE8D6] text-[#1A1C1E]'
-                      : 'border-[#E8E4DC] bg-white text-[#5C5348] hover:bg-[#FAF8F4]',
-                  ].join(' ')}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selected}
-                    onChange={() => toggleAddon(addon.id)}
-                    className="h-4 w-4 accent-[#FF7518]"
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-display text-sm font-semibold">{addon.name}</span>
-                    <span className="text-xs">{formatCurrency(addon.price)}</span>
-                  </span>
-                </label>
-              )
-            })}
-          </div>
+        <section className="mt-6 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4 text-sm text-[#5C5348]">
+          Add-on hien khong con duoc de xuat trong quick booking vi backend chua co contract phan nay.
         </section>
 
-        <Field label="Ghi chú khách hàng" className="mt-6 block">
+        <Field label="Ghi chu khach hang" className="mt-6 block">
           <textarea
             value={note}
             onChange={(event) => setNote(event.target.value)}
             rows={3}
-            placeholder="Ví dụ: Cần chuẩn bị phòng trước 15 phút, ưu tiên âm thanh vocal rõ."
+            placeholder="Vi du: Can chuan bi phong truoc 15 phut, uu tien am thanh vocal ro."
             className="w-full resize-none rounded-2xl border border-[#C9C2B6] bg-white px-3 py-3 text-sm text-[#1A1C1E] outline-none transition placeholder:text-[#8A8176] focus:border-[#FF7518] focus:ring-2 focus:ring-[#FF7518]/20"
           />
         </Field>
 
         <div className="mt-5 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4">
-          <SummaryRow label="Giá phòng" value={`${formatCurrency(room.pricePerHour)} / giờ`} />
-          <SummaryRow label="Thời lượng" value={duration > 0 ? `${duration} giờ` : 'Chưa chọn'} />
-          <SummaryRow label="Khung giờ" value={startTime && endTime ? `${startTime} - ${endTime}` : 'Chưa chọn'} />
-          <SummaryRow label="Tiền phòng" value={formatCurrency(roomSubtotal)} />
-          <SummaryRow label="Dịch vụ thuê thêm" value={formatCurrency(addOnsTotal)} />
+          <SummaryRow label="Gia phong" value={`${formatCurrency(room.pricePerHour)} / gio`} />
+          <SummaryRow label="Thoi luong" value={duration > 0 ? `${duration} gio` : 'Chua chon'} />
+          <SummaryRow label="Khung gio" value={startTime && endTime ? `${startTime} - ${endTime}` : 'Chua chon'} />
+          <SummaryRow label="Tien phong" value={formatCurrency(roomSubtotal)} />
+          <SummaryRow label="Dich vu thue them" value="Khong ap dung" />
           <div className="my-3 h-px bg-[#E8E4DC]" />
           <div className="flex items-center justify-between">
-            <span className="font-display font-semibold text-[#1A1C1E]">Tạm tính</span>
-            <span className="font-display text-2xl font-bold text-[#FF7518]">{formatCurrency(estimatedTotal)}</span>
+            <span className="font-display font-semibold text-[#1A1C1E]">Tam tinh</span>
+            <span className="font-display text-2xl font-bold text-[#FF7518]">{formatCurrency(roomSubtotal)}</span>
           </div>
         </div>
 
@@ -251,7 +226,7 @@ export default function BookingQuickModal({
             onClick={onClose}
             className="h-12 rounded-2xl border border-[#C9C2B6] bg-transparent font-display font-semibold text-[#1A1C1E] transition hover:bg-[#FAF8F4]"
           >
-            Hủy
+            Huy
           </button>
 
           <button
@@ -260,7 +235,7 @@ export default function BookingQuickModal({
             disabled={duration < 1 || selectedSlots.length === 0}
             className="h-12 rounded-2xl bg-[#FF7518] font-display font-semibold text-white transition hover:bg-[#E6640F] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Tiếp tục đặt phòng
+            Tiep tuc dat phong
           </button>
         </div>
       </div>

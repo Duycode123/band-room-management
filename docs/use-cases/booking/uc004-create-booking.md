@@ -5,13 +5,15 @@
 - Source: Product Backlog `UC004`
 - Primary actor: Customer
 - Supporting actors: Booking system, payment flow
-- Current status in repo: Implemented for availability lookup, cost calculation, and booking creation with pending-payment state
+- Current status in repo: Implemented for availability lookup, cost calculation, booking creation, and backend-managed checkout handoff
 
 ## Related Endpoints
 
 - `GET /api/rooms/{id}/available-slots`
 - `POST /api/bookings/calculate-cost`
 - `POST /api/bookings`
+- `POST /api/payments/sessions`
+- `GET /api/payments/transactions/{paymentId}`
 
 ## Goal
 
@@ -70,12 +72,13 @@ Allow an authenticated customer to select a valid room/time range, see the expec
 - Booking creation uses room locking plus overlap checks to reduce race conditions.
 - The service catches persistence conflicts and converts them into booking conflict errors.
 - A scheduled expiry job exists to auto-cancel stale unpaid bookings after the configured timeout.
+- Checkout now asks the backend to create a `payment_transaction` record instead of simulating payment only in the frontend.
+- The current backend maps checkout methods into the existing booking payment model (`CASH` or `ONLINE`) and exposes a payment-return lookup endpoint for the frontend.
 
 ## Known Gaps / Follow-up
 
 - Full payment completion flow is not fully represented by current controller sources.
-- Instrument add-ons are not yet covered in this backend path.
-- Coupon usage limits and richer coupon campaign rules are not yet covered.
+- Instrument add-ons, coupon application, and richer checkout breakdown from backlog are not yet covered in this backend path.
 - Booking detail for customers is not yet a separate endpoint.
 
 ## Hexagonal Refactor Notes

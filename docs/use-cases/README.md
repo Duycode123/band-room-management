@@ -24,7 +24,9 @@ The first pass in this repository focuses on flows that already exist in the bac
 - authentication
 - room listing and room detail
 - create booking
+- customer checkout and payment session handoff
 - customer booking history
+- customer issue reporting
 - admin booking management
 - review moderation and admin response
 - equipment management

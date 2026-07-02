@@ -1,3 +1,5 @@
+import type { PracticeRoom } from '@/lib/booking/types'
+
 export type RoomCategory = 'standard' | 'band' | 'recording' | 'premium'
 
 export type RoomCategoryOption = {
@@ -11,38 +13,37 @@ export type BookingRoom = {
   code: string
   name: string
   category: RoomCategory
+  roomTierId?: number
+  roomTierName?: string
+  roomTierDescription?: string
   categoryLabel: string
   type: string
-  badge: string
-  rating: number
-  reviews: number
+  badge?: string
+  rating?: number
+  reviews?: number
   capacity: string
   location: string
-  image: string
+  image?: string
   imageClassName: string
   pricePerHour: number
   equipments: string[]
   includedEquipments: string[]
   addons: string[]
-  description: string
+  description?: string
+  isAvailable: boolean
+  availabilityKnown?: boolean
+  nextAvailableTime?: string
+  note?: string
+}
+
+export type BookingRoomReviewSummary = {
+  averageRating: number
+  reviewCount: number
+}
+
+export type BookingRoomAvailabilitySummary = {
   isAvailable: boolean
   nextAvailableTime?: string
-  note: string
-}
-
-export type BookingAddOn = {
-  id: string
-  name: string
-  price: number
-}
-
-export type RoomReview = {
-  id: string
-  roomId: string
-  customerName: string
-  rating: number
-  comment: string
-  createdAt: string
 }
 
 export type PaymentMethodId = 'bank_transfer' | 'e_wallet' | 'cash'
@@ -90,14 +91,80 @@ export const roomCategories: RoomCategoryOption[] = [
   },
 ]
 
-export const bookingAddOns: BookingAddOn[] = [
-  { id: 'fender-guitar', name: 'Guitar điện Fender', price: 80000 },
-  { id: 'jack-cable', name: 'Dây jack dự phòng', price: 20000 },
-  { id: 'mic-stand', name: 'Stand micro', price: 50000 },
-  { id: 'guitar-pedal', name: 'Pedal guitar', price: 70000 },
-  { id: 'monitor-headphone', name: 'Tai nghe kiểm âm', price: 60000 },
-  { id: 'shure-mic', name: 'Micro Shure SM58', price: 90000 },
-]
+const roomCategoryLabels: Record<RoomCategory, string> = {
+  standard: 'Standard Practice',
+  band: 'Band Rehearsal',
+  recording: 'Recording & Mixing',
+  premium: 'Premium Studio',
+}
+
+export function detectRoomCategory(typeName?: string | null): RoomCategory {
+  const normalized = typeName?.trim().toLowerCase() || ''
+
+  if (normalized.includes('record') || normalized.includes('thu')) return 'recording'
+  if (normalized.includes('vip') || normalized.includes('premium')) return 'premium'
+  if (normalized.includes('band') || normalized.includes('rehearsal')) return 'band'
+  return 'standard'
+}
+
+export function isApiBackedBookingRoom(room: BookingRoom) {
+  return room.code.startsWith('API-')
+}
+
+function getRoomImage(imageUrl?: string) {
+  if (!imageUrl) return undefined
+
+  const normalized = imageUrl.trim()
+  if (!normalized) return undefined
+  if (normalized.startsWith('/')) return normalized
+
+  return undefined
+}
+
+export function mapPracticeRoomToBookingRoom(
+  room: PracticeRoom,
+  options: {
+    reviewSummary?: BookingRoomReviewSummary
+    availabilitySummary?: BookingRoomAvailabilitySummary
+  } = {},
+): BookingRoom {
+  const category = detectRoomCategory(room.roomTypeName)
+  const roomTierName = room.roomTypeName?.trim() || roomCategoryLabels[category]
+  const roomTierDescription = room.roomTypeDescription?.trim() || undefined
+  const safeImage = getRoomImage(room.imageUrl)
+  const fallbackEquipments = room.equipment.length > 0 ? room.equipment : [room.roomTypeName || 'Studio']
+  const description = room.description?.trim() || roomTierDescription
+  const availabilitySummary = options.availabilitySummary
+  const reviewSummary = options.reviewSummary
+
+  return {
+    id: room.id,
+    code: `API-${room.id}`,
+    name: room.name,
+    category,
+    roomTierId: room.roomTypeId,
+    roomTierName,
+    roomTierDescription,
+    categoryLabel: roomTierName,
+    type: roomTierName,
+    badge: availabilitySummary ? (availabilitySummary.isAvailable ? 'Có lịch trống' : 'Kín lịch') : undefined,
+    rating: reviewSummary?.averageRating,
+    reviews: reviewSummary?.reviewCount,
+    capacity: `Tối đa ${room.capacity} người`,
+    location: room.location || 'Band Room Studio',
+    image: safeImage,
+    imageClassName: 'object-[62%_center]',
+    pricePerHour: room.pricePerHour,
+    equipments: fallbackEquipments,
+    includedEquipments: fallbackEquipments,
+    addons: [],
+    description,
+    isAvailable: availabilitySummary?.isAvailable ?? false,
+    availabilityKnown: Boolean(availabilitySummary),
+    nextAvailableTime: availabilitySummary?.nextAvailableTime,
+    note: undefined,
+  }
+}
 
 export const paymentMethods: PaymentMethod[] = [
   {
@@ -114,73 +181,6 @@ export const paymentMethods: PaymentMethod[] = [
     id: 'cash',
     label: 'Thanh toán tại quầy',
     description: 'Vui lòng thanh toán tại quầy khi đến nhận phòng.',
-  },
-]
-
-export const roomReviews: RoomReview[] = [
-  {
-    id: 'review-1',
-    roomId: 'studio-a',
-    customerName: 'Minh Anh',
-    rating: 5,
-    comment: 'Phòng cách âm tốt, trống và ampli hoạt động ổn định. Nhân viên hỗ trợ nhanh.',
-    createdAt: '2026-06-24T10:30:00',
-  },
-  {
-    id: 'review-2',
-    roomId: 'studio-a',
-    customerName: 'Hoàng Phúc',
-    rating: 4,
-    comment: 'Không gian sạch, setup nhanh. Phù hợp cho band tập trước buổi diễn.',
-    createdAt: '2026-06-22T18:15:00',
-  },
-  {
-    id: 'review-3',
-    roomId: 'studio-b',
-    customerName: 'Lan Hương',
-    rating: 5,
-    comment: 'Monitor nghe rõ, phòng vừa đủ cho band 5 người và nhân viên set line rất nhanh.',
-    createdAt: '2026-06-23T20:10:00',
-  },
-  {
-    id: 'review-4',
-    roomId: 'practice-pod-a',
-    customerName: 'Quang Huy',
-    rating: 4,
-    comment: 'Pod gọn, sạch và giá hợp lý cho luyện cá nhân trước giờ diễn.',
-    createdAt: '2026-06-21T09:45:00',
-  },
-  {
-    id: 'review-5',
-    roomId: 'the-vault',
-    customerName: 'The Waves',
-    rating: 5,
-    comment: 'Phòng thu âm rất ổn, monitor rõ, vocal booth yên tĩnh.',
-    createdAt: '2026-06-20T14:00:00',
-  },
-  {
-    id: 'review-6',
-    roomId: 'the-vault',
-    customerName: 'Bảo Trân',
-    rating: 5,
-    comment: 'Thu vocal demo rất mượt, kỹ thuật viên hỗ trợ chỉnh gain kỹ.',
-    createdAt: '2026-06-18T16:25:00',
-  },
-  {
-    id: 'review-7',
-    roomId: 'amber-live-room',
-    customerName: 'Duy Khang',
-    rating: 5,
-    comment: 'Không gian rộng, ánh sáng đẹp, quay live session lên hình rất ổn.',
-    createdAt: '2026-06-19T19:00:00',
-  },
-  {
-    id: 'review-8',
-    roomId: 'producer-suite-vip',
-    customerName: 'Mai Linh',
-    rating: 5,
-    comment: 'Suite riêng tư, bàn producer tiện và loa kiểm âm nghe chi tiết.',
-    createdAt: '2026-06-17T11:20:00',
   },
 ]
 
@@ -469,29 +469,6 @@ export function formatCurrency(value: number) {
   return new Intl.NumberFormat('vi-VN').format(value) + 'đ'
 }
 
-export function getReviewsByRoomId(roomId: string) {
-  let storedReviews: RoomReview[] = []
-
-  if (typeof window !== 'undefined') {
-    try {
-      storedReviews = JSON.parse(window.localStorage.getItem('bandroom_room_reviews') || '[]') as RoomReview[]
-    } catch {
-      storedReviews = []
-    }
-  }
-
-  return [...roomReviews, ...storedReviews]
-    .filter((review) => review.roomId === roomId)
-    .sort((firstReview, secondReview) => Date.parse(secondReview.createdAt) - Date.parse(firstReview.createdAt))
-}
-
-export function getAverageRating(reviews: RoomReview[]) {
-  if (reviews.length === 0) return 0
-
-  const totalRating = reviews.reduce((total, review) => total + review.rating, 0)
-  return totalRating / reviews.length
-}
-
 export function maskCustomerName(customerName: string) {
   const parts = customerName.trim().split(/\s+/).filter(Boolean)
   if (parts.length === 0) return 'Khách hàng'
@@ -536,29 +513,6 @@ export function normalizeDuration(value: string | number | null) {
 
 export function getRoomSubtotal(room: BookingRoom, duration: number) {
   return room.pricePerHour * duration
-}
-
-export function parseAddonIds(value: string | null) {
-  if (!value) return []
-
-  const validIds = new Set(bookingAddOns.map((addon) => addon.id))
-  return value
-    .split(',')
-    .map((id) => id.trim())
-    .filter((id, index, ids) => validIds.has(id) && ids.indexOf(id) === index)
-}
-
-export function getSelectedAddOns(addonIds: string[]) {
-  const selectedIds = new Set(addonIds)
-  return bookingAddOns.filter((addon) => selectedIds.has(addon.id))
-}
-
-export function getAddOnsTotal(addOns: BookingAddOn[]) {
-  return addOns.reduce((total, addon) => total + addon.price, 0)
-}
-
-export function getBookingTotal(room: BookingRoom, duration: number, addOnsTotal = 0) {
-  return Math.max(0, getRoomSubtotal(room, duration) + addOnsTotal)
 }
 
 export function calculateEndTime(startTime: string, duration: number) {

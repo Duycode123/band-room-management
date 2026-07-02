@@ -2,10 +2,12 @@ package backend.controller;
 
 import backend.booking.application.port.in.CalculateBookingCostUseCase;
 import backend.booking.application.port.in.CreateBookingUseCase;
+import backend.booking.application.port.in.GetCustomerBookingDetailUseCase;
 import backend.booking.application.port.in.GetCustomerBookingHistoryUseCase;
 import backend.booking.application.port.in.command.CalculateBookingCostCommand;
 import backend.booking.application.port.in.command.CreateBookingCommand;
 import backend.booking.application.port.in.query.CustomerBookingHistoryQuery;
+import backend.booking.application.port.in.query.GetCustomerBookingDetailQuery;
 import backend.dto.request.CalculateBookingCostRequest;
 import backend.dto.request.CreateBookingRequest;
 import backend.dto.response.BookingCostResponse;
@@ -27,15 +29,18 @@ public class BookingController {
 
     private final CalculateBookingCostUseCase calculateBookingCostUseCase;
     private final CreateBookingUseCase createBookingUseCase;
+    private final GetCustomerBookingDetailUseCase getCustomerBookingDetailUseCase;
     private final GetCustomerBookingHistoryUseCase getCustomerBookingHistoryUseCase;
 
     public BookingController(
             CalculateBookingCostUseCase calculateBookingCostUseCase,
             CreateBookingUseCase createBookingUseCase,
+            GetCustomerBookingDetailUseCase getCustomerBookingDetailUseCase,
             GetCustomerBookingHistoryUseCase getCustomerBookingHistoryUseCase
     ) {
         this.calculateBookingCostUseCase = calculateBookingCostUseCase;
         this.createBookingUseCase = createBookingUseCase;
+        this.getCustomerBookingDetailUseCase = getCustomerBookingDetailUseCase;
         this.getCustomerBookingHistoryUseCase = getCustomerBookingHistoryUseCase;
     }
 
@@ -73,6 +78,18 @@ public class BookingController {
         );
 
         return ResponseEntity.ok(success("Dat lich thanh cong, vui long thanh toan", data));
+    }
+
+    @GetMapping("/my/{bookingId}")
+    public ResponseEntity<?> getMyBookingDetail(
+            @PathVariable Integer bookingId,
+            Authentication authentication
+    ) {
+        BookingResponse data = getCustomerBookingDetailUseCase.getCustomerBookingDetail(
+                new GetCustomerBookingDetailQuery(bookingId, authentication.getName())
+        );
+
+        return ResponseEntity.ok(success("Lay chi tiet dat phong thanh cong", data));
     }
 
     @GetMapping("/my/history")

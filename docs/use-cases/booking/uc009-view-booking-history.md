@@ -4,11 +4,12 @@
 
 - Source: Product Backlog `UC009`
 - Primary actor: Customer
-- Current status in repo: Partially implemented
+- Current status in repo: Implemented core flow
 
 ## Related Endpoints
 
 - `GET /api/bookings/my/history`
+- `GET /api/bookings/my/{bookingId}`
 
 ## Goal
 
@@ -26,6 +27,7 @@ Allow an authenticated customer to review their own bookings with filtering, sor
 3. Customer may filter by status and time range.
 4. Customer may request a page and sort order.
 5. Backend validates the query and returns paged results.
+6. When the customer opens one item, backend returns the owned booking detail by booking id.
 
 ## Alternate and Error Flows
 
@@ -51,10 +53,10 @@ Allow an authenticated customer to review their own bookings with filtering, sor
 - Current endpoint supports `status`, `from`, `to`, `page`, `size`, `sortBy`, and `direction`.
 - Results are returned as `PagedResponse<BookingResponse>`.
 - Filtering is implemented with a booking specification at the service level today.
+- Booking detail lookup reuses the same response model and explicitly rejects access to another customer's booking.
 
 ## Known Gaps / Follow-up
 
-- Dedicated customer booking detail endpoint is not present yet.
 - Review handoff, cancellation handoff, and richer breakdown data from the backlog are still follow-up work.
 - Query-building logic should eventually move behind ports/adapters during hexagonal migration.
 

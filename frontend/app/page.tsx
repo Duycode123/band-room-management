@@ -3,20 +3,20 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import BookingRoomCard from '@/components/booking/BookingRoomCard'
 import BookingQuickModal from '@/components/booking/BookingQuickModal'
 import RoomDetailModal from '@/components/booking/RoomDetailModal'
 import AccountMenu from '@/components/layout/AccountMenu'
 import {
-  bookingRooms,
-  findBookingRoom,
-  roomCategories,
+  type BookingRoomAvailabilitySummary,
+  type BookingRoomReviewSummary,
+  mapPracticeRoomToBookingRoom,
   type BookingRoom,
-  type RoomCategory,
 } from '@/components/booking/booking-data'
 import { useAuth } from '@/contexts/AuthContext'
 import { useHomepageLiveData } from '@/hooks/useHomepageLiveData'
+import { fetchAvailableSlots, fetchRooms } from '@/lib/booking/bookingApi'
 import {
   formatRelativeTime,
   formatSlotDateLabel,
@@ -24,6 +24,7 @@ import {
   maskCustomerName,
   type AvailabilityTone,
 } from '@/lib/homepage-live-service'
+import { fetchRoomReviewSummaries } from '@/lib/public-room-review-service'
 
 const navItems = [
   { label: 'Phòng tập', href: '#rooms' },
@@ -59,9 +60,14 @@ const features = [
   },
 ] as const
 
-const rooms = bookingRooms
+type RoomCatalogFilter = 'all' | string
 
-type RoomCatalogFilter = 'all' | RoomCategory
+type RoomTierFilter = {
+  id: RoomCatalogFilter
+  label: string
+  description?: string
+  count: number
+}
 
 const steps = [
   {
@@ -157,6 +163,49 @@ type QuickBookingState = {
   initialDuration?: number
 }
 
+function getRoomTierFilterId(room: BookingRoom) {
+  return room.roomTierId ? `tier-${room.roomTierId}` : `legacy-${room.category}`
+}
+
+function getRoomTierLabel(room: BookingRoom) {
+  return room.roomTierName?.trim() || room.categoryLabel
+}
+
+function getRoomTierDescription(room: BookingRoom) {
+  return room.roomTierDescription?.trim() || undefined
+}
+
+function getTodayRoomCatalogDate() {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+async function fetchRoomAvailabilitySummaries(roomIds: string[]) {
+  const date = getTodayRoomCatalogDate()
+  const availabilityEntries = await Promise.all(
+    roomIds.map(async (roomId) => {
+      try {
+        const slots = await fetchAvailableSlots(roomId, date)
+        const firstAvailableSlot = slots.find((slot) => slot.status === 'available')
+        const summary: BookingRoomAvailabilitySummary = {
+          isAvailable: Boolean(firstAvailableSlot),
+          nextAvailableTime: firstAvailableSlot?.start,
+        }
+
+        return [roomId, summary] as const
+      } catch {
+        return [roomId, undefined] as const
+      }
+    }),
+  )
+
+  return new Map<string, BookingRoomAvailabilitySummary | undefined>(availabilityEntries)
+}
+
 function getAvailabilityBadgeClassName(tone: AvailabilityTone) {
   const toneClassName = {
     success: 'border-brand-orange/40 bg-white/10 text-primary-fixed hover:bg-white/15',
@@ -192,16 +241,86 @@ export default function HomePage() {
   } = useHomepageLiveData()
   const [menuOpen, setMenuOpen] = useState(false)
   const [availabilityHintVisible, setAvailabilityHintVisible] = useState(false)
+  const [rooms, setRooms] = useState<BookingRoom[]>([])
+  const [isRoomCatalogLoading, setIsRoomCatalogLoading] = useState(true)
+  const [roomCatalogError, setRoomCatalogError] = useState('')
   const [quickBooking, setQuickBooking] = useState<QuickBookingState | null>(null)
   const [selectedRoomDetail, setSelectedRoomDetail] = useState<BookingRoom | null>(null)
-  const [activeRoomCategory, setActiveRoomCategory] = useState<RoomCatalogFilter>('all')
+  const [activeRoomFilter, setActiveRoomFilter] = useState<RoomCatalogFilter>('all')
+  useEffect(() => {
+    let active = true
+
+    void (async () => {
+      setIsRoomCatalogLoading(true)
+      setRoomCatalogError('')
+
+      try {
+        const practiceRooms = await fetchRooms()
+        const [reviewSummaries, availabilitySummaries] = await Promise.all([
+          fetchRoomReviewSummaries().catch(() => null),
+          fetchRoomAvailabilitySummaries(practiceRooms.map((room) => room.id)),
+        ])
+
+        if (!active) return
+
+        setRooms(
+          practiceRooms.map((room) =>
+            mapPracticeRoomToBookingRoom(room, {
+              reviewSummary: reviewSummaries?.get(room.id) as BookingRoomReviewSummary | undefined,
+              availabilitySummary: availabilitySummaries.get(room.id),
+            }),
+          ),
+        )
+      } catch {
+        if (!active) return
+
+        setRooms([])
+        setRoomCatalogError('Không thể tải danh sách phòng từ backend lúc này.')
+      } finally {
+        if (!active) return
+
+        setIsRoomCatalogLoading(false)
+      }
+    })()
+
+    return () => {
+      active = false
+    }
+  }, [])
+
   const visibleRooms =
-    activeRoomCategory === 'all' ? rooms : rooms.filter((room) => room.category === activeRoomCategory)
-  const roomCategoryFilters = [{ id: 'all' as const, label: 'Tất cả', count: rooms.length }, ...roomCategories.map((category) => ({
-    id: category.id,
-    label: category.label,
-    count: rooms.filter((room) => room.category === category.id).length,
-  }))]
+    activeRoomFilter === 'all' ? rooms : rooms.filter((room) => getRoomTierFilterId(room) === activeRoomFilter)
+  const roomTierFilters = [
+    { id: 'all' as const, label: 'Tất cả', description: 'Hiển thị toàn bộ hạng phòng hiện có.', count: rooms.length },
+    ...Array.from(
+      rooms.reduce((filters, room) => {
+        const filterId = getRoomTierFilterId(room)
+        const existingFilter = filters.get(filterId)
+
+        if (existingFilter) {
+          existingFilter.count += 1
+          return filters
+        }
+
+        filters.set(filterId, {
+          id: filterId,
+          label: getRoomTierLabel(room),
+          description: getRoomTierDescription(room),
+          count: 1,
+        })
+        return filters
+      }, new Map<string, RoomTierFilter>()),
+    )
+      .map(([, filter]) => filter)
+      .sort((firstFilter, secondFilter) => firstFilter.label.localeCompare(secondFilter.label, 'vi')),
+  ]
+  const activeRoomTier = roomTierFilters.find((filter) => filter.id === activeRoomFilter) ?? roomTierFilters[0]
+
+  useEffect(() => {
+    if (roomTierFilters.some((filter) => filter.id === activeRoomFilter)) return
+
+    setActiveRoomFilter('all')
+  }, [activeRoomFilter, roomTierFilters])
 
   const scrollToRooms = () => {
     document.getElementById('rooms')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -236,7 +355,7 @@ export default function HomePage() {
       return
     }
 
-    const room = findBookingRoom(nextAvailableSlot.roomId)
+    const room = rooms.find((item) => item.id === nextAvailableSlot.roomId) ?? null
 
     if (!room) {
       handleBookingClick()
@@ -519,8 +638,8 @@ export default function HomePage() {
 
             <div className="grid w-full gap-3 sm:grid-cols-3 lg:w-auto">
               {[
-                ['4', 'Hạng phòng'],
-                ['12', 'Phòng tập'],
+                [String(roomTierFilters.length - 1), 'Hạng phòng'],
+                [String(rooms.length), 'Phòng tập'],
                 ['Live', 'Cập nhật lịch trống'],
               ].map(([value, label]) => (
                 <div key={label} className="rounded-xl border border-outline-variant bg-white px-4 py-3 shadow-[var(--shadow-card)]">
@@ -531,52 +650,72 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="mt-8 flex flex-wrap gap-2">
-            {roomCategoryFilters.map((filter) => {
-              const active = activeRoomCategory === filter.id
+          {!isRoomCatalogLoading && rooms.length > 0 && (
+            <div className="mt-8 flex flex-wrap gap-2">
+              {roomTierFilters.map((filter) => {
+                const active = activeRoomFilter === filter.id
 
-              return (
-                <button
-                  key={filter.id}
-                  type="button"
-                  onClick={() => setActiveRoomCategory(filter.id)}
-                  className={[
-                    'rounded-full border px-4 py-2 font-display text-sm font-semibold transition',
-                    active
-                      ? 'border-brand-orange bg-brand-orange text-white shadow-[0_10px_26px_rgba(255,117,24,0.24)]'
-                      : 'border-outline bg-white text-on-surface-variant hover:bg-primary-container hover:text-on-surface',
-                  ].join(' ')}
-                >
-                  {filter.label}
-                  <span className={active ? 'ml-2 text-white/75' : 'ml-2 text-on-surface-variant'}>
-                    {filter.count}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
+                return (
+                  <button
+                    key={filter.id}
+                    type="button"
+                    onClick={() => setActiveRoomFilter(filter.id)}
+                    className={[
+                      'rounded-full border px-4 py-2 font-display text-sm font-semibold transition',
+                      active
+                        ? 'border-brand-orange bg-brand-orange text-white shadow-[0_10px_26px_rgba(255,117,24,0.24)]'
+                        : 'border-outline bg-white text-on-surface-variant hover:bg-primary-container hover:text-on-surface',
+                    ].join(' ')}
+                  >
+                    {filter.label}
+                    <span className={active ? 'ml-2 text-white/75' : 'ml-2 text-on-surface-variant'}>
+                      {filter.count}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
 
           <div className="mt-8 rounded-xl border border-outline-variant bg-white px-5 py-4 shadow-[var(--shadow-card)]">
             <div>
               <p className="font-display text-sm font-bold text-on-surface">
-                {activeRoomCategory === 'all' ? 'Tất cả hạng phòng' : roomCategories.find((category) => category.id === activeRoomCategory)?.label}
+                {activeRoomTier?.label || 'Tất cả hạng phòng'}
               </p>
               <p className="mt-1 text-sm text-on-surface-variant">
-                Đang hiển thị {visibleRooms.length} phòng phù hợp.
+                {roomCatalogError
+                  ? roomCatalogError
+                  : isRoomCatalogLoading
+                    ? 'Đang tải danh sách phòng từ backend.'
+                    : activeRoomTier?.description || `Đang hiển thị ${visibleRooms.length} phòng phù hợp.`}
               </p>
             </div>
           </div>
 
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {visibleRooms.map((room) => (
-              <BookingRoomCard
-                key={room.id}
-                room={room}
-                renderIcon={(name, className) => <Icon name={name} className={className} />}
-                onOpenDetail={setSelectedRoomDetail}
-                onBook={handleBookRoom}
-              />
-            ))}
+            {isRoomCatalogLoading ? (
+              <div className="rounded-xl border border-outline-variant bg-white px-5 py-8 text-center text-sm text-on-surface-variant shadow-[var(--shadow-card)] sm:col-span-2 lg:col-span-3">
+                Đang tải room list từ backend...
+              </div>
+            ) : roomCatalogError ? (
+              <div className="rounded-xl border border-[#FF7518]/25 bg-white px-5 py-8 text-center text-sm text-[#6B3200] shadow-[var(--shadow-card)] sm:col-span-2 lg:col-span-3">
+                {roomCatalogError}
+              </div>
+            ) : visibleRooms.length > 0 ? (
+              visibleRooms.map((room) => (
+                <BookingRoomCard
+                  key={room.id}
+                  room={room}
+                  renderIcon={(name, className) => <Icon name={name} className={className} />}
+                  onOpenDetail={setSelectedRoomDetail}
+                  onBook={handleBookRoom}
+                />
+              ))
+            ) : (
+              <div className="rounded-xl border border-outline-variant bg-white px-5 py-8 text-center text-sm text-on-surface-variant shadow-[var(--shadow-card)] sm:col-span-2 lg:col-span-3">
+                Backend hiện chưa trả về phòng nào để hiển thị.
+              </div>
+            )}
           </div>
         </div>
       </section>
