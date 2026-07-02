@@ -33,10 +33,17 @@ public class BookingResponse {
 
     private BigDecimal totalHours;
     private BigDecimal pricePerHour;
+    private BigDecimal originalAmount;
+    private String couponCode;
+    private BigDecimal discountAmount;
     private BigDecimal totalAmount;
 
     private BookingStatus status;
     private PaymentMethod paymentMethod;
+    private String note;
+    private String equipmentNotes;
+    private Boolean canReview;
+    private Boolean alreadyReviewed;
 
     public BookingResponse(Booking booking) {
         this.bookingId = booking.getId();
@@ -67,8 +74,23 @@ public class BookingResponse {
         this.endTime = booking.getEndTime();
         this.totalHours = booking.getTotalHours();
         this.pricePerHour = booking.getPricePerHour();
+        this.originalAmount = booking.getTotalHours() == null || booking.getPricePerHour() == null
+                ? null
+                : booking.getTotalHours().multiply(booking.getPricePerHour());
+        this.couponCode = booking.getDiscountCode() == null ? null : booking.getDiscountCode().getCode();
+        this.discountAmount = this.originalAmount == null || booking.getTotalAmount() == null
+                ? null
+                : this.originalAmount.subtract(booking.getTotalAmount()).max(BigDecimal.ZERO);
         this.totalAmount = booking.getTotalAmount();
         this.status = booking.getStatus();
         this.paymentMethod = booking.getPaymentMethod();
+        this.note = booking.getNote();
+        this.equipmentNotes = booking.getInstrumentNote();
+    }
+
+    public BookingResponse(Booking booking, boolean alreadyReviewed) {
+        this(booking);
+        this.alreadyReviewed = alreadyReviewed;
+        this.canReview = booking.getStatus() == BookingStatus.COMPLETED && !alreadyReviewed;
     }
 }

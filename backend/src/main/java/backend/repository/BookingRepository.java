@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface BookingRepository extends JpaRepository<Booking, Integer>, JpaSpecificationExecutor<Booking> {
 
@@ -17,6 +18,10 @@ public interface BookingRepository extends JpaRepository<Booking, Integer>, JpaS
     List<Booking> findAllByOrderByCreatedAtDesc();
 
     List<Booking> findByStatusOrderByCreatedAtDesc(BookingStatus status);
+
+    Optional<Booking> findByIdAndCustomer_Account_Email(Integer bookingId, String email);
+
+    List<Booking> findTop10ByStatusNotOrderByCreatedAtDesc(BookingStatus status);
 
     @Query("""
             SELECT b

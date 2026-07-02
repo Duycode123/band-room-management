@@ -12,7 +12,6 @@ import {
   getCheckoutBookingFromParams,
   type CheckoutBooking,
 } from '@/lib/checkout-data'
-import type { AppliedDiscount } from '@/lib/discount-service'
 import { createPaymentSession, type PaymentMethod } from '@/lib/payment-service'
 import {
   clearPendingBooking,
@@ -23,11 +22,12 @@ import {
 export default function CheckoutPageClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const confirmationHref = `/customer/booking/confirmation?${searchParams.toString()}`
+  const initialPaymentMethod = getInitialPaymentMethod(searchParams.get('method'))
   const [booking, setBooking] = useState<CheckoutBooking | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(() => getInitialPaymentMethod(searchParams.get('method')))
-  const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null)
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(initialPaymentMethod)
   const [isPaying, setIsPaying] = useState(false)
   const [paymentError, setPaymentError] = useState('')
 
@@ -55,14 +55,14 @@ export default function CheckoutPageClient() {
         const loadedBooking = await getCheckoutBookingFromParams(checkoutParams)
         if (!mounted) return
 
-        if (!checkoutParams.get('bookingId')) {
+        if (!searchParams.get('bookingId')) {
           setError('Thiếu mã đặt phòng. Vui lòng quay lại bước xác nhận đặt phòng.')
           setBooking(null)
           return
         }
 
         if (!loadedBooking) {
-          setError('Không tìm thấy thông tin đặt phòng.')
+          setError('Khong tim thay thong tin checkout tu backend.')
           setBooking(null)
           return
         }
@@ -72,7 +72,7 @@ export default function CheckoutPageClient() {
         setAppliedDiscount(getAppliedDiscountFromParams(checkoutParams, loadedBooking))
       } catch {
         if (mounted) {
-          setError('Không thể tải thông tin thanh toán. Vui lòng thử lại.')
+          setError('Khong the tai thong tin thanh toan. Vui long thu lai.')
         }
       } finally {
         if (mounted) {
@@ -89,18 +89,18 @@ export default function CheckoutPageClient() {
   }, [searchParams])
 
   const summary = useMemo(
-    () => (booking ? calculateCheckoutSummary(booking, appliedDiscount) : null),
-    [appliedDiscount, booking],
+    () => (booking ? calculateCheckoutSummary(booking, null) : null),
+    [booking],
   )
 
   const handlePay = async () => {
     if (!booking || !summary) {
-      setPaymentError('Không tìm thấy thông tin đặt phòng để thanh toán.')
+      setPaymentError('Khong tim thay thong tin dat phong de thanh toan.')
       return
     }
 
-    if (!paymentMethod) {
-      setPaymentError('Vui lòng chọn phương thức thanh toán.')
+    if (!booking.backendBookingId) {
+      setPaymentError('Checkout nay chua gan voi booking backend hop le.')
       return
     }
 
@@ -109,8 +109,7 @@ export default function CheckoutPageClient() {
 
     try {
       const session = await createPaymentSession({
-        bookingId: booking.bookingId,
-        amount: summary.total,
+        bookingId: booking.backendBookingId,
         method: paymentMethod,
       })
 
@@ -123,7 +122,7 @@ export default function CheckoutPageClient() {
       setPaymentError(
         paymentSessionError instanceof Error
           ? paymentSessionError.message
-          : 'Không thể tạo giao dịch. Vui lòng thử lại.',
+          : 'Khong the tao giao dich. Vui long thu lai.',
       )
     } finally {
       setIsPaying(false)
@@ -138,37 +137,37 @@ export default function CheckoutPageClient() {
         <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-end">
           <div>
             <div className="mb-2 flex flex-wrap items-center gap-2 font-display text-sm text-[#5C5348]">
-              <Link href="/" className="hover:text-[#1A1C1E]">Trang chủ</Link>
+              <Link href="/" className="hover:text-[#1A1C1E]">Trang chu</Link>
               <span>/</span>
-              <Link href="/customer/booking" className="hover:text-[#1A1C1E]">Xác nhận đặt phòng</Link>
+              <Link href={confirmationHref} className="hover:text-[#1A1C1E]">Xac nhan dat phong</Link>
               <span>/</span>
-              <span className="text-[#1A1C1E]">Thanh toán</span>
+              <span className="text-[#1A1C1E]">Thanh toan</span>
             </div>
-            <h1 className="font-display text-4xl font-bold tracking-tight">Thanh toán đặt phòng</h1>
+            <h1 className="font-display text-4xl font-bold tracking-tight">Thanh toan dat phong</h1>
             <p className="mt-2 text-[#5C5348]">
-              Hoàn tất thanh toán để giữ lịch đặt phòng của bạn.
+              Checkout dang doc lai thong tin booking tu backend truoc khi tao phien thanh toan.
             </p>
           </div>
           <span className="w-fit rounded-full bg-[#FFE8D6] px-4 py-2 font-display text-sm font-bold text-[#6B3200]">
-            Bước thanh toán cuối cùng
+            Buoc thanh toan
           </span>
         </div>
 
         {isLoading && (
           <div className="rounded-[24px] border border-[#E8E4DC] bg-white p-6 shadow-[0_4px_24px_rgba(26,28,30,0.06)]">
-            <p className="font-display text-lg font-semibold">Đang tải thông tin thanh toán...</p>
+            <p className="font-display text-lg font-semibold">Dang tai thong tin thanh toan...</p>
           </div>
         )}
 
         {!isLoading && error && (
           <div className="rounded-[24px] border border-[#C62828]/20 bg-white p-6 shadow-[0_4px_24px_rgba(26,28,30,0.06)]">
-            <h2 className="font-display text-xl font-bold text-[#C62828]">Không thể mở checkout</h2>
+            <h2 className="font-display text-xl font-bold text-[#C62828]">Khong the mo checkout</h2>
             <p className="mt-2 text-[#5C5348]">{error}</p>
             <Link
-              href="/#rooms"
+              href="/customer/booking"
               className="mt-5 inline-flex h-12 items-center justify-center rounded-2xl bg-[#FF7518] px-6 font-display font-semibold text-white transition hover:bg-[#E6640F]"
             >
-              Quay lại chọn phòng
+              Quay lai chon phong
             </Link>
           </div>
         )}
@@ -182,26 +181,26 @@ export default function CheckoutPageClient() {
             <aside className="w-full max-w-md rounded-[24px] border border-[#E8E4DC] bg-white p-4 shadow-[0_4px_18px_rgba(26,28,30,0.06)] sm:p-5 lg:sticky lg:top-24 lg:col-span-1 lg:max-h-[calc(100vh-7rem)] lg:justify-self-end lg:overflow-y-auto">
               <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="mb-1 text-xs font-semibold text-[#5C5348]">MÃ£: {booking.bookingId}</p>
-                  <p className="font-display text-xs font-bold uppercase tracking-wider text-[#5C5348]">Tóm tắt thanh toán</p>
-                  <h2 className="mt-1 font-display text-xl font-bold">Thanh toán</h2>
+                  <p className="mb-1 text-xs font-semibold text-[#5C5348]">Ma: {booking.bookingId}</p>
+                  <p className="font-display text-xs font-bold uppercase tracking-wider text-[#5C5348]">Tom tat thanh toan</p>
+                  <h2 className="mt-1 font-display text-xl font-bold">Thanh toan</h2>
                 </div>
                 <span className="rounded-full bg-[#E8F5EC] px-3 py-1 font-display text-xs font-bold text-[#0A4D27]">
-                  Thanh toán an toàn
+                  Dong bo backend
                 </span>
               </div>
 
               <CheckoutSummary
                 booking={booking}
-                appliedDiscount={appliedDiscount}
+                appliedDiscount={null}
               />
 
               <div className="mt-4 grid gap-2 text-xs leading-5 text-[#5C5348]">
                 <p className="rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] px-3 py-2.5">
-                  Thông tin giao dịch được bảo vệ.
+                  Add-on va discount khong con duoc tinh local trong checkout nay.
                 </p>
                 <p className="rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] px-3 py-2.5">
-                  Lịch được giữ trong 30 phút.
+                  Tong tien dang lay theo booking backend.
                 </p>
               </div>
 
@@ -228,7 +227,7 @@ export default function CheckoutPageClient() {
                 disabled={isPaying}
                 className="mt-5 h-12 w-full rounded-2xl bg-[#FF7518] font-display font-semibold text-white shadow-[0_8px_18px_rgba(255,117,24,0.22)] transition hover:bg-[#E6640F] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isPaying ? 'Đang tạo giao dịch...' : 'Thanh toán ngay'}
+                {isPaying ? 'Dang tao giao dich...' : 'Thanh toan ngay'}
               </button>
             </aside>
           </div>
@@ -244,25 +243,4 @@ function getInitialPaymentMethod(value: string | null): PaymentMethod {
   }
 
   return 'bank_transfer'
-}
-
-function getAppliedDiscountFromParams(
-  searchParams: URLSearchParams,
-  booking: CheckoutBooking,
-): AppliedDiscount | null {
-  const code = searchParams.get('discountCode')?.trim().toUpperCase()
-  const discountAmount = Number(searchParams.get('discountAmount'))
-
-  if (!code || !Number.isFinite(discountAmount) || discountAmount <= 0) {
-    return null
-  }
-
-  const subtotal =
-    booking.pricePerHour * booking.duration +
-    booking.addons.reduce((total, addon) => total + addon.price, 0)
-
-  return {
-    code,
-    discountAmount: Math.min(discountAmount, subtotal),
-  }
 }

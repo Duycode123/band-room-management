@@ -9,6 +9,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -25,6 +27,8 @@ public class RegisterRequest {
     @Pattern(regexp = "^(0|\\+84)[0-9]{9}$", message = "Số điện thoại không hợp lệ")
     @NotBlank(message = "Số điện thoại không được để trống")
     private String phone;
+
+    private LocalDate dateOfBirth;
 
     @Size(min = 6, message = "Mật khẩu phải có ít nhất 6 ký tự")
     @NotBlank(message = "Mật khẩu không được để trống")

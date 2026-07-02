@@ -1,171 +1,222 @@
-import { MOCK_ADMIN_EQUIPMENT } from './mockEquipment'
+import axios from 'axios'
+import api from '@/lib/api'
 import type {
   AdminEquipment,
   EquipmentFilters,
   EquipmentFormData,
   EquipmentFormErrors,
+  EquipmentRoomOption,
+  EquipmentStatus,
+  EquipmentType,
 } from './types'
 
-let equipmentStore = [...MOCK_ADMIN_EQUIPMENT]
-
-function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+type ApiResponse<T> = {
+  success: boolean
+  message: string
+  data: T
 }
 
-function normalize(text: string) {
-  return text.trim().toLowerCase()
+type ApiErrorResponse = {
+  message?: string
 }
 
-function nextCode() {
-  const nums = equipmentStore.map((e) => parseInt(e.equipmentCode.replace(/\D/g, ''), 10))
-  const max = nums.length ? Math.max(...nums) : 0
-  return `TB-${String(max + 1).padStart(3, '0')}`
+type BackendEquipment = {
+  id: number
+  roomId: number
+  roomName: string
+  type: EquipmentType
+  name: string
+  status: EquipmentStatus
+  notes?: string | null
 }
 
-function computeAvailable(quantity: number, status: AdminEquipment['status'], current?: AdminEquipment) {
-  if (status === 'DISABLED' || status === 'MAINTENANCE') return 0
-  if (status === 'IN_USE' && current) return current.availableQuantity
-  return quantity
+type BackendRoom = {
+  id: number
+  roomName: string
 }
 
-export function formatEquipmentPrice(amount: number) {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount)
+function normalizeText(value?: string | null) {
+  return value?.trim() || ''
+}
+
+function getApiErrorMessage(error: unknown, fallback: string) {
+  if (axios.isAxiosError<ApiErrorResponse>(error)) {
+    return error.response?.data?.message || fallback
+  }
+
+  return fallback
+}
+
+function mapBackendEquipment(item: BackendEquipment): AdminEquipment {
+  return {
+    equipmentId: item.id,
+    roomId: item.roomId,
+    roomName: item.roomName,
+    equipmentName: item.name,
+    equipmentType: item.type,
+    status: item.status,
+    notes: normalizeText(item.notes) || undefined,
+  }
+}
+
+function applyClientFilters(items: AdminEquipment[], filters: EquipmentFilters) {
+  const normalizedQuery = filters.query.trim().toLowerCase()
+
+  return items
+    .filter((item) => {
+      if (normalizedQuery) {
+        const matchesQuery =
+          item.equipmentName.toLowerCase().includes(normalizedQuery) ||
+          item.roomName.toLowerCase().includes(normalizedQuery) ||
+          String(item.equipmentId).includes(normalizedQuery)
+
+        if (!matchesQuery) {
+          return false
+        }
+      }
+
+      if (filters.equipmentType !== 'ALL' && item.equipmentType !== filters.equipmentType) {
+        return false
+      }
+
+      if (filters.status !== 'ALL' && item.status !== filters.status) {
+        return false
+      }
+
+      return true
+    })
+    .sort((firstItem, secondItem) => {
+      const compareValue =
+        filters.sortBy === 'room'
+          ? firstItem.roomName.localeCompare(secondItem.roomName, 'vi')
+          : firstItem.equipmentName.localeCompare(secondItem.equipmentName, 'vi')
+
+      if (compareValue !== 0) {
+        return filters.sortOrder === 'asc' ? compareValue : -compareValue
+      }
+
+      const tieBreaker = firstItem.equipmentId - secondItem.equipmentId
+      return filters.sortOrder === 'asc' ? tieBreaker : -tieBreaker
+    })
 }
 
 export function validateEquipmentForm(data: EquipmentFormData): EquipmentFormErrors {
   const errors: EquipmentFormErrors = {}
   const name = data.equipmentName.trim()
 
+  if (!data.roomId || data.roomId < 1) {
+    errors.roomId = 'Vui long chon phong cho thiet bi.'
+  }
+
   if (name.length < 2 || name.length > 100) {
-    errors.equipmentName = 'Tên thiết bị phải từ 2–100 ký tự.'
+    errors.equipmentName = 'Ten thiet bi phai tu 2 den 100 ky tu.'
   }
-  if (data.quantity < 0 || !Number.isInteger(data.quantity)) {
-    errors.quantity = 'Số lượng phải là số nguyên ≥ 0.'
-  }
-  if (data.rentalPrice < 0) {
-    errors.rentalPrice = 'Giá thuê phải ≥ 0.'
-  }
-  if (data.description.length > 500) {
-    errors.description = 'Mô tả tối đa 500 ký tự.'
-  }
-  if (data.imageUrl.trim() && !/^https?:\/\/.+/i.test(data.imageUrl.trim()) && !data.imageUrl.startsWith('/')) {
-    errors.imageUrl = 'URL ảnh không hợp lệ.'
+
+  if (data.notes.length > 1000) {
+    errors.notes = 'Ghi chu toi da 1000 ky tu.'
   }
 
   return errors
 }
 
-function filterAndSort(items: AdminEquipment[], filters: EquipmentFilters): AdminEquipment[] {
-  let result = items.filter((item) => {
-    const q = normalize(filters.query)
-    const matchQuery =
-      !q ||
-      normalize(item.equipmentName).includes(q) ||
-      normalize(item.equipmentCode).includes(q)
-    const matchType = filters.equipmentType === 'ALL' || item.equipmentType === filters.equipmentType
-    const matchStatus = filters.status === 'ALL' || item.status === filters.status
-    return matchQuery && matchType && matchStatus
-  })
+export async function fetchEquipmentRooms(): Promise<EquipmentRoomOption[]> {
+  try {
+    const response = await api.get<ApiResponse<BackendRoom[]>>('/api/rooms')
+    const rooms = response.data.data ?? []
 
-  result = [...result].sort((a, b) => {
-    let cmp = 0
-    if (filters.sortBy === 'name') cmp = a.equipmentName.localeCompare(b.equipmentName, 'vi')
-    if (filters.sortBy === 'price') cmp = a.rentalPrice - b.rentalPrice
-    if (filters.sortBy === 'quantity') cmp = a.quantity - b.quantity
-    return filters.sortOrder === 'asc' ? cmp : -cmp
-  })
-
-  return result
+    return rooms
+      .map((room) => ({
+        roomId: room.id,
+        roomName: normalizeText(room.roomName) || `Phong ${room.id}`,
+      }))
+      .sort((firstRoom, secondRoom) => firstRoom.roomName.localeCompare(secondRoom.roomName, 'vi'))
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Khong the tai danh sach phong.'))
+  }
 }
 
 export async function fetchAdminEquipment(filters: EquipmentFilters): Promise<AdminEquipment[]> {
-  await delay(250)
-  return filterAndSort(equipmentStore, filters)
+  try {
+    const response = await api.get<ApiResponse<BackendEquipment[]>>('/api/admin/equipment', {
+      params: {
+        type: filters.equipmentType !== 'ALL' ? filters.equipmentType : undefined,
+        status: filters.status !== 'ALL' ? filters.status : undefined,
+      },
+    })
+
+    return applyClientFilters((response.data.data ?? []).map(mapBackendEquipment), filters)
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Khong the tai danh sach thiet bi.'))
+  }
 }
 
 export async function createAdminEquipment(data: EquipmentFormData): Promise<AdminEquipment> {
-  await delay(300)
   const errors = validateEquipmentForm(data)
   if (Object.keys(errors).length > 0) {
-    throw new Error(Object.values(errors)[0])
+    throw new Error(Object.values(errors)[0] || 'Du lieu thiet bi khong hop le.')
   }
 
-  const item: AdminEquipment = {
-    equipmentId: `eq-${Date.now()}`,
-    equipmentCode: nextCode(),
-    equipmentName: data.equipmentName.trim(),
-    equipmentType: data.equipmentType,
-    quantity: data.quantity,
-    availableQuantity: computeAvailable(data.quantity, data.status),
-    rentalPrice: data.rentalPrice,
-    status: data.status,
-    description: data.description.trim() || undefined,
-    imageUrl: data.imageUrl.trim() || undefined,
-    inActiveBooking: false,
-  }
+  try {
+    const response = await api.post<ApiResponse<BackendEquipment>>('/api/admin/equipment', {
+      roomId: data.roomId,
+      type: data.equipmentType,
+      name: data.equipmentName.trim(),
+      status: data.status,
+      notes: normalizeText(data.notes) || undefined,
+    })
 
-  equipmentStore = [item, ...equipmentStore]
-  return item
+    return mapBackendEquipment(response.data.data)
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Khong the tao thiet bi.'))
+  }
 }
 
 export async function updateAdminEquipment(
-  id: string,
+  id: number,
   data: EquipmentFormData,
 ): Promise<AdminEquipment | null> {
-  await delay(300)
   const errors = validateEquipmentForm(data)
   if (Object.keys(errors).length > 0) {
-    throw new Error(Object.values(errors)[0])
+    throw new Error(Object.values(errors)[0] || 'Du lieu thiet bi khong hop le.')
   }
 
-  const index = equipmentStore.findIndex((e) => e.equipmentId === id)
-  if (index < 0) return null
+  try {
+    const response = await api.put<ApiResponse<BackendEquipment>>(`/api/admin/equipment/${id}`, {
+      roomId: data.roomId,
+      type: data.equipmentType,
+      name: data.equipmentName.trim(),
+      status: data.status,
+      notes: normalizeText(data.notes) || undefined,
+    })
 
-  const current = equipmentStore[index]
-  const updated: AdminEquipment = {
-    ...current,
-    equipmentName: data.equipmentName.trim(),
-    equipmentType: data.equipmentType,
-    quantity: data.quantity,
-    availableQuantity: computeAvailable(data.quantity, data.status, current),
-    rentalPrice: data.rentalPrice,
-    status: data.status,
-    description: data.description.trim() || undefined,
-    imageUrl: data.imageUrl.trim() || undefined,
+    return mapBackendEquipment(response.data.data)
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Khong the cap nhat thiet bi.'))
   }
-
-  equipmentStore[index] = updated
-  return updated
 }
 
-export async function deleteAdminEquipment(id: string): Promise<void> {
-  await delay(250)
-  const item = equipmentStore.find((e) => e.equipmentId === id)
-  if (!item) throw new Error('Không tìm thấy thiết bị.')
-  if (item.inActiveBooking) {
-    throw new Error('Thiết bị hiện đang được sử dụng trong hệ thống.')
+export async function deleteAdminEquipment(id: number): Promise<void> {
+  try {
+    await api.delete(`/api/admin/equipment/${id}`)
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Khong the xoa thiet bi.'))
   }
-  equipmentStore = equipmentStore.filter((e) => e.equipmentId !== id)
 }
 
 export function toFormData(equipment: AdminEquipment): EquipmentFormData {
   return {
+    roomId: equipment.roomId,
     equipmentName: equipment.equipmentName,
     equipmentType: equipment.equipmentType,
-    quantity: equipment.quantity,
-    rentalPrice: equipment.rentalPrice,
     status: equipment.status,
-    description: equipment.description ?? '',
-    imageUrl: equipment.imageUrl ?? '',
+    notes: equipment.notes ?? '',
   }
 }
 
 export const EMPTY_EQUIPMENT_FORM: EquipmentFormData = {
+  roomId: null,
   equipmentName: '',
-  equipmentType: 'GUITAR',
-  quantity: 1,
-  rentalPrice: 0,
-  status: 'AVAILABLE',
-  description: '',
-  imageUrl: '',
+  equipmentType: 'AMP',
+  status: 'GOOD',
+  notes: '',
 }

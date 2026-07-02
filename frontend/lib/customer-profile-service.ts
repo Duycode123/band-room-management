@@ -15,7 +15,6 @@ export type UpdateCustomerProfilePayload = {
   fullName: string
   email: string
   phone: string
-  avatarUrl?: string
 }
 
 export type ChangeCustomerPasswordPayload = {
@@ -23,8 +22,6 @@ export type ChangeCustomerPasswordPayload = {
   newPassword: string
   confirmPassword: string
 }
-
-const CUSTOMER_PROFILE_KEY = 'bandroom_customer_profile'
 
 type ApiErrorResponse = {
   message?: string
@@ -113,7 +110,7 @@ export function getCustomerDisplayName(user?: AuthUser | CustomerProfile | null)
   if (name) return name
   if (email) return email.split('@')[0] || email
 
-  return 'Khách hàng'
+  return 'Khach hang'
 }
 
 type CurrentUserApiResponse = Partial<CustomerProfile & AuthUser> & {
@@ -132,7 +129,7 @@ function normalizeCurrentUser(currentUser: CurrentUserApiResponse, fallback?: Au
       fallback?.fullName ||
       fallback?.name ||
       getCustomerDisplayName({ email: currentUser.email || fallback?.email, role: normalizedUser.role }) ||
-      'Khách hàng',
+      'Khach hang',
     email: currentUser.email || fallback?.email || '',
     phone: currentUser.phone || fallback?.phone || '',
     avatarUrl: getPersistentAvatarUrl(currentUser.avatarUrl) || getPersistentAvatarUrl(fallback?.avatarUrl),
@@ -174,20 +171,20 @@ export async function fetchCurrentUser(user?: AuthUser | null): Promise<Customer
 export async function updateCustomerProfile(payload: UpdateCustomerProfilePayload): Promise<CustomerProfile> {
   try {
     const response = await api.put<CustomerProfile>('/api/users/me', payload)
-    const updatedProfile = normalizeCurrentUser(response.data, {
+    return normalizeCurrentUser(response.data, {
       role: response.data.role || 'CUSTOMER',
       fullName: payload.fullName,
       name: payload.fullName,
       email: payload.email,
       phone: payload.phone,
-      avatarUrl: getPersistentAvatarUrl(payload.avatarUrl),
+      avatarUrl: response.data.avatarUrl,
     })
     updatedProfile.avatarUrl = getPersistentAvatarUrl(payload.avatarUrl)
 
     writeStoredCustomerProfile(updatedProfile)
     return updatedProfile
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Không thể cập nhật thông tin. Vui lòng thử lại.'))
+    throw new Error(getApiErrorMessage(error, 'Khong the cap nhat thong tin. Vui long thu lai.'))
   }
 }
 
@@ -195,6 +192,6 @@ export async function changeCustomerPassword(payload: ChangeCustomerPasswordPayl
   try {
     await api.put('/api/users/me/password', payload)
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Không thể cập nhật mật khẩu. Vui lòng thử lại.'))
+    throw new Error(getApiErrorMessage(error, 'Khong the cap nhat mat khau. Vui long thu lai.'))
   }
 }

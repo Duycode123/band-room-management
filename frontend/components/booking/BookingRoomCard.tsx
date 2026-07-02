@@ -101,44 +101,49 @@ export default function BookingRoomCard({ room, renderIcon, onOpenDetail, onBook
       ].join(' ')}
     >
       <div className="relative aspect-[16/10] overflow-hidden bg-surface-container">
-        <Image
-          src={room.image}
-          alt={room.name}
-          fill
-          sizes="(min-width: 768px) 33vw, 100vw"
-          className={[
-            'object-cover transition-all duration-300 group-hover:scale-105',
-            room.imageClassName,
-            availabilityMeta.imageClassName,
-          ].join(' ')}
-        />
-        <div className={['absolute inset-0 transition-opacity duration-300 group-hover:opacity-90', availabilityMeta.overlayClassName].join(' ')} />
-        <span className="absolute left-3 top-3 rounded-full bg-primary-container px-3 py-1 font-display text-xs font-semibold text-on-primary-container">
-          {room.badge}
-        </span>
-        <span className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 font-display text-xs font-semibold text-on-surface">
-          {renderIcon('star', 'h-3.5 w-3.5 text-tertiary')}
-          {room.rating}
-        </span>
-        <span
-          className={[
-            'absolute bottom-3 left-3 rounded-full border px-3 py-1 font-display text-xs font-bold',
-            availabilityMeta.badgeClassName,
-          ].join(' ')}
-        >
-          {availabilityMeta.badgeLabel}
-        </span>
+        {room.image ? (
+          <Image
+            src={room.image}
+            alt={room.name}
+            fill
+            sizes="(min-width: 768px) 33vw, 100vw"
+            className={`object-cover transition-transform duration-300 group-hover:scale-105 ${room.imageClassName}`}
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_top,#FFE8D6,transparent_55%),linear-gradient(135deg,#F5F2EC,#E8E4DC)] px-6 text-center">
+            <div>
+              <p className="font-display text-lg font-bold text-[#6B3200]">{room.name}</p>
+              <p className="mt-2 text-sm text-[#5C5348]">Backend chưa cung cấp ảnh phòng.</p>
+            </div>
+          </div>
+        )}
+        <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(4,42,22,0.6),rgba(4,42,22,0.08)_58%,transparent)] transition-opacity duration-300 group-hover:opacity-90" />
+        {room.badge && (
+          <span className="absolute left-3 top-3 rounded-full bg-primary-container px-3 py-1 font-display text-xs font-semibold text-on-primary-container">
+            {room.badge}
+          </span>
+        )}
+        {typeof room.rating === 'number' && (
+          <span className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 font-display text-xs font-semibold text-on-surface">
+            {renderIcon('star', 'h-3.5 w-3.5 text-tertiary')}
+            {room.rating.toFixed(1)}
+          </span>
+        )}
       </div>
 
       <div className="p-6">
         <div className="flex flex-wrap items-center gap-2">
           <p className="font-display text-xs font-semibold uppercase text-on-surface-variant">{room.categoryLabel}</p>
-          <span className="rounded-full bg-surface-container px-2.5 py-1 text-xs font-medium text-on-surface-variant">
-            {room.type}
-          </span>
+          {room.type !== room.categoryLabel && (
+            <span className="rounded-full bg-surface-container px-2.5 py-1 text-xs font-medium text-on-surface-variant">
+              {room.type}
+            </span>
+          )}
         </div>
         <h3 className="mt-1.5 font-display text-xl font-bold text-on-surface">{room.name}</h3>
-        <p className="mt-2 line-clamp-2 text-sm leading-6 text-on-surface-variant">{room.description}</p>
+        <p className="mt-2 line-clamp-2 text-sm leading-6 text-on-surface-variant">
+          {room.description || 'Backend chưa cung cấp mô tả cho phòng này.'}
+        </p>
 
         <div className="mt-4 flex flex-wrap gap-4 text-xs text-on-surface-variant">
           <span className="flex items-center gap-1.5">
@@ -151,11 +156,21 @@ export default function BookingRoomCard({ room, renderIcon, onOpenDetail, onBook
           </span>
           <span
             className={[
-              'rounded-full border px-2.5 py-1 font-display font-semibold',
-              availabilityMeta.subStatusClassName,
+              'rounded-full px-2.5 py-1 font-display font-semibold',
+              room.availabilityKnown
+                ? room.isAvailable
+                  ? 'bg-primary-container text-on-primary-container'
+                  : 'bg-surface-container text-on-surface-variant'
+                : 'bg-surface-container text-on-surface-variant',
             ].join(' ')}
           >
-            {availabilityMeta.subStatus}
+            {room.availabilityKnown
+              ? room.isAvailable
+                ? room.nextAvailableTime
+                  ? `Trống từ ${room.nextAvailableTime}`
+                  : 'Còn trống hôm nay'
+                : 'Kín lịch hôm nay'
+              : 'Xem lịch trống'}
           </span>
         </div>
 
@@ -183,7 +198,7 @@ export default function BookingRoomCard({ room, renderIcon, onOpenDetail, onBook
               availabilityMeta.ctaClassName,
             ].join(' ')}
           >
-            {availabilityMeta.ctaLabel}
+            {room.availabilityKnown ? (room.isAvailable ? 'Đặt ngay' : 'Chọn ngày khác') : 'Xem lịch trống'}
           </button>
         </div>
       </div>

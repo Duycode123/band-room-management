@@ -1,25 +1,25 @@
 import type { BookingStatus, PaymentStatus } from './types'
 
 export const BOOKING_STATUS_LABELS: Record<BookingStatus, string> = {
-  CHO_THANH_TOAN: 'Chờ thanh toán',
-  DA_THANH_TOAN: 'Đã thanh toán',
-  DA_CHECKIN: 'Đang sử dụng',
-  HOAN_TAT: 'Hoàn tất',
-  DA_HUY: 'Đã hủy',
+  PENDING_PAYMENT: 'Cho thanh toan',
+  PAID: 'Da thanh toan',
+  CHECKED_IN: 'Dang su dung',
+  COMPLETED: 'Hoan tat',
+  CANCELLED: 'Da huy',
 }
 
 export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
-  PAID: 'Đã thanh toán',
-  UNPAID: 'Chưa thanh toán',
-  PENDING: 'Đang chờ',
+  PAID: 'Da thanh toan',
+  UNPAID: 'Chua thanh toan',
+  PENDING: 'Dang cho',
 }
 
 export const BOOKING_STATUS_OPTIONS: BookingStatus[] = [
-  'CHO_THANH_TOAN',
-  'DA_THANH_TOAN',
-  'DA_CHECKIN',
-  'HOAN_TAT',
-  'DA_HUY',
+  'PENDING_PAYMENT',
+  'PAID',
+  'CHECKED_IN',
+  'COMPLETED',
+  'CANCELLED',
 ]
 
 export const PAYMENT_STATUS_OPTIONS: PaymentStatus[] = ['PAID', 'UNPAID', 'PENDING']

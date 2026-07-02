@@ -10,4 +10,9 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
     Optional<PaymentTransaction> findByTransactionReference(String transactionReference);
 
     Optional<PaymentTransaction> findByProviderTransactionId(String providerTransactionId);
+
+    Optional<PaymentTransaction> findByTransactionReferenceAndBooking_Customer_Account_Email(
+            String transactionReference,
+            String email
+    );
 }

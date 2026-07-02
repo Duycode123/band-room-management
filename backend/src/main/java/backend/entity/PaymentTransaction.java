@@ -29,7 +29,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "giao_dich_thanh_toan")
+@Table(name = "payment_transaction")
 public class PaymentTransaction {
 
     @Id
@@ -37,38 +37,38 @@ public class PaymentTransaction {
     private Long id;
 
     @ManyToOne(optional = false)
-    @JoinColumn(name = "dat_phong_id", nullable = false)
+    @JoinColumn(name = "booking_id", nullable = false)
     private Booking booking;
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "cong_thanh_toan", nullable = false, columnDefinition = "cong_thanh_toan")
+    @Column(name = "provider", nullable = false, columnDefinition = "payment_provider")
     private PaymentProvider provider;
 
-    @Column(name = "ma_giao_dich", nullable = false, unique = true, length = 100)
+    @Column(name = "transaction_reference", nullable = false, unique = true, length = 100)
     private String transactionReference;
 
-    @Column(name = "ma_giao_dich_cong", unique = true, length = 100)
+    @Column(name = "provider_transaction_id", unique = true, length = 100)
     private String providerTransactionId;
 
-    @Column(name = "so_tien", nullable = false, precision = 12, scale = 2)
+    @Column(name = "amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "trang_thai", nullable = false, columnDefinition = "trang_thai_giao_dich")
+    @Column(name = "status", nullable = false, columnDefinition = "payment_transaction_status")
     private PaymentTransactionStatus status;
 
-    @Column(name = "ma_phan_hoi", length = 20)
+    @Column(name = "response_code", length = 20)
     private String responseCode;
 
-    @Column(name = "thoi_gian_thanh_toan")
+    @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
-    @Column(name = "ngay_tao", nullable = false)
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "ngay_cap_nhat", nullable = false)
+    @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
     @PrePersist
@@ -78,7 +78,7 @@ public class PaymentTransaction {
         updatedAt = now;
 
         if (status == null) {
-            status = PaymentTransactionStatus.KHOI_TAO;
+            status = PaymentTransactionStatus.INITIALIZED;
         }
     }
 

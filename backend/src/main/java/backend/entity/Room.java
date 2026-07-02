@@ -13,18 +13,18 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "phong")
+@Table(name = "room")
 public class Room {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(name = "ten", nullable = false, unique = true)
+    @Column(name = "name", nullable = false, unique = true)
     private String roomName;
 
     @ManyToOne
-    @JoinColumn(name = "hang_phong_id", nullable = false)
+    @JoinColumn(name = "room_tier_id", nullable = false)
     private RoomType roomType;
 
     @Transient
@@ -35,7 +35,7 @@ public class Room {
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "trang_thai", nullable = false, columnDefinition = "trang_thai_phong")
+    @Column(name = "status", nullable = false, columnDefinition = "room_status")
     private RoomStatus status;
 
     @Transient
@@ -56,7 +56,7 @@ public class Room {
         updatedAt = LocalDateTime.now();
 
         if (status == null) {
-            status = RoomStatus.TRONG;
+            status = RoomStatus.AVAILABLE;
         }
     }
 

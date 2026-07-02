@@ -8,12 +8,13 @@ import {
   EQUIPMENT_TYPE_OPTIONS,
 } from '@/lib/admin/equipment/equipmentLabels'
 import { validateEquipmentForm } from '@/lib/admin/equipment/adminEquipmentApi'
-import type { EquipmentFormData } from '@/lib/admin/equipment/types'
+import type { EquipmentFormData, EquipmentRoomOption } from '@/lib/admin/equipment/types'
 
 type EquipmentFormModalProps = {
   open: boolean
   mode: 'create' | 'edit'
   initialData: EquipmentFormData
+  rooms: EquipmentRoomOption[]
   onClose: () => void
   onSubmit: (data: EquipmentFormData) => Promise<void>
 }
@@ -28,6 +29,7 @@ export default function EquipmentFormModal({
   open,
   mode,
   initialData,
+  rooms,
   onClose,
   onSubmit,
 }: EquipmentFormModalProps) {
@@ -37,32 +39,35 @@ export default function EquipmentFormModal({
   const [serverError, setServerError] = useState('')
 
   useEffect(() => {
-    if (open) {
-      setForm(initialData)
-      setErrors({})
-      setServerError('')
-    }
-  }, [open, initialData])
+    if (!open) return
+
+    setForm(initialData)
+    setErrors({})
+    setServerError('')
+  }, [initialData, open])
 
   if (!open) return null
 
-  const set = (patch: Partial<EquipmentFormData>) => setForm((f) => ({ ...f, ...patch }))
+  const set = (patch: Partial<EquipmentFormData>) => setForm((currentForm) => ({ ...currentForm, ...patch }))
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
+
     const validationErrors = validateEquipmentForm(form)
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors)
       return
     }
+
     setErrors({})
     setIsSaving(true)
     setServerError('')
+
     try {
       await onSubmit(form)
       onClose()
-    } catch (err) {
-      setServerError(err instanceof Error ? err.message : 'Không thể lưu thiết bị.')
+    } catch (error) {
+      setServerError(error instanceof Error ? error.message : 'Khong the luu thiet bi.')
     } finally {
       setIsSaving(false)
     }
@@ -72,7 +77,7 @@ export default function EquipmentFormModal({
     <>
       <button
         type="button"
-        aria-label="Đóng form"
+        aria-label="Dong form"
         onClick={onClose}
         className="fixed inset-0 z-50 bg-inverse-surface/50 backdrop-blur-sm"
       />
@@ -90,49 +95,64 @@ export default function EquipmentFormModal({
               className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-brand-orange/20 blur-2xl"
             />
             <p className="relative font-display text-[10px] font-medium uppercase tracking-[0.15em] text-brand-orange">
-              {mode === 'create' ? 'Thêm mới' : 'Chỉnh sửa'}
+              {mode === 'create' ? 'Them moi' : 'Chinh sua'}
             </p>
             <h2 id="equipment-form-title" className="relative font-display text-xl font-bold">
-              {mode === 'create' ? 'Thêm thiết bị mới' : 'Cập nhật thiết bị'}
+              {mode === 'create' ? 'Them thiet bi moi' : 'Cap nhat thiet bi'}
             </h2>
             <p className="relative mt-1 text-xs text-inverse-on-surface/80">
-              Điền thông tin thiết bị cho thuê trong hệ thống BandSpace.
+              Dong bo truc tiep voi API quan ly thiet bi cua backend.
             </p>
           </header>
 
-          <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-1 flex-col overflow-hidden">
+          <form onSubmit={(event) => void handleSubmit(event)} className="flex flex-1 flex-col overflow-hidden">
             <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
               <label className="block">
                 <span className={labelClass}>
-                  Tên thiết bị <span className="text-error">*</span>
+                  Phong <span className="text-error">*</span>
+                </span>
+                <select
+                  value={form.roomId ?? ''}
+                  onChange={(event) => set({ roomId: Number(event.target.value) || null })}
+                  className={inputClass}
+                >
+                  <option value="">Chon phong</option>
+                  {rooms.map((room) => (
+                    <option key={room.roomId} value={room.roomId}>
+                      {room.roomName}
+                    </option>
+                  ))}
+                </select>
+                {errors.roomId && <p className="mt-1 text-xs text-error">{errors.roomId}</p>}
+              </label>
+
+              <label className="block">
+                <span className={labelClass}>
+                  Ten thiet bi <span className="text-error">*</span>
                 </span>
                 <input
                   type="text"
                   value={form.equipmentName}
-                  onChange={(e) => set({ equipmentName: e.target.value })}
+                  onChange={(event) => set({ equipmentName: event.target.value })}
                   className={inputClass}
-                  placeholder="VD: Marshall MG30 Guitar Amp"
+                  placeholder="VD: Marshall MG30"
                 />
-                {errors.equipmentName && (
-                  <p className="mt-1 text-xs text-error">{errors.equipmentName}</p>
-                )}
+                {errors.equipmentName && <p className="mt-1 text-xs text-error">{errors.equipmentName}</p>}
               </label>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
                   <span className={labelClass}>
-                    Loại thiết bị <span className="text-error">*</span>
+                    Loai thiet bi <span className="text-error">*</span>
                   </span>
                   <select
                     value={form.equipmentType}
-                    onChange={(e) =>
-                      set({ equipmentType: e.target.value as EquipmentFormData['equipmentType'] })
-                    }
+                    onChange={(event) => set({ equipmentType: event.target.value as EquipmentFormData['equipmentType'] })}
                     className={inputClass}
                   >
-                    {EQUIPMENT_TYPE_OPTIONS.map((t) => (
-                      <option key={t} value={t}>
-                        {EQUIPMENT_TYPE_LABELS[t]}
+                    {EQUIPMENT_TYPE_OPTIONS.map((type) => (
+                      <option key={type} value={type}>
+                        {EQUIPMENT_TYPE_LABELS[type]}
                       </option>
                     ))}
                   </select>
@@ -140,84 +160,34 @@ export default function EquipmentFormModal({
 
                 <label className="block">
                   <span className={labelClass}>
-                    Trạng thái <span className="text-error">*</span>
+                    Trang thai <span className="text-error">*</span>
                   </span>
                   <select
                     value={form.status}
-                    onChange={(e) => set({ status: e.target.value as EquipmentFormData['status'] })}
+                    onChange={(event) => set({ status: event.target.value as EquipmentFormData['status'] })}
                     className={inputClass}
                   >
-                    {EQUIPMENT_STATUS_OPTIONS.map((s) => (
-                      <option key={s} value={s}>
-                        {EQUIPMENT_STATUS_LABELS[s]}
+                    {EQUIPMENT_STATUS_OPTIONS.map((status) => (
+                      <option key={status} value={status}>
+                        {EQUIPMENT_STATUS_LABELS[status]}
                       </option>
                     ))}
                   </select>
                 </label>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="block">
-                  <span className={labelClass}>
-                    Số lượng <span className="text-error">*</span>
-                  </span>
-                  <input
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={form.quantity}
-                    onChange={(e) => set({ quantity: parseInt(e.target.value, 10) || 0 })}
-                    className={inputClass}
-                  />
-                  {errors.quantity && <p className="mt-1 text-xs text-error">{errors.quantity}</p>}
-                </label>
-
-                <label className="block">
-                  <span className={labelClass}>
-                    Giá thuê (VND) <span className="text-error">*</span>
-                  </span>
-                  <input
-                    type="number"
-                    min={0}
-                    step={1000}
-                    value={form.rentalPrice}
-                    onChange={(e) => set({ rentalPrice: parseFloat(e.target.value) || 0 })}
-                    className={inputClass}
-                  />
-                  {errors.rentalPrice && (
-                    <p className="mt-1 text-xs text-error">{errors.rentalPrice}</p>
-                  )}
-                </label>
-              </div>
-
               <label className="block">
-                <span className={labelClass}>Mô tả</span>
+                <span className={labelClass}>Ghi chu</span>
                 <textarea
-                  value={form.description}
-                  onChange={(e) => set({ description: e.target.value })}
-                  rows={3}
-                  maxLength={500}
+                  value={form.notes}
+                  onChange={(event) => set({ notes: event.target.value })}
+                  rows={4}
+                  maxLength={1000}
                   className="w-full rounded-xl border border-outline bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface outline-none transition-all focus:border-brand-orange focus:bg-white focus:ring-2 focus:ring-brand-orange/15"
-                  placeholder="Mô tả ngắn về thiết bị..."
+                  placeholder="Mo ta nhanh tinh trang hoac cach su dung..."
                 />
-                <p className="mt-1 text-right text-[10px] text-on-surface-variant">
-                  {form.description.length}/500
-                </p>
-                {errors.description && (
-                  <p className="mt-1 text-xs text-error">{errors.description}</p>
-                )}
-              </label>
-
-              <label className="block">
-                <span className={labelClass}>URL hình ảnh</span>
-                <input
-                  type="url"
-                  value={form.imageUrl}
-                  onChange={(e) => set({ imageUrl: e.target.value })}
-                  className={inputClass}
-                  placeholder="https://... hoặc /images/..."
-                />
-                {errors.imageUrl && <p className="mt-1 text-xs text-error">{errors.imageUrl}</p>}
+                <p className="mt-1 text-right text-[10px] text-on-surface-variant">{form.notes.length}/1000</p>
+                {errors.notes && <p className="mt-1 text-xs text-error">{errors.notes}</p>}
               </label>
 
               {serverError && (
@@ -234,14 +204,14 @@ export default function EquipmentFormModal({
                 disabled={isSaving}
                 className="rounded-xl border border-outline px-5 py-2.5 font-display text-sm font-medium text-on-surface-variant hover:bg-white disabled:opacity-50"
               >
-                Hủy
+                Huy
               </button>
               <button
                 type="submit"
                 disabled={isSaving}
                 className="rounded-xl bg-brand-orange px-5 py-2.5 font-display text-sm font-medium text-white shadow-md shadow-brand-orange/20 hover:bg-brand-orangeHover disabled:opacity-50"
               >
-                {isSaving ? 'Đang lưu...' : 'Lưu thiết bị'}
+                {isSaving ? 'Dang luu...' : 'Luu thiet bi'}
               </button>
             </footer>
           </form>

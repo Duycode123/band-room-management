@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import BandRoomHeader from '@/components/layout/BandRoomHeader'
 import { useAuth } from '@/contexts/AuthContext'
 import {
@@ -18,18 +18,14 @@ type Message = {
   text: string
 }
 
-const MAX_AVATAR_SIZE = 2 * 1024 * 1024
-const ACCEPTED_AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp']
-
 const roleLabels: Record<UserRole, string> = {
   ADMIN: 'Admin',
-  STAFF: 'Nhân viên',
-  CUSTOMER: 'Khách hàng',
+  STAFF: 'Nhan vien',
+  CUSTOMER: 'Khach hang',
 }
 
 export default function CustomerProfileClient() {
   const { user, login, isLoading } = useAuth()
-  const avatarInputRef = useRef<HTMLInputElement>(null)
   const [profile, setProfile] = useState<CustomerProfile | null>(null)
   const [profileForm, setProfileForm] = useState<UpdateCustomerProfilePayload>({
     fullName: '',
@@ -62,12 +58,11 @@ export default function CustomerProfileClient() {
           fullName: currentProfile.fullName,
           email: currentProfile.email,
           phone: currentProfile.phone,
-          avatarUrl: currentProfile.avatarUrl,
         })
         setAvatarPreview(currentProfile.avatarUrl ?? null)
       } catch {
         if (!mounted) return
-        setProfileMessage({ type: 'error', text: 'Không thể tải thông tin hồ sơ. Vui lòng thử lại.' })
+        setProfileMessage({ type: 'error', text: 'Khong the tai thong tin ho so. Vui long thu lai.' })
       } finally {
         if (mounted) {
           setIsFetchingProfile(false)
@@ -84,14 +79,6 @@ export default function CustomerProfileClient() {
     }
   }, [isLoading, user])
 
-  useEffect(() => {
-    return () => {
-      if (avatarPreview?.startsWith('blob:')) {
-        URL.revokeObjectURL(avatarPreview)
-      }
-    }
-  }, [avatarPreview])
-
   const displayName = getCustomerDisplayName({
     ...(profile ?? { role: 'CUSTOMER' as const }),
     fullName: profileForm.fullName || profile?.fullName || '',
@@ -107,15 +94,15 @@ export default function CustomerProfileClient() {
     const phonePattern = /^[0-9]{9,11}$/
 
     if (!profileForm.fullName.trim()) {
-      return 'Họ tên không được để trống.'
+      return 'Ho ten khong duoc de trong.'
     }
 
     if (!emailPattern.test(profileForm.email.trim())) {
-      return 'Email chưa đúng định dạng.'
+      return 'Email chua dung dinh dang.'
     }
 
     if (profileForm.phone.trim() && !phonePattern.test(profileForm.phone.trim())) {
-      return 'Số điện thoại phải có 9-11 chữ số.'
+      return 'So dien thoai phai co 9-11 chu so.'
     }
 
     return null
@@ -176,35 +163,28 @@ export default function CustomerProfileClient() {
         fullName: profileForm.fullName.trim(),
         email: profileForm.email.trim(),
         phone: profileForm.phone.trim(),
-        avatarUrl,
       })
 
-      const mergedProfile = {
-        ...updatedProfile,
-        avatarUrl,
-      }
-
-      setProfile(mergedProfile)
+      setProfile(updatedProfile)
       setProfileForm({
-        fullName: mergedProfile.fullName,
-        email: mergedProfile.email,
-        phone: mergedProfile.phone,
-        avatarUrl: mergedProfile.avatarUrl,
+        fullName: updatedProfile.fullName,
+        email: updatedProfile.email,
+        phone: updatedProfile.phone,
       })
       login({
         ...(user ?? { role: 'CUSTOMER' as const }),
-        id: mergedProfile.id ? String(mergedProfile.id) : user?.id,
-        fullName: mergedProfile.fullName,
-        name: mergedProfile.fullName,
-        email: mergedProfile.email,
-        phone: mergedProfile.phone,
-        avatarUrl: mergedProfile.avatarUrl,
+        id: updatedProfile.id ? String(updatedProfile.id) : user?.id,
+        fullName: updatedProfile.fullName,
+        name: updatedProfile.fullName,
+        email: updatedProfile.email,
+        phone: updatedProfile.phone,
+        avatarUrl: updatedProfile.avatarUrl,
       })
-      setProfileMessage({ type: 'success', text: 'Cập nhật thông tin thành công.' })
+      setProfileMessage({ type: 'success', text: 'Cap nhat thong tin thanh cong.' })
     } catch (error) {
       setProfileMessage({
         type: 'error',
-        text: error instanceof Error ? error.message : 'Không thể cập nhật thông tin. Vui lòng thử lại.',
+        text: error instanceof Error ? error.message : 'Khong the cap nhat thong tin. Vui long thu lai.',
       })
     } finally {
       setIsSavingProfile(false)
@@ -225,43 +205,17 @@ export default function CustomerProfileClient() {
               <div className="min-w-0">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <h1 className="font-display text-3xl font-bold tracking-tight">
-                    {isFetchingProfile ? 'Đang tải hồ sơ' : displayName}
+                    {isFetchingProfile ? 'Dang tai ho so' : displayName}
                   </h1>
                   <span className="rounded-full bg-[#FFE8D6] px-3 py-1 font-display text-xs font-bold uppercase tracking-wide text-[#6B3200]">
                     {roleLabels[role]}
                   </span>
                 </div>
-                <p className="text-[#5C5348]">{isFetchingProfile ? 'Đang đồng bộ thông tin tài khoản...' : displayEmail}</p>
+                <p className="text-[#5C5348]">{isFetchingProfile ? 'Dang dong bo thong tin tai khoan...' : displayEmail}</p>
                 <p className="mt-2 max-w-2xl text-sm text-[#5C5348]">
-                  Quản lý thông tin cá nhân dùng cho đặt phòng.
+                  Ho so nay dang doc va ghi truc tiep vao backend. Avatar hien chi o che do xem neu backend cung cap.
                 </p>
               </div>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <input
-                ref={avatarInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={handleAvatarChange}
-                className="hidden"
-              />
-              <button
-                type="button"
-                onClick={() => avatarInputRef.current?.click()}
-                className="h-11 rounded-2xl bg-[#FF7518] px-5 font-display text-sm font-semibold text-white transition hover:bg-[#E6640F] focus:outline-none focus:ring-2 focus:ring-[#FF7518]/30"
-              >
-                Thay đổi ảnh
-              </button>
-              {avatarUrl && (
-                <button
-                  type="button"
-                  onClick={handleRemoveAvatar}
-                  className="h-11 rounded-2xl border border-[#C9C2B6] bg-white px-5 font-display text-sm font-semibold text-[#1A1C1E] transition hover:bg-[#FAF8F4] focus:outline-none focus:ring-2 focus:ring-[#FF7518]/20"
-                >
-                  Xóa ảnh
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -272,14 +226,14 @@ export default function CustomerProfileClient() {
             className="rounded-[24px] border border-[#E8E4DC] bg-white p-6 shadow-[0_4px_24px_rgba(26,28,30,0.06)] md:p-8"
           >
             <div className="mb-6">
-              <h2 className="font-display text-xl font-bold">Thông tin cá nhân</h2>
+              <h2 className="font-display text-xl font-bold">Thong tin ca nhan</h2>
               <p className="mt-1 text-sm text-[#5C5348]">
-                Cập nhật thông tin liên hệ dùng cho đặt phòng.
+                Cap nhat thong tin lien he dung cho dat phong.
               </p>
             </div>
 
             <div className="grid gap-4">
-              <FormField label="Họ tên">
+              <FormField label="Ho ten">
                 <input
                   value={profileForm.fullName}
                   disabled={isFetchingProfile}
@@ -298,12 +252,12 @@ export default function CustomerProfileClient() {
                 />
               </FormField>
 
-              <FormField label="Số điện thoại">
+              <FormField label="So dien thoai">
                 <input
                   value={profileForm.phone}
                   disabled={isFetchingProfile}
                   onChange={(event) => setProfileForm((form) => ({ ...form, phone: event.target.value }))}
-                  placeholder="Ví dụ: 0901234567"
+                  placeholder="Vi du: 0901234567"
                   className="h-12 w-full rounded-2xl border border-[#C9C2B6] bg-white px-4 text-sm outline-none transition placeholder:text-[#8A8176] focus:border-[#FF7518] focus:ring-2 focus:ring-[#FF7518]/20 disabled:cursor-wait disabled:bg-[#FAF8F4]"
                 />
               </FormField>
@@ -316,7 +270,7 @@ export default function CustomerProfileClient() {
               disabled={isSavingProfile || isFetchingProfile}
               className="mt-6 h-12 rounded-2xl bg-[#FF7518] px-6 font-display font-semibold text-white transition hover:bg-[#E6640F] focus:outline-none focus:ring-2 focus:ring-[#FF7518]/30 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSavingProfile ? 'Đang lưu' : 'Lưu thay đổi'}
+              {isSavingProfile ? 'Dang luu' : 'Luu thay doi'}
             </button>
           </form>
 
@@ -324,15 +278,15 @@ export default function CustomerProfileClient() {
             <div className="mb-5 flex items-center gap-3">
               <AvatarPreview avatarUrl={avatarUrl} initial={avatarInitial} size="small" />
               <div className="min-w-0">
-                <h2 className="font-display text-lg font-bold">Hồ sơ đặt phòng</h2>
-                <p className="truncate text-sm text-[#5C5348]">{displayEmail || 'Email sẽ hiển thị sau khi đồng bộ.'}</p>
+                <h2 className="font-display text-lg font-bold">Ho so dat phong</h2>
+                <p className="truncate text-sm text-[#5C5348]">{displayEmail || 'Email se hien thi sau khi dong bo.'}</p>
               </div>
             </div>
             <p className="text-sm leading-6 text-[#5C5348]">
-              Thông tin này được dùng để xác nhận lịch đặt phòng và liên hệ khi cần.
+              Thong tin nay duoc dung de xac nhan lich dat phong va lien he khi can.
             </p>
             <div className="mt-5 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4 text-sm text-[#5C5348]">
-              Mọi thay đổi sẽ được đồng bộ với thông tin hiển thị trên menu tài khoản.
+              Avatar upload da duoc loai khoi flow cap nhat vi backend hien chua co field luu truong nay.
             </div>
           </aside>
         </div>
@@ -363,7 +317,7 @@ function AvatarPreview({
       ].join(' ')}
     >
       {avatarUrl ? (
-        <img src={avatarUrl} alt="Ảnh đại diện" className="h-full w-full object-cover" />
+        <img src={avatarUrl} alt="Anh dai dien" className="h-full w-full object-cover" />
       ) : (
         initial
       )}

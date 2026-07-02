@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   formatCurrency,
   getPaymentMethodLabel,
@@ -37,17 +38,24 @@ export default function PaymentReturnStatus() {
           </div>
 
           <h1 className="mt-6 font-display text-3xl font-bold tracking-tight">
-            {missingBooking ? 'Không tìm thấy mã đặt phòng' : content.title}
+            {missingBooking ? 'Khong tim thay ma dat phong' : content.title}
           </h1>
           <p className="mx-auto mt-3 max-w-xl text-[#5C5348]">
-            {missingBooking ? 'Vui lòng kiểm tra lại đường dẫn thanh toán hoặc quay về trang chủ.' : content.message}
+            {missingBooking ? 'Vui long kiem tra lai duong dan thanh toan hoac quay ve trang chu.' : content.message}
           </p>
 
+          {error && (
+            <p className="mt-4 rounded-2xl border border-[#C62828]/20 bg-[#FFEBEE] px-4 py-3 text-sm text-[#C62828]">
+              {error}
+            </p>
+          )}
+
           <div className="mt-6 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4 text-left">
-            <TransactionRow label="Mã đặt phòng" value={bookingId || 'Chưa có'} />
-            <TransactionRow label="Trạng thái" value={status === 'unknown' ? 'Không xác định' : content.title} />
-            <TransactionRow label="Số tiền" value={amount > 0 ? formatCurrency(amount) : 'Chưa xác định'} />
-            <TransactionRow label="Phương thức" value={getPaymentMethodLabel(method)} />
+            <TransactionRow label="Ma dat phong" value={bookingId || 'Chua co'} />
+            <TransactionRow label="Trang thai" value={status === 'unknown' ? 'Khong xac dinh' : content.title} />
+            <TransactionRow label="So tien" value={amount > 0 ? formatCurrency(amount) : 'Chua xac dinh'} />
+            <TransactionRow label="Phuong thuc" value={getPaymentMethodLabel(method)} />
+            {paymentId && <TransactionRow label="Ma giao dich" value={paymentId} />}
           </div>
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
@@ -63,7 +71,7 @@ export default function PaymentReturnStatus() {
               href="/"
               className="flex h-12 flex-1 items-center justify-center rounded-2xl border border-[#C9C2B6] bg-white font-display font-semibold text-[#1A1C1E] transition hover:bg-[#FAF8F4]"
             >
-              Quay về trang chủ
+              Quay ve trang chu
             </Link>
           </div>
         </div>

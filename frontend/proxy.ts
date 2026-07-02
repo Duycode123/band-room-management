@@ -38,6 +38,5 @@ export const config = {
     '/customer/accessibility',
     '/customer/accessibility/:path*',
     '/profile/:path*',
-    '/booking/confirmation/:path*',
   ],
 }

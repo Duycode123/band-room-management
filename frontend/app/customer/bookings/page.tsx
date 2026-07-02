@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useState, type KeyboardEvent } from 'react'
 import {
   CustomerCard,
   CustomerPageHeader,
@@ -21,26 +21,9 @@ import {
   type BookingHistoryItem,
   type BookingReview,
 } from '@/lib/customer-booking-service'
-import type { ReviewImage } from '@/lib/review-service'
 
-const minTitleLength = 5
-const maxTitleLength = 80
 const minContentLength = 20
 const maxContentLength = 700
-const maxReviewImages = 3
-const maxReviewImageSize = 3 * 1024 * 1024
-const acceptedImageTypes = ['image/jpeg', 'image/png', 'image/webp']
-
-const reviewTagOptions = [
-  'Phòng sạch',
-  'Cách âm tốt',
-  'Thiết bị ổn',
-  'Âm thanh rõ',
-  'Nhân viên hỗ trợ tốt',
-  'Giá hợp lý',
-  'Dễ đặt lịch',
-  'Phù hợp tập band',
-]
 
 export default function CustomerBookingsPage() {
   const { user } = useAuth()
@@ -64,8 +47,8 @@ export default function CustomerBookingsPage() {
     }
   }, [])
 
-  const handleSelectBooking = async (bookingId: string) => {
-    const detail = await getBookingDetail(bookingId)
+  const handleSelectBooking = async (bookingId: string, backendBookingId?: number) => {
+    const detail = await getBookingDetail(bookingId, backendBookingId)
     if (detail) setSelectedBooking(detail)
   }
 
@@ -93,16 +76,16 @@ export default function CustomerBookingsPage() {
   return (
     <CustomerPageShell>
       <CustomerPageHeader
-        title="Lịch sử đặt phòng"
-        description="Theo dõi lịch đặt, xem chi tiết và gửi đánh giá sau khi hoàn tất buổi sử dụng."
+        title="Lich su dat phong"
+        description="Theo doi lich dat, xem chi tiet va gui danh gia sau khi hoan tat buoi su dung."
       />
 
       <CustomerCard>
         {isLoading ? (
-          <p className="text-sm text-[#5C5348]">Đang tải lịch sử đặt phòng...</p>
+          <p className="text-sm text-[#5C5348]">Dang tai lich su dat phong...</p>
         ) : bookings.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-[#E8E4DC] bg-[#FAF8F4] p-6 text-sm text-[#5C5348]">
-            Bạn chưa có lịch đặt phòng nào.
+            Ban chua co lich dat phong nao.
           </div>
         ) : (
           <div className="grid gap-4">
@@ -110,7 +93,7 @@ export default function CustomerBookingsPage() {
               <button
                 key={booking.bookingId}
                 type="button"
-                onClick={() => void handleSelectBooking(booking.bookingId)}
+                onClick={() => void handleSelectBooking(booking.bookingId, booking.backendBookingId)}
                 className="grid cursor-pointer gap-4 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-5 text-left transition hover:-translate-y-0.5 hover:border-[#FF7518]/45 hover:bg-white hover:shadow-[0_14px_34px_rgba(26,28,30,0.08)] md:grid-cols-[1fr_auto]"
               >
                 <div className="min-w-0">
@@ -119,11 +102,11 @@ export default function CustomerBookingsPage() {
                     <StatusBadge status={booking.status} />
                     {booking.review && (
                       <span className="rounded-full border border-[#FF7518]/25 bg-[#FFE8D6] px-3 py-1 font-display text-xs font-bold text-[#6B3200]">
-                        Đã đánh giá
+                        Da danh gia
                       </span>
                     )}
                   </div>
-                  <p className="mt-2 text-sm text-[#5C5348]">Mã đặt phòng: {booking.bookingId}</p>
+                  <p className="mt-2 text-sm text-[#5C5348]">Ma dat phong: {booking.bookingId}</p>
                   <p className="mt-1 text-sm text-[#5C5348]">
                     {booking.date} · {booking.startTime} - {booking.endTime}
                   </p>
@@ -132,7 +115,7 @@ export default function CustomerBookingsPage() {
                   <p className="font-display text-xl font-bold text-[#FF7518]">
                     {formatCurrency(booking.totalAmount)}
                   </p>
-                  <p className="mt-1 text-xs font-medium text-[#5C5348]">Bấm để xem chi tiết</p>
+                  <p className="mt-1 text-xs font-medium text-[#5C5348]">Bam de xem chi tiet</p>
                 </div>
               </button>
             ))}
@@ -178,18 +161,18 @@ function BookingDetailModal({
         <div className="flex items-start justify-between gap-4 border-b border-[#E8E4DC] bg-white px-5 py-5 sm:px-6">
           <div>
             <p className="font-display text-xs font-bold uppercase tracking-[0.14em] text-[#FF7518]">
-              Chi tiết đặt phòng
+              Chi tiet dat phong
             </p>
             <h2 id="booking-detail-title" className="mt-2 font-display text-2xl font-bold text-[#1A1C1E]">
               {booking.roomName}
             </h2>
-            <p className="mt-1 text-sm text-[#5C5348]">Mã đặt phòng: {booking.bookingId}</p>
+            <p className="mt-1 text-sm text-[#5C5348]">Ma dat phong: {booking.bookingId}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E8E4DC] bg-white text-xl leading-none text-[#1A1C1E] transition hover:bg-[#FFE8D6]"
-            aria-label="Đóng chi tiết đặt phòng"
+            aria-label="Dong chi tiet dat phong"
           >
             X
           </button>
@@ -198,16 +181,16 @@ function BookingDetailModal({
         <div className="grid gap-5 p-5 sm:p-6">
           <section className="rounded-2xl border border-[#E8E4DC] bg-white p-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <h3 className="font-display text-lg font-bold text-[#1A1C1E]">Thông tin đặt phòng</h3>
+              <h3 className="font-display text-lg font-bold text-[#1A1C1E]">Thong tin dat phong</h3>
               <StatusBadge status={booking.status} />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Detail label="Ngày đặt" value={booking.date} />
-              <Detail label="Khung giờ" value={`${booking.startTime} - ${booking.endTime}`} />
-              <Detail label="Tổng tiền" value={formatCurrency(booking.totalAmount)} />
-              <Detail label="Phương thức thanh toán" value={booking.paymentMethod || 'Chưa cập nhật'} />
-              <Detail label="Dịch vụ thuê thêm" value={booking.addons?.length ? booking.addons.join(', ') : 'Không có'} />
-              <Detail label="Ghi chú" value={booking.note || 'Không có ghi chú'} />
+              <Detail label="Ngay dat" value={booking.date} />
+              <Detail label="Khung gio" value={`${booking.startTime} - ${booking.endTime}`} />
+              <Detail label="Tong tien" value={formatCurrency(booking.totalAmount)} />
+              <Detail label="Phuong thuc thanh toan" value={booking.paymentMethod || 'Chua cap nhat'} />
+              <Detail label="Dich vu thue them" value="Khong co contract backend" />
+              <Detail label="Ghi chu" value={booking.note || 'Khong co ghi chu'} />
             </div>
           </section>
 
@@ -227,16 +210,12 @@ function ReviewSection({
   reviewerName: string
   onReviewSubmitted: (review: BookingReview) => void
 }) {
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const [rating, setRating] = useState(0)
   const [hoverRating, setHoverRating] = useState(0)
-  const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [images, setImages] = useState<ReviewImage[]>([])
-  const [imageError, setImageError] = useState('')
   const [restoreMessage, setRestoreMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  const [submitError, setSubmitError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [draftReady, setDraftReady] = useState(false)
 
@@ -247,17 +226,11 @@ function ReviewSection({
 
     if (draft) {
       setRating(draft.rating)
-      setTitle(draft.title.slice(0, maxTitleLength))
       setContent(draft.content.slice(0, maxContentLength))
-      setSelectedTags(draft.selectedTags.filter((tag) => reviewTagOptions.includes(tag)))
-      setImages(draft.images.slice(0, maxReviewImages))
-      setRestoreMessage('Bản nháp đánh giá đã được khôi phục.')
+      setRestoreMessage('Ban nhap danh gia da duoc khoi phuc.')
     } else {
       setRating(0)
-      setTitle('')
       setContent('')
-      setSelectedTags([])
-      setImages([])
       setRestoreMessage('')
     }
 
@@ -265,29 +238,24 @@ function ReviewSection({
   }, [booking.bookingId, booking.review])
 
   const validation = useMemo(() => {
-    const trimmedTitle = title.trim()
     const trimmedContent = content.trim()
 
     return {
-      rating: rating < 1 ? 'Vui lòng chọn số sao đánh giá.' : '',
-      title: trimmedTitle.length < minTitleLength ? 'Tiêu đề cần ít nhất 5 ký tự.' : '',
-      content: trimmedContent.length < minContentLength ? 'Nội dung đánh giá cần ít nhất 20 ký tự.' : '',
+      rating: rating < 1 ? 'Vui long chon so sao danh gia.' : '',
+      content: trimmedContent.length < minContentLength ? 'Noi dung danh gia can it nhat 20 ky tu.' : '',
     }
-  }, [content, rating, title])
+  }, [content, rating])
 
   const isFormValid =
     !validation.rating &&
-    !validation.title &&
     !validation.content &&
-    content.length <= maxContentLength &&
-    !imageError
+    content.length <= maxContentLength
 
   useEffect(() => {
     if (!draftReady || booking.review) return
 
     const timeout = window.setTimeout(() => {
-      const hasDraftContent =
-        rating > 0 || title.trim().length > 0 || content.trim().length > 0 || selectedTags.length > 0 || images.length > 0
+      const hasDraftContent = rating > 0 || content.trim().length > 0
 
       if (!hasDraftContent) {
         clearReviewDraft(booking.bookingId)
@@ -296,15 +264,12 @@ function ReviewSection({
 
       saveReviewDraft(booking.bookingId, {
         rating,
-        title,
         content,
-        selectedTags,
-        images,
       })
     }, 500)
 
     return () => window.clearTimeout(timeout)
-  }, [booking.bookingId, booking.review, content, draftReady, images, rating, selectedTags, title])
+  }, [booking.bookingId, booking.review, content, draftReady, rating])
 
   if (booking.review) {
     return <SubmittedReview review={booking.review} reviewerName={reviewerName} />
@@ -313,61 +278,12 @@ function ReviewSection({
   if (!canReviewBooking(booking)) {
     return (
       <section className="rounded-2xl border border-[#E8E4DC] bg-white p-5">
-        <h3 className="font-display text-lg font-bold text-[#1A1C1E]">Đánh giá phòng</h3>
+        <h3 className="font-display text-lg font-bold text-[#1A1C1E]">Danh gia phong</h3>
         <p className="mt-3 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] px-4 py-3 text-sm text-[#5C5348]">
-          Bạn có thể đánh giá sau khi hoàn tất buổi đặt phòng.
+          Ban co the danh gia sau khi buoi dat phong da hoan tat tren backend.
         </p>
       </section>
     )
-  }
-
-  const toggleTag = (tag: string) => {
-    setSelectedTags((currentTags) =>
-      currentTags.includes(tag) ? currentTags.filter((item) => item !== tag) : [...currentTags, tag],
-    )
-  }
-
-  const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? [])
-    event.target.value = ''
-    setImageError('')
-
-    if (files.length === 0) return
-
-    const availableSlots = maxReviewImages - images.length
-    const nextFiles = files.slice(0, availableSlots)
-
-    if (files.length > availableSlots) {
-      setImageError('Chỉ được upload tối đa 3 ảnh.')
-    }
-
-    nextFiles.forEach((file) => {
-      if (!acceptedImageTypes.includes(file.type)) {
-        setImageError('Chỉ hỗ trợ ảnh JPG, PNG hoặc WEBP.')
-        return
-      }
-
-      if (file.size > maxReviewImageSize) {
-        setImageError('Ảnh không được vượt quá 3MB.')
-        return
-      }
-
-      const reader = new FileReader()
-      reader.onload = () => {
-        if (typeof reader.result !== 'string') return
-        const previewUrl = reader.result
-
-        setImages((currentImages) => [
-          ...currentImages,
-          {
-            id: `review-image-${Date.now()}-${file.name}`,
-            name: file.name,
-            previewUrl,
-          },
-        ].slice(0, maxReviewImages))
-      }
-      reader.readAsDataURL(file)
-    })
   }
 
   const handleStarKeyDown = (event: KeyboardEvent<HTMLButtonElement>, starValue: number) => {
@@ -382,21 +298,22 @@ function ReviewSection({
 
     setIsSubmitting(true)
     setSuccessMessage('')
+    setSubmitError('')
 
     try {
       const review = await submitBookingReview({
         bookingId: booking.bookingId,
+        backendBookingId: booking.backendBookingId,
         roomId: booking.roomId,
         customerName: reviewerName,
         rating,
-        title,
         content,
-        tags: selectedTags,
-        images,
       })
       clearReviewDraft(booking.bookingId)
       onReviewSubmitted(review)
-      setSuccessMessage('Cảm ơn bạn đã gửi đánh giá.')
+      setSuccessMessage('Cam on ban da gui danh gia.')
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Khong the gui danh gia. Vui long thu lai.')
     } finally {
       setIsSubmitting(false)
     }
@@ -406,11 +323,13 @@ function ReviewSection({
     <section className="rounded-2xl border border-[#E8E4DC] bg-white p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="font-display text-lg font-bold text-[#1A1C1E]">Đánh giá phòng</h3>
-          <p className="mt-1 text-sm text-[#5C5348]">Chia sẻ trải nghiệm để những khách hàng sau chọn phòng tốt hơn.</p>
+          <h3 className="font-display text-lg font-bold text-[#1A1C1E]">Danh gia phong</h3>
+          <p className="mt-1 text-sm text-[#5C5348]">
+            Form nay da bo title, tag va image vi backend hien chi luu rating va content.
+          </p>
         </div>
         <span className="rounded-full bg-[#FFE8D6] px-3 py-1 font-display text-xs font-bold text-[#6B3200]">
-          Backend-ready
+          Backend-only
         </span>
       </div>
 
@@ -421,7 +340,7 @@ function ReviewSection({
       )}
 
       <div className="mt-5">
-        <p className="font-display text-xs font-bold uppercase tracking-wider text-[#5C5348]">Số sao</p>
+        <p className="font-display text-xs font-bold uppercase tracking-wider text-[#5C5348]">So sao</p>
         <div className="mt-2 flex gap-1" onMouseLeave={() => setHoverRating(0)}>
           {Array.from({ length: 5 }, (_, index) => {
             const starValue = index + 1
@@ -446,22 +365,13 @@ function ReviewSection({
         {validation.rating && <FieldError message={validation.rating} />}
       </div>
 
-      <FormTextInput
-        label="Tiêu đề đánh giá"
-        value={title}
-        maxLength={maxTitleLength}
-        placeholder="Ví dụ: Phòng sạch, âm thanh tốt"
-        error={validation.title}
-        onChange={(value) => setTitle(value.slice(0, maxTitleLength))}
-      />
-
       <label className="mt-4 block">
-        <span className="font-display text-xs font-bold uppercase tracking-wider text-[#5C5348]">Nội dung đánh giá</span>
+        <span className="font-display text-xs font-bold uppercase tracking-wider text-[#5C5348]">Noi dung danh gia</span>
         <textarea
           value={content}
           onChange={(event) => setContent(event.target.value.slice(0, maxContentLength))}
           rows={5}
-          placeholder="Chia sẻ trải nghiệm của bạn về phòng tập, thiết bị, âm thanh và nhân viên hỗ trợ."
+          placeholder="Chia se trai nghiem cua ban ve phong tap, thiet bi, am thanh va ho tro tai studio."
           className="mt-2 w-full resize-none rounded-2xl border border-[#C9C2B6] bg-white px-4 py-3 text-sm text-[#1A1C1E] outline-none transition placeholder:text-[#8A8176] focus:border-[#FF7518] focus:ring-2 focus:ring-[#FF7518]/20"
         />
       </label>
@@ -470,78 +380,8 @@ function ReviewSection({
         {validation.content && <FieldError message={validation.content} />}
       </div>
 
-      <div className="mt-5">
-        <p className="font-display text-xs font-bold uppercase tracking-wider text-[#5C5348]">Điểm nổi bật</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {reviewTagOptions.map((tag) => {
-            const selected = selectedTags.includes(tag)
-
-            return (
-              <button
-                key={tag}
-                type="button"
-                onClick={() => toggleTag(tag)}
-                className={[
-                  'rounded-full border px-3 py-2 font-display text-xs font-bold transition',
-                  selected
-                    ? 'border-[#FF7518] bg-[#FFE8D6] text-[#6B3200]'
-                    : 'border-[#E8E4DC] bg-white text-[#5C5348] hover:border-[#FF7518] hover:bg-[#FFF8F2]',
-                ].join(' ')}
-                aria-pressed={selected}
-              >
-                {tag}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      <div className="mt-5">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="font-display text-xs font-bold uppercase tracking-wider text-[#5C5348]">Ảnh trải nghiệm</p>
-            <p className="mt-1 text-xs text-[#5C5348]">Tối đa 3 ảnh JPG, PNG hoặc WEBP. Mỗi ảnh tối đa 3MB.</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={images.length >= maxReviewImages}
-            className="h-10 rounded-2xl border border-[#C9C2B6] bg-white px-4 font-display text-xs font-bold text-[#1A1C1E] transition hover:border-[#FF7518] hover:bg-[#FFF8F2] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            Thêm ảnh
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            multiple
-            onChange={handleImageChange}
-            className="hidden"
-          />
-        </div>
-        {imageError && <FieldError message={imageError} />}
-        {images.length > 0 && (
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            {images.map((image) => (
-              <div key={image.id} className="overflow-hidden rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4]">
-                <img src={image.previewUrl} alt={image.name} className="h-28 w-full object-cover" />
-                <div className="flex items-center justify-between gap-2 p-2">
-                  <span className="min-w-0 truncate text-xs text-[#5C5348]">{image.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => setImages((currentImages) => currentImages.filter((item) => item.id !== image.id))}
-                    className="shrink-0 rounded-lg px-2 py-1 font-display text-xs font-bold text-[#C62828] hover:bg-[#FFEBEE]"
-                  >
-                    Xóa
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
       {successMessage && <p className="mt-4 text-sm font-semibold text-[#0A4D27]">{successMessage}</p>}
+      {submitError && <p className="mt-4 text-sm font-semibold text-[#C62828]">{submitError}</p>}
 
       <button
         type="button"
@@ -549,7 +389,7 @@ function ReviewSection({
         disabled={!isFormValid || isSubmitting}
         className="mt-5 h-12 rounded-2xl bg-[#FF7518] px-5 font-display text-sm font-semibold text-white shadow-[0_10px_26px_rgba(255,117,24,0.24)] transition hover:bg-[#E6640F] disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {isSubmitting ? 'Đang gửi đánh giá...' : 'Gửi đánh giá'}
+        {isSubmitting ? 'Dang gui danh gia...' : 'Gui danh gia'}
       </button>
     </section>
   )
@@ -558,9 +398,9 @@ function ReviewSection({
 function SubmittedReview({ review, reviewerName }: { review: BookingReview; reviewerName: string }) {
   return (
     <section className="rounded-2xl border border-[#E8E4DC] bg-white p-5">
-      <h3 className="font-display text-lg font-bold text-[#1A1C1E]">Bạn đã đánh giá phòng này.</h3>
+      <h3 className="font-display text-lg font-bold text-[#1A1C1E]">Ban da danh gia phong nay.</h3>
       <p className="mt-2 rounded-2xl border border-[#0A4D27]/20 bg-[#E8F5EC] px-4 py-3 text-sm font-medium text-[#0A4D27]">
-        Cảm ơn bạn đã gửi đánh giá.
+        Cam on ban da gui danh gia.
       </p>
       <ReviewCard review={review} reviewerName={reviewerName} />
     </section>
@@ -573,69 +413,15 @@ function ReviewCard({ review, reviewerName }: { review: BookingReview; reviewerN
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-display text-sm font-bold text-[#1A1C1E]">{getReviewCustomerName(review, reviewerName)}</p>
-          <div className="mt-1 flex text-xl text-[#FF7518]" aria-label={`${review.rating} trên 5 sao`}>
+          <div className="mt-1 flex text-xl text-[#FF7518]" aria-label={`${review.rating} tren 5 sao`}>
             {renderStars(review.rating)}
           </div>
         </div>
         <span className="text-xs font-medium text-[#5C5348]">{formatReviewDate(review.createdAt)}</span>
       </div>
-      <h4 className="mt-3 font-display text-base font-bold text-[#1A1C1E]">{review.title}</h4>
-      <p className="mt-2 text-sm leading-6 text-[#5C5348]">{review.content}</p>
-      {review.tags && review.tags.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {review.tags.map((tag) => (
-            <span key={tag} className="rounded-full border border-[#FF7518]/25 bg-[#FFE8D6] px-3 py-1 text-xs font-semibold text-[#6B3200]">
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
-      {review.images && review.images.length > 0 && (
-        <div className="mt-3 grid gap-2 sm:grid-cols-3">
-          {review.images.map((image) => (
-            <img key={image.id} src={image.previewUrl} alt={image.name} className="h-24 w-full rounded-2xl object-cover" />
-          ))}
-        </div>
-      )}
+      <p className="mt-3 text-sm leading-6 text-[#5C5348]">{review.content}</p>
     </article>
   )
-}
-
-function FormTextInput({
-  label,
-  value,
-  maxLength,
-  placeholder,
-  error,
-  onChange,
-}: {
-  label: string
-  value: string
-  maxLength: number
-  placeholder: string
-  error: string
-  onChange: (value: string) => void
-}) {
-  return (
-    <label className="mt-4 block">
-      <span className="font-display text-xs font-bold uppercase tracking-wider text-[#5C5348]">{label}</span>
-      <input
-        value={value}
-        maxLength={maxLength}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        className="mt-2 h-12 w-full rounded-2xl border border-[#C9C2B6] bg-white px-4 text-sm text-[#1A1C1E] outline-none transition placeholder:text-[#8A8176] focus:border-[#FF7518] focus:ring-2 focus:ring-[#FF7518]/20"
-      />
-      <div className="mt-2 flex items-center justify-between gap-3">
-        <span className="text-xs text-[#5C5348]">{value.length}/{maxLength}</span>
-        {error && <FieldError message={error} />}
-      </div>
-    </label>
-  )
-}
-
-function FieldError({ message }: { message: string }) {
-  return <p className="text-xs font-semibold text-[#C62828]">{message}</p>
 }
 
 function Detail({ label, value }: { label: string; value: string }) {
@@ -647,11 +433,15 @@ function Detail({ label, value }: { label: string; value: string }) {
   )
 }
 
+function FieldError({ message }: { message: string }) {
+  return <p className="text-xs font-semibold text-[#C62828]">{message}</p>
+}
+
 function StatusBadge({ status }: { status: BookingHistoryItem['status'] }) {
   const toneClassName = {
     PENDING_PAYMENT: 'border-[#FF7518]/25 bg-[#FFE8D6] text-[#6B3200]',
     PAID: 'border-[#0A4D27]/20 bg-[#E8F5EC] text-[#0A4D27]',
-    CONFIRMED: 'border-[#E8E4DC] bg-white text-[#5C5348]',
+    CHECKED_IN: 'border-[#0A4D27]/20 bg-[#E8F5EC] text-[#0A4D27]',
     COMPLETED: 'border-[#0A4D27]/20 bg-[#E8F5EC] text-[#0A4D27]',
     CANCELLED: 'border-[#C62828]/20 bg-[#FFEBEE] text-[#C62828]',
   } satisfies Record<BookingHistoryItem['status'], string>
@@ -664,13 +454,13 @@ function StatusBadge({ status }: { status: BookingHistoryItem['status'] }) {
 }
 
 function getReviewerName(user: AuthUser | null | undefined) {
-  return user?.fullName?.trim() || user?.name?.trim() || user?.email?.trim() || 'Khách hàng'
+  return user?.fullName?.trim() || user?.name?.trim() || user?.email?.trim() || 'Khach hang'
 }
 
 function getReviewCustomerName(review: BookingReview, reviewerName: string) {
   const storedName = review.customerName?.trim()
 
-  if (storedName && storedName !== 'Khach hang' && storedName !== 'Khách hàng') {
+  if (storedName && storedName !== 'Khach hang') {
     return storedName
   }
 

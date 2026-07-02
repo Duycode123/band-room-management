@@ -13,7 +13,7 @@ import java.util.Collection;
 import java.util.List;
 
 @Entity
-@Table(name = "tai_khoan")
+@Table(name = "account")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -28,15 +28,15 @@ public class User implements UserDetails {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(name = "mat_khau_hash", nullable = false)
+    @Column(name = "password_hash", nullable = false)
     private String password;
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "vai_tro", nullable = false, columnDefinition = "vai_tro")
+    @Column(name = "role", nullable = false, columnDefinition = "role")
     private Role role;
 
-    @Column(name = "ngay_tao", insertable = false, updatable = false)
+    @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "reset_token", unique = true)
