@@ -33,7 +33,7 @@ Allow an authenticated customer to select a valid room/time range, see the expec
 3. Backend returns free slots based on existing blocking bookings and room status.
 4. Customer selects a start time, end time, payment method, and optional coupon code.
 5. Frontend requests cost calculation.
-6. Backend calculates price based on room hourly rate and duration.
+6. Backend calculates price based on room hourly rate and duration, and applies the coupon when one is provided and valid.
 7. Customer confirms booking.
 8. Backend validates the request again, checks availability under concurrency control, and creates the booking.
 9. Backend stores the booking with pending-payment status and returns booking summary data.
@@ -47,6 +47,7 @@ Allow an authenticated customer to select a valid room/time range, see the expec
 - Requested time overlaps an existing blocking booking: backend rejects the request.
 - Another user books the same slot concurrently: backend rejects the later request.
 - Invalid time range or booking in the past: backend rejects the request.
+- Invalid, expired, or ineligible coupon: backend rejects the request with the coupon validation reason.
 
 ## Business Rules
 
@@ -56,6 +57,7 @@ Allow an authenticated customer to select a valid room/time range, see the expec
 - Rooms in maintenance are not bookable.
 - Cancelled bookings do not block availability.
 - A new booking starts in `CHO_THANH_TOAN` state.
+- A valid coupon changes the final payable amount but does not create `coupon_usage` until payment is confirmed.
 
 ## Data Touched
 
@@ -64,6 +66,7 @@ Allow an authenticated customer to select a valid room/time range, see the expec
 - `RoomType`
 - `Customer`
 - `User`
+- `DiscountCode`
 
 ## Current Implementation Notes
 
@@ -74,11 +77,12 @@ Allow an authenticated customer to select a valid room/time range, see the expec
 - A scheduled expiry job exists to auto-cancel stale unpaid bookings after the configured timeout.
 - Checkout now asks the backend to create a `payment_transaction` record instead of simulating payment only in the frontend.
 - The current backend maps checkout methods into the existing booking payment model (`CASH` or `ONLINE`) and exposes a payment-return lookup endpoint for the frontend.
+- Cost calculation and booking creation now reuse the coupon validation use case so the same coupon rules apply before and during booking creation.
 
 ## Known Gaps / Follow-up
 
 - Full payment completion flow is not fully represented by current controller sources.
-- Instrument add-ons, coupon application, and richer checkout breakdown from backlog are not yet covered in this backend path.
+- Instrument add-ons and richer checkout breakdown from backlog are not yet covered in this backend path.
 - Booking detail for customers is not yet a separate endpoint.
 
 ## Hexagonal Refactor Notes

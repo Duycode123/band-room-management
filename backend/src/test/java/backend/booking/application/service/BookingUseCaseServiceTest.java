@@ -12,9 +12,11 @@ import backend.booking.application.port.out.LoadReviewPort;
 import backend.booking.application.port.out.LoadRoomPort;
 import backend.booking.application.port.out.LoadUserPort;
 import backend.booking.application.port.out.SaveBookingPort;
-import backend.booking.application.port.out.SavePaymentTransactionPort;
 import backend.booking.application.port.out.SearchCustomerBookingsPort;
+import backend.coupon.domain.model.CouponValidationResult;
+import backend.coupon.domain.model.DiscountType;
 import backend.coupon.domain.port.in.ValidateCouponUseCase;
+import backend.dto.response.BookingCostResponse;
 import backend.dto.response.BookingResponse;
 import backend.dto.response.PagedResponse;
 import backend.dto.response.RoomAvailabilityResponse;
@@ -28,7 +30,6 @@ import backend.entity.RoomType;
 import backend.entity.User;
 import backend.exception.BookingConflictException;
 import backend.exception.ForbiddenException;
-import backend.service.CouponUsageTrackingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -70,19 +71,16 @@ class BookingUseCaseServiceTest {
     private SaveBookingPort saveBookingPort;
 
     @Mock
-    private SavePaymentTransactionPort savePaymentTransactionPort;
-
-    @Mock
     private SearchCustomerBookingsPort searchCustomerBookingsPort;
 
     @Mock
     private LoadReviewPort loadReviewPort;
 
     @Mock
-    private ValidateCouponUseCase validateCouponUseCase;
+    private BookingCancellationNotificationService bookingCancellationNotificationService;
 
     @Mock
-    private CouponUsageTrackingService couponUsageTrackingService;
+    private ValidateCouponUseCase validateCouponUseCase;
 
     private BookingUseCaseService bookingUseCaseService;
 
@@ -95,11 +93,10 @@ class BookingUseCaseServiceTest {
                 loadUserPort,
                 loadBookingPort,
                 saveBookingPort,
-                savePaymentTransactionPort,
                 searchCustomerBookingsPort,
                 loadReviewPort,
-                validateCouponUseCase,
-                couponUsageTrackingService
+                bookingCancellationNotificationService,
+                validateCouponUseCase
         );
     }
 
@@ -175,6 +172,40 @@ class BookingUseCaseServiceTest {
                 () -> bookingUseCaseService.createBooking(command)
         );
         verify(saveBookingPort, never()).saveAndFlush(any(Booking.class));
+    }
+
+    @Test
+    void calculatesCostWithValidatedCoupon() {
+        LocalDateTime startTime = LocalDateTime.of(2030, 1, 10, 10, 0);
+        LocalDateTime endTime = startTime.plusHours(2);
+        Room room = availableRoom();
+
+        when(loadRoomPort.loadRoom(1)).thenReturn(Optional.of(room));
+        when(validateCouponUseCase.validate(any())).thenReturn(new CouponValidationResult(
+                true,
+                "Coupon hop le",
+                "SUMMER25",
+                DiscountType.PERCENTAGE,
+                new BigDecimal("25.00"),
+                BigDecimal.ZERO.setScale(2),
+                new BigDecimal("300000.00"),
+                new BigDecimal("75000.00"),
+                new BigDecimal("225000.00")
+        ));
+
+        BookingCostResponse response = bookingUseCaseService.calculateCost(
+                new backend.booking.application.port.in.command.CalculateBookingCostCommand(
+                        1,
+                        startTime,
+                        endTime,
+                        "SUMMER25"
+                )
+        );
+
+        assertEquals(new BigDecimal("300000.00"), response.getOriginalAmount());
+        assertEquals("SUMMER25", response.getCouponCode());
+        assertEquals(new BigDecimal("75000.00"), response.getDiscountAmount());
+        assertEquals(new BigDecimal("225000.00"), response.getTotalAmount());
     }
 
     @Test

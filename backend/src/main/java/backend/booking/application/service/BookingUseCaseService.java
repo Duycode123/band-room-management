@@ -5,6 +5,7 @@ import backend.booking.application.port.in.CalculateBookingCostUseCase;
 import backend.booking.application.port.in.CancelBookingForManagementUseCase;
 import backend.booking.application.port.in.CancelCustomerBookingUseCase;
 import backend.booking.application.port.in.CreateBookingUseCase;
+import backend.booking.application.port.in.GetCustomerBookingDetailUseCase;
 import backend.booking.application.port.in.GetBookingManagementDetailUseCase;
 import backend.booking.application.port.in.GetCustomerBookingHistoryUseCase;
 import backend.booking.application.port.in.GetRoomAvailabilityUseCase;
@@ -16,17 +17,22 @@ import backend.booking.application.port.in.command.CancelCustomerBookingCommand;
 import backend.booking.application.port.in.command.CreateBookingCommand;
 import backend.booking.application.port.in.command.UpdateBookingStatusCommand;
 import backend.booking.application.port.in.query.CustomerBookingHistoryQuery;
+import backend.booking.application.port.in.query.GetCustomerBookingDetailQuery;
 import backend.booking.application.port.in.query.GetBookingManagementDetailQuery;
 import backend.booking.application.port.in.query.GetRoomAvailabilityQuery;
 import backend.booking.application.port.in.query.ListBookingsForManagementQuery;
 import backend.booking.application.port.out.LoadBookingPort;
 import backend.booking.application.port.out.LoadCustomerPort;
+import backend.booking.application.port.out.LoadDiscountCodeForBookingPort;
 import backend.booking.application.port.out.LoadReviewPort;
 import backend.booking.application.port.out.LoadRoomPort;
 import backend.booking.application.port.out.LoadUserPort;
 import backend.booking.application.port.out.SaveBookingPort;
 import backend.booking.application.port.out.SearchCustomerBookingsPort;
 import backend.booking.application.port.out.model.CustomerBookingHistoryCriteria;
+import backend.coupon.domain.model.CouponValidationResult;
+import backend.coupon.domain.port.in.ValidateCouponCommand;
+import backend.coupon.domain.port.in.ValidateCouponUseCase;
 import backend.dto.response.BookingCostResponse;
 import backend.dto.response.BookingResponse;
 import backend.dto.response.CustomerBookingCancellationResponse;
@@ -36,6 +42,7 @@ import backend.dto.response.TimeSlotResponse;
 import backend.entity.Booking;
 import backend.entity.BookingStatus;
 import backend.entity.Customer;
+import backend.entity.DiscountCode;
 import backend.entity.Room;
 import backend.entity.RoomStatus;
 import backend.entity.User;
@@ -61,6 +68,7 @@ public class BookingUseCaseService implements
         CalculateBookingCostUseCase,
         CreateBookingUseCase,
         GetCustomerBookingHistoryUseCase,
+        GetCustomerBookingDetailUseCase,
         GetRoomAvailabilityUseCase,
         ListBookingsForManagementUseCase,
         GetBookingManagementDetailUseCase,
@@ -70,15 +78,19 @@ public class BookingUseCaseService implements
 
     private static final long CUSTOMER_CANCELLATION_DEADLINE_HOURS = 24;
     private static final int FULL_REFUND_PERCENTAGE = 100;
+    private static final int MONEY_SCALE = 2;
+    private static final BigDecimal ZERO_MONEY = BigDecimal.ZERO.setScale(MONEY_SCALE, RoundingMode.HALF_UP);
 
     private final LoadRoomPort loadRoomPort;
     private final LoadCustomerPort loadCustomerPort;
+    private final LoadDiscountCodeForBookingPort loadDiscountCodeForBookingPort;
     private final LoadUserPort loadUserPort;
     private final LoadBookingPort loadBookingPort;
     private final SaveBookingPort saveBookingPort;
     private final SearchCustomerBookingsPort searchCustomerBookingsPort;
     private final LoadReviewPort loadReviewPort;
     private final BookingCancellationNotificationService bookingCancellationNotificationService;
+    private final ValidateCouponUseCase validateCouponUseCase;
 
     @Override
     public BookingCostResponse calculateCost(CalculateBookingCostCommand command) {
@@ -89,7 +101,8 @@ public class BookingUseCaseService implements
 
         BigDecimal totalHours = calculateTotalHours(command.startTime(), command.endTime());
         BigDecimal pricePerHour = room.getRoomType().getPricePerHour();
-        BigDecimal totalAmount = totalHours.multiply(pricePerHour);
+        BigDecimal originalAmount = totalHours.multiply(pricePerHour);
+        CostBreakdown costBreakdown = calculateCostBreakdown(command.couponCode(), originalAmount);
 
         return new BookingCostResponse(
                 room.getId(),
@@ -99,7 +112,10 @@ public class BookingUseCaseService implements
                 command.endTime(),
                 totalHours,
                 pricePerHour,
-                totalAmount
+                costBreakdown.originalAmount(),
+                costBreakdown.couponCode(),
+                costBreakdown.discountAmount(),
+                costBreakdown.totalAmount()
         );
     }
 
@@ -124,16 +140,19 @@ public class BookingUseCaseService implements
 
         BigDecimal totalHours = calculateTotalHours(command.startTime(), command.endTime());
         BigDecimal pricePerHour = room.getRoomType().getPricePerHour();
-        BigDecimal totalAmount = totalHours.multiply(pricePerHour);
+        BigDecimal originalAmount = totalHours.multiply(pricePerHour);
+        CostBreakdown costBreakdown = calculateCostBreakdown(command.couponCode(), originalAmount);
+        DiscountCode appliedDiscountCode = loadAppliedDiscountCode(costBreakdown.couponCode());
 
         Booking booking = Booking.builder()
                 .customer(customer)
                 .room(room)
+                .discountCode(appliedDiscountCode)
                 .startTime(command.startTime())
                 .endTime(command.endTime())
                 .paymentMethod(command.paymentMethod())
                 .pricePerHour(pricePerHour)
-                .totalAmount(totalAmount)
+                .totalAmount(costBreakdown.totalAmount())
                 .status(BookingStatus.PENDING_PAYMENT)
                 .note(command.note())
                 .build();
@@ -183,6 +202,25 @@ public class BookingUseCaseService implements
                 bookingPage.first(),
                 bookingPage.last()
         );
+    }
+
+    @Override
+    public BookingResponse getCustomerBookingDetail(GetCustomerBookingDetailQuery query) {
+        if (query.bookingId() == null) {
+            throw new IllegalArgumentException("bookingId khong duoc de trong");
+        }
+
+        Customer customer = loadCustomerPort.loadCustomerByAccountEmail(query.customerEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay ho so khach hang"));
+
+        Booking booking = loadBookingPort.loadBooking(query.bookingId())
+                .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay don dat phong"));
+
+        if (booking.getCustomer() == null || !booking.getCustomer().getId().equals(customer.getId())) {
+            throw new ForbiddenException("Ban khong co quyen xem don dat phong nay");
+        }
+
+        return toBookingResponse(booking);
     }
 
     @Override
@@ -504,6 +542,42 @@ public class BookingUseCaseService implements
                 .divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP);
     }
 
+    private CostBreakdown calculateCostBreakdown(String rawCouponCode, BigDecimal originalAmount) {
+        BigDecimal normalizedOriginalAmount = normalizeMoney(originalAmount);
+
+        if (rawCouponCode == null || rawCouponCode.isBlank()) {
+            return CostBreakdown.withoutCoupon(normalizedOriginalAmount);
+        }
+
+        CouponValidationResult validationResult = validateCouponUseCase.validate(
+                new ValidateCouponCommand(rawCouponCode, normalizedOriginalAmount)
+        );
+
+        if (!validationResult.valid()) {
+            throw new IllegalArgumentException(validationResult.reason());
+        }
+
+        return new CostBreakdown(
+                normalizedOriginalAmount,
+                validationResult.code(),
+                normalizeMoney(validationResult.discountAmount()),
+                normalizeMoney(validationResult.payableAmount())
+        );
+    }
+
+    private DiscountCode loadAppliedDiscountCode(String couponCode) {
+        if (couponCode == null) {
+            return null;
+        }
+
+        return loadDiscountCodeForBookingPort.loadDiscountCodeForBooking(couponCode)
+                .orElseThrow(() -> new IllegalStateException("Khong the tai ma giam gia hop le de ap dung"));
+    }
+
+    private BigDecimal normalizeMoney(BigDecimal value) {
+        return value.setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+    }
+
     private void validateCustomerCancellationPolicy(Booking booking) {
         if (booking.getStatus() == BookingStatus.CANCELLED) {
             throw new IllegalStateException("Don dat phong da duoc huy truoc do");
@@ -551,6 +625,17 @@ public class BookingUseCaseService implements
 
         if (!role.equals("ADMIN") && !role.equals("STAFF")) {
             throw new ForbiddenException("Ban khong co quyen quan ly don dat phong");
+        }
+    }
+
+    private record CostBreakdown(
+            BigDecimal originalAmount,
+            String couponCode,
+            BigDecimal discountAmount,
+            BigDecimal totalAmount
+    ) {
+        private static CostBreakdown withoutCoupon(BigDecimal originalAmount) {
+            return new CostBreakdown(originalAmount, null, ZERO_MONEY, originalAmount);
         }
     }
 }
