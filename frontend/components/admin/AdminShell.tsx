@@ -19,7 +19,7 @@ const NAV_ITEMS: AdminNavItem[] = [
   { href: '/admin/dashboard', label: 'Tổng quan', icon: <IconDashboard className="h-5 w-5" /> },
   { href: '/admin/bookings', label: 'Đơn đặt phòng', icon: <IconBookings className="h-5 w-5" /> },
   { href: '/admin/equipment', label: 'Thiết bị', icon: <IconEquipment className="h-5 w-5" /> },
-  { href: '#', label: 'Phòng tập', icon: <IconRooms className="h-5 w-5" />, disabled: true },
+  { href: '/admin/rooms', label: 'Phòng tập', icon: <IconRooms className="h-5 w-5" /> },
   { href: '/admin/reports', label: 'Báo cáo', icon: <IconReports className="h-5 w-5" /> },
 ]
 
@@ -49,7 +49,7 @@ export default function AdminShell({ children }: AdminShellProps) {
       </div>
 
       <div className="relative flex min-h-screen">
-        {/* Sidebar — desktop */}
+        {/* Sidebar - desktop */}
         <aside className="hidden w-64 shrink-0 flex-col border-r border-white/10 bg-gradient-to-b from-brand-greenDark via-brand-greenDark to-brand-greenLight lg:flex">
           <div className="border-b border-white/10 px-5 py-6">
             <AdminBrandMark />
@@ -57,25 +57,9 @@ export default function AdminShell({ children }: AdminShellProps) {
 
           <nav className="flex-1 space-y-1 px-3 py-5">
             {NAV_ITEMS.map((item) => {
-              const active = !item.disabled && pathname === item.href
+              const active = pathname === item.href
               const base =
                 'flex items-center gap-3 rounded-xl px-3 py-2.5 font-display text-sm font-medium transition-all'
-
-              if (item.disabled) {
-                return (
-                  <div
-                    key={item.label}
-                    className={[base, 'cursor-not-allowed text-inverse-on-surface/35'].join(' ')}
-                    title="Sắp ra mắt"
-                  >
-                    <span className="opacity-50">{item.icon}</span>
-                    {item.label}
-                    <span className="ml-auto rounded-full bg-white/10 px-2 py-0.5 text-[9px] uppercase tracking-wider">
-                      Soon
-                    </span>
-                  </div>
-                )
-              }
 
               return (
                 <Link
@@ -113,7 +97,7 @@ export default function AdminShell({ children }: AdminShellProps) {
         {/* Mobile top nav */}
         <div className="fixed inset-x-0 top-0 z-30 border-b border-outline-variant bg-white/90 backdrop-blur-md lg:hidden">
           <div className="flex items-center gap-2 overflow-x-auto px-4 py-3">
-            {NAV_ITEMS.filter((i) => !i.disabled).map((item) => {
+            {NAV_ITEMS.map((item) => {
               const active = pathname === item.href
               return (
                 <Link
