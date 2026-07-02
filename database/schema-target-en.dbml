@@ -142,6 +142,20 @@ Table discount_code {
   expires_at        date
 }
 
+Table coupon_usage {
+  id                bigint        [pk, increment]
+  discount_code_id  int           [not null, ref: > discount_code.id]
+  customer_id       int           [not null, ref: > customer.id]
+  booking_id        int           [unique, not null, ref: - booking.id]
+  discount_amount   decimal       [not null]
+  used_at           timestamp     [not null, default: `now()`]
+
+  indexes {
+    (discount_code_id, used_at)
+    (customer_id, used_at)
+  }
+}
+
 Table booking {
   id                  int             [pk, increment]
   customer_id         int             [not null, ref: > customer.id]

@@ -10,7 +10,7 @@ CREATE TYPE IF NOT EXISTS booking_status AS ENUM (
     'CANCELLED'
 );
 CREATE TYPE IF NOT EXISTS payment_method AS ENUM ('CASH', 'ONLINE');
-CREATE TYPE IF NOT EXISTS payment_provider AS ENUM ('VNPAY', 'COUNTER');
+CREATE TYPE IF NOT EXISTS payment_provider AS ENUM ('VNPAY', 'SEPAY');
 CREATE TYPE IF NOT EXISTS payment_transaction_status AS ENUM (
     'INITIALIZED',
     'PENDING',
@@ -18,3 +18,5 @@ CREATE TYPE IF NOT EXISTS payment_transaction_status AS ENUM (
     'FAILED',
     'CANCELLED'
 );
+
+CREATE TYPE IF NOT EXISTS discount_type AS ENUM ('PERCENTAGE', 'FIXED_AMOUNT');

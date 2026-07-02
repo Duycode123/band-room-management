@@ -16,4 +16,5 @@ public class CalculateBookingCostRequest {
     private Integer roomId;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
+    private String couponCode;
 }

@@ -193,12 +193,13 @@ export default function AdminDashboardPage() {
                 disabled
               />
               <AdminModuleCard
-                label="Bao cao"
-                title="Doanh thu & thong ke"
-                description={`Tam tinh ${formatAdminPrice(paidRevenue)} doanh thu tu cac booking da thanh toan.`}
+                href="/admin/reports"
+                label="Báo cáo"
+                title="Doanh thu & thống kê"
+                description="Phân tích doanh thu, số đơn theo ngày và top phòng hiệu quả nhất."
                 icon={<IconReports className="h-6 w-6" />}
                 accent="slate"
-                disabled
+                badge="New"
               />
             </div>
           </section>
