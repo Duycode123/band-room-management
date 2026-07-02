@@ -1,48 +1,40 @@
 'use client'
 
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import AuthGuard from '@/components/AuthGuard'
-import { useAuth } from '@/contexts/AuthContext'
-import { getDisplayName, getInitials, getRoleLabel } from '@/lib/staff-profile'
+import { StaffPageShell } from '@/components/staff/StaffShared'
 
-type ShiftStatus = 'UPCOMING' | 'ACTIVE' | 'ENDED'
+type ShiftStatus = 'EMPTY' | 'OFFLINE' | 'REGISTERED' | 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED'
+type AttendanceStatus = 'NOT_STARTED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'NO_SHIFT'
+type DayKey = 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT' | 'SUN'
+type ShiftName = 'Ca sáng' | 'Ca chiều' | 'Ca tối'
+type ShiftAvailabilityStatus = 'AVAILABLE' | 'ALMOST_FULL' | 'FULL'
+type VerificationStatus = 'IDLE' | 'CHECKING' | 'VALID' | 'INVALID' | 'BLOCKED'
+type ConditionStatus = 'PASSED' | 'FAILED' | 'CHECKING'
 
-type BookingStatus =
-  | 'PENDING'
-  | 'CONFIRMED'
-  | 'CHECKED_IN'
-  | 'IN_PROGRESS'
-  | 'COMPLETED'
-  | 'CANCELLED'
-  | 'NO_SHOW'
-
-type StaffShift = {
+type StaffShiftCell = {
   id: string
-  date: string
-  name: string
+  day: DayKey
+  shiftName: ShiftName
   startTime: string
   endTime: string
-  staffName: string
-  roomCount: number
-  bookingCount: number
-  pendingCount: number
-  inUseCount: number
   status: ShiftStatus
+  note?: string
+  checkInTime?: string
+  checkOutTime?: string
 }
 
-type BookingInShift = {
+type ShiftOption = {
   id: string
-  shiftId: string
-  customerName: string
-  roomName: string
+  day: DayKey
+  date: string
+  shiftName: ShiftName
   startTime: string
   endTime: string
-  guestCount: number
-  equipment: string[]
-  note?: string
-  status: BookingStatus
+  registeredCount: number
+  requiredCount: number
+  status: ShiftAvailabilityStatus
+  description?: string
 }
 
 type StatusMeta = {
@@ -50,1581 +42,1031 @@ type StatusMeta = {
   className: string
 }
 
-type BookingFilterStatus = BookingStatus | 'ALL'
-
-type BookingFilters = {
-  status: BookingFilterStatus
-  hasEquipment: boolean
-  hasNote: boolean
+type RegisterForm = {
+  day: DayKey | ''
+  shiftName: ShiftName | ''
+  note: string
 }
 
-type ConfirmAction = {
-  title: string
-  description: string
-  confirmLabel: string
-  variant?: 'primary' | 'danger'
-  onConfirm: () => void
+const STUDIO_LOCATION = {
+  name: 'BandHub Studio',
+  address: '123 Âu Cơ, Tân Bình',
+  lat: 21.0285,
+  lng: 105.8542,
+  radiusMeters: 100,
 }
 
-const defaultBookingFilters: BookingFilters = {
-  status: 'ALL',
-  hasEquipment: false,
-  hasNote: false,
-}
+const CHECK_IN_EARLY_MINUTES = 30
 
-const WEEKDAY_LABELS = ['CN', 'THỨ 2', 'THỨ 3', 'THỨ 4', 'THỨ 5', 'THỨ 6', 'THỨ 7']
-const dateFormatter = new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' })
-const fullDateFormatter = new Intl.DateTimeFormat('vi-VN', {
-  weekday: 'long',
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-})
-
-const shiftStatusMeta: Record<ShiftStatus, StatusMeta> = {
-  UPCOMING: {
-    label: 'Sắp diễn ra',
-    className: 'border-primary-container bg-primary-container text-on-primary-container',
-  },
-  ACTIVE: {
-    label: 'Đang diễn ra',
-    className: 'border-secondary-container bg-secondary-container text-on-secondary-container',
-  },
-  ENDED: {
-    label: 'Đã kết thúc',
-    className: 'border-outline-variant bg-surface-container-high text-on-surface-variant',
-  },
-}
-
-const bookingStatusMeta: Record<BookingStatus, StatusMeta & { action?: string; iconClassName: string }> = {
-  PENDING: {
-    label: 'Chờ xác nhận',
-    action: 'Xác nhận',
-    className: 'border-primary-container bg-primary-container text-on-primary-container',
-    iconClassName: 'bg-primary-container text-brand-orange',
-  },
-  CONFIRMED: {
-    label: 'Đã xác nhận',
-    action: 'Check-in',
-    className: 'border-on-secondary-container/30 bg-on-secondary-container text-[#001A0D]',
-    iconClassName: 'bg-on-secondary-container/35 text-secondary-container',
-  },
-  CHECKED_IN: {
-    label: 'Đã check-in',
-    action: 'Check-out',
-    className: 'border-tertiary-container bg-tertiary-container text-on-tertiary-container',
-    iconClassName: 'bg-tertiary-container text-tertiary',
-  },
-  IN_PROGRESS: {
-    label: 'Đang sử dụng',
-    action: 'Kết thúc ca',
-    className: 'border-secondary-container bg-secondary-container text-on-secondary-container',
-    iconClassName: 'bg-secondary-container text-on-secondary-container',
-  },
-  COMPLETED: {
-    label: 'Hoàn tất',
-    className: 'border-outline-variant bg-surface-container-high text-on-surface-variant',
-    iconClassName: 'bg-surface-container text-on-surface-variant',
-  },
-  CANCELLED: {
-    label: 'Đã hủy',
-    className: 'border-outline-variant bg-surface-container-high text-on-surface-variant',
-    iconClassName: 'bg-surface-container text-on-surface-variant',
-  },
-  NO_SHOW: {
-    label: 'Không đến',
-    className: 'border-error-container bg-error-container text-on-error-container',
-    iconClassName: 'bg-error-container text-on-error-container',
-  },
-}
-
-const bookingStatusOrder: BookingStatus[] = [
-  'PENDING',
-  'CONFIRMED',
-  'CHECKED_IN',
-  'IN_PROGRESS',
-  'COMPLETED',
-  'CANCELLED',
-  'NO_SHOW',
+const days: { key: DayKey; label: string; longLabel: string; date: string }[] = [
+  { key: 'MON', label: 'Th 2', longLabel: 'Thứ 2', date: '29/06' },
+  { key: 'TUE', label: 'Th 3', longLabel: 'Thứ 3', date: '30/06' },
+  { key: 'WED', label: 'Th 4', longLabel: 'Thứ 4', date: '01/07' },
+  { key: 'THU', label: 'Th 5', longLabel: 'Thứ 5', date: '02/07' },
+  { key: 'FRI', label: 'Th 6', longLabel: 'Thứ 6', date: '03/07' },
+  { key: 'SAT', label: 'Th 7', longLabel: 'Thứ 7', date: '04/07' },
+  { key: 'SUN', label: 'CN', longLabel: 'Chủ nhật', date: '05/07' },
 ]
 
-const shiftIconClassName: Record<ShiftStatus, string> = {
-  UPCOMING: 'bg-primary-container text-brand-orange',
-  ACTIVE: 'bg-secondary-container text-on-secondary-container',
-  ENDED: 'bg-surface-container-high text-on-surface-variant',
+const shiftRows: { name: ShiftName; startTime: string; endTime: string }[] = [
+  { name: 'Ca sáng', startTime: '08:00', endTime: '12:00' },
+  { name: 'Ca chiều', startTime: '13:30', endTime: '17:30' },
+]
+
+const shiftTemplates: Record<ShiftName, { startTime: string; endTime: string; description: string }> = {
+  'Ca sáng': {
+    startTime: '08:00',
+    endTime: '12:00',
+    description: 'Phù hợp hỗ trợ phòng tập buổi sáng.',
+  },
+  'Ca chiều': {
+    startTime: '13:30',
+    endTime: '17:30',
+    description: 'Cần chuẩn bị phòng và thiết bị cho khách đặt chiều.',
+  },
+  'Ca tối': {
+    startTime: '18:00',
+    endTime: '22:00',
+    description: 'Phù hợp trực vận hành và hỗ trợ khách đặt ca tối.',
+  },
+}
+
+const initialShiftOptions: ShiftOption[] = [
+  option('MON', 'Ca sáng', 1, 2),
+  option('MON', 'Ca chiều', 2, 2),
+  option('MON', 'Ca tối', 0, 2),
+  option('TUE', 'Ca sáng', 0, 2),
+  option('TUE', 'Ca chiều', 1, 2),
+  option('TUE', 'Ca tối', 1, 1),
+  option('WED', 'Ca sáng', 1, 2),
+  option('WED', 'Ca chiều', 1, 2),
+  option('WED', 'Ca tối', 0, 2),
+  option('THU', 'Ca sáng', 0, 2),
+  option('THU', 'Ca chiều', 2, 3),
+  option('THU', 'Ca tối', 2, 2),
+  option('FRI', 'Ca sáng', 1, 2),
+  option('FRI', 'Ca chiều', 1, 3),
+  option('FRI', 'Ca tối', 0, 2),
+  option('SAT', 'Ca sáng', 0, 2),
+  option('SAT', 'Ca chiều', 1, 2),
+  option('SAT', 'Ca tối', 2, 2),
+  option('SUN', 'Ca sáng', 0, 1),
+  option('SUN', 'Ca chiều', 0, 1),
+  option('SUN', 'Ca tối', 1, 1),
+]
+
+const initialShifts: StaffShiftCell[] = [
+  createCell('MON', 'Ca sáng', 'OFFLINE', 'Nghỉ ca sáng'),
+  createCell('WED', 'Ca sáng', 'OFFLINE', 'Nghỉ ca sáng'),
+  createCell('WED', 'Ca chiều', 'OFFLINE', 'Nghỉ ca chiều'),
+  createCell('THU', 'Ca chiều', 'OFFLINE', 'Nghỉ ca chiều'),
+  createCell('FRI', 'Ca chiều', 'ASSIGNED', 'Hỗ trợ phòng A và phòng B'),
+]
+
+const defaultRegisterForm: RegisterForm = {
+  day: '',
+  shiftName: '',
+  note: '',
 }
 
 export default function StaffSchedulePage() {
-  const [anchorDate, setAnchorDate] = useState(() => new Date())
-  const [selectedDate, setSelectedDate] = useState(() => toDateKey(new Date()))
-  const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [bookings, setBookings] = useState<BookingInShift[]>([])
-  const [activeFilters, setActiveFilters] = useState<BookingFilters>(defaultBookingFilters)
-  const [draftFilters, setDraftFilters] = useState<BookingFilters>(defaultBookingFilters)
-  const [isFilterOpen, setIsFilterOpen] = useState(false)
-  const [openBookingMenuId, setOpenBookingMenuId] = useState<string | null>(null)
-  const [shiftDetail, setShiftDetail] = useState<StaffShift | null>(null)
-  const [bookingDetailId, setBookingDetailId] = useState<string | null>(null)
-  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null)
-  const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const [shifts, setShifts] = useState<StaffShiftCell[]>(initialShifts)
+  const [shiftOptions, setShiftOptions] = useState<ShiftOption[]>(initialShiftOptions)
+  const [selectedCell, setSelectedCell] = useState<StaffShiftCell | null>(null)
+  const [isAttendanceOpen, setIsAttendanceOpen] = useState(false)
+  const [isRegisterOpen, setIsRegisterOpen] = useState(false)
+  const [isStudioVerified, setIsStudioVerified] = useState(false)
+  const [locationStatus, setLocationStatus] = useState<VerificationStatus>('IDLE')
+  const [locationDistance, setLocationDistance] = useState<number | null>(null)
+  const [isAttendanceLoading, setIsAttendanceLoading] = useState(false)
+  const [isRegisterLoading, setIsRegisterLoading] = useState(false)
+  const [attendanceError, setAttendanceError] = useState('')
+  const [registerError, setRegisterError] = useState('')
+  const [registerSuccess, setRegisterSuccess] = useState('')
+  const [registerForm, setRegisterForm] = useState<RegisterForm>(defaultRegisterForm)
 
-  const weekDays = useMemo(() => getWeekDays(anchorDate), [anchorDate])
-  const shifts = useMemo(() => createWeekShifts(weekDays), [weekDays])
-  const bookingsByShift = useMemo(() => groupBookingsByShift(bookings), [bookings])
-  const selectedDayShifts = shifts.filter((shift) => shift.date === selectedDate)
-  const selectedShift = shifts.find((shift) => shift.id === selectedShiftId) ?? selectedDayShifts[0] ?? null
-  const selectedBookings = selectedShift ? bookingsByShift[selectedShift.id] ?? [] : []
-  const filteredBookings = useMemo(() => filterBookings(selectedBookings, activeFilters), [selectedBookings, activeFilters])
-  const bookingDetail = useMemo(
-    () => (bookingDetailId ? bookings.find((booking) => booking.id === bookingDetailId) ?? null : null),
-    [bookingDetailId, bookings],
-  )
-  const selectedDayBookingCount = selectedDayShifts.reduce((total, shift) => total + shift.bookingCount, 0)
-
-  useEffect(() => {
-    setBookings(createInitialBookings(shifts))
-    setActiveFilters(defaultBookingFilters)
-    setDraftFilters(defaultBookingFilters)
-    setIsFilterOpen(false)
-    setOpenBookingMenuId(null)
-    setBookingDetailId(null)
-    setConfirmAction(null)
+  const shiftMap = useMemo(() => {
+    return shifts.reduce<Record<string, StaffShiftCell>>((acc, shift) => {
+      acc[getCellKey(shift.day, shift.shiftName)] = shift
+      return acc
+    }, {})
   }, [shifts])
 
-  useEffect(() => {
-    setIsLoading(true)
-    const timer = window.setTimeout(() => setIsLoading(false), 350)
-    return () => window.clearTimeout(timer)
-  }, [anchorDate, selectedDate])
+  const currentShift = useMemo(() => findCurrentShift(shifts), [shifts])
+  const attendanceStatus = getAttendanceStatus(currentShift)
+  const hasAnyShift = shifts.some((shift) => shift.status !== 'EMPTY')
 
-  useEffect(() => {
-    if (selectedShift && selectedShift.id === selectedShiftId) return
-    setSelectedShiftId(selectedDayShifts[0]?.id ?? null)
-  }, [selectedDayShifts, selectedShift, selectedShiftId])
+  const selectedShiftOption = useMemo(() => {
+    if (!registerForm.day || !registerForm.shiftName) return null
+    return findShiftOption(shiftOptions, registerForm.day, registerForm.shiftName)
+  }, [registerForm.day, registerForm.shiftName, shiftOptions])
 
-  useEffect(() => {
-    if (!toastMessage) return
-    const timer = window.setTimeout(() => setToastMessage(null), 2600)
-    return () => window.clearTimeout(timer)
-  }, [toastMessage])
+  const handleRegisterShift = async () => {
+    const validationError = validateShiftRegistration(registerForm, selectedShiftOption, shiftMap)
+    setRegisterError(validationError)
+    setRegisterSuccess('')
 
-  const goToToday = () => {
-    const today = new Date()
-    setAnchorDate(today)
-    setSelectedDate(toDateKey(today))
-  }
+    if (validationError || !selectedShiftOption || !registerForm.day || !registerForm.shiftName) return
 
-  const moveWeek = (direction: -1 | 1) => {
-    const nextAnchor = addDays(anchorDate, direction * 7)
-    setAnchorDate(nextAnchor)
-    setSelectedDate(toDateKey(startOfWeek(nextAnchor)))
-  }
+    setIsRegisterLoading(true)
+    await wait()
 
-  const updateBookingStatus = (bookingId: string, nextStatus: BookingStatus) => {
-    setBookings((prev) =>
-      prev.map((booking) => (booking.id === bookingId ? { ...booking, status: nextStatus } : booking)),
-    )
-  }
-
-  const showToast = (message: string) => {
-    setToastMessage(message)
-  }
-
-  const applyBookingStatus = (booking: BookingInShift, nextStatus: BookingStatus) => {
-    updateBookingStatus(booking.id, nextStatus)
-    setOpenBookingMenuId(null)
-    showToast(`Đã cập nhật ${booking.id}: ${getBookingStatusMeta(nextStatus).label}`)
-  }
-
-  const requestBookingStatusChange = (
-    booking: BookingInShift,
-    nextStatus: BookingStatus,
-    title: string,
-    description: string,
-    confirmLabel: string,
-    variant: 'primary' | 'danger' = 'primary',
-  ) => {
-    setConfirmAction({
-      title,
-      description,
-      confirmLabel,
-      variant,
-      onConfirm: () => {
-        applyBookingStatus(booking, nextStatus)
-        setConfirmAction(null)
+    setShifts((current) => [
+      ...current,
+      {
+        id: `${registerForm.day}-${registerForm.shiftName}-${Date.now()}`,
+        day: registerForm.day as DayKey,
+        shiftName: registerForm.shiftName as ShiftName,
+        startTime: selectedShiftOption.startTime,
+        endTime: selectedShiftOption.endTime,
+        status: 'REGISTERED',
+        note: registerForm.note.trim() || 'Đăng ký mới',
       },
-    })
+    ])
+    setShiftOptions((current) =>
+      current.map((shift) =>
+        shift.id === selectedShiftOption.id
+          ? {
+              ...shift,
+              registeredCount: Math.min(shift.requiredCount, shift.registeredCount + 1),
+              status: getAvailabilityStatus(Math.min(shift.requiredCount, shift.registeredCount + 1), shift.requiredCount),
+            }
+          : shift,
+      ),
+    )
+    setIsRegisterLoading(false)
+    setRegisterSuccess('Đăng ký ca làm việc thành công.')
+    window.setTimeout(() => {
+      setRegisterForm(defaultRegisterForm)
+      setRegisterSuccess('')
+      setRegisterError('')
+      setIsRegisterOpen(false)
+    }, 700)
   }
 
-  const handlePrimaryBookingAction = (booking: BookingInShift) => {
-    const action = getAvailableBookingActions(booking.status)[0]
-    if (!action) return
+  const handleVerifyLocation = async () => {
+    setAttendanceError('')
+    setLocationStatus('CHECKING')
+    setLocationDistance(null)
 
-    if (action.requiresConfirm) {
-      requestBookingStatusChange(
-        booking,
-        action.nextStatus,
-        action.confirmTitle,
-        action.confirmDescription,
-        action.label,
-        action.variant,
-      )
+    if (!navigator.geolocation) {
+      setIsStudioVerified(false)
+      setLocationStatus('BLOCKED')
+      setAttendanceError('Không thể truy cập vị trí. Vui lòng bật quyền vị trí trên trình duyệt.')
       return
     }
 
-    applyBookingStatus(booking, action.nextStatus)
+    try {
+      const position = await getCurrentPosition()
+      const distance = calculateDistanceMeters(position.coords.latitude, position.coords.longitude, STUDIO_LOCATION.lat, STUDIO_LOCATION.lng)
+
+      setLocationDistance(distance)
+      if (isWithinStudioRadius(distance)) {
+        setIsStudioVerified(true)
+        setLocationStatus('VALID')
+        return
+      }
+
+      setIsStudioVerified(false)
+      setLocationStatus('INVALID')
+      setAttendanceError('Bạn chưa ở gần BandHub Studio. Vui lòng đến studio để điểm danh.')
+    } catch {
+      setIsStudioVerified(false)
+      setLocationStatus('BLOCKED')
+      setAttendanceError('Không thể truy cập vị trí. Vui lòng bật quyền vị trí trên trình duyệt.')
+    }
   }
 
-  const handleCopyBookingCode = async (bookingId: string) => {
-    try {
-      await navigator.clipboard.writeText(bookingId)
-      showToast(`Đã sao chép mã booking ${bookingId}`)
-    } catch {
-      showToast(`Mã booking: ${bookingId}`)
-    } finally {
-      setOpenBookingMenuId(null)
+  const handleCheckIn = async () => {
+    setAttendanceError('')
+
+    if (!currentShift) {
+      setAttendanceError('Không có ca hiện tại.')
+      return
     }
+
+    if (currentShift.checkInTime) {
+      setAttendanceError('Bạn đã check-in ca này rồi.')
+      return
+    }
+
+    if (currentShift.status === 'COMPLETED') {
+      setAttendanceError('Ca làm này đã hoàn tất.')
+      return
+    }
+
+    if (!isWithinCheckInWindow(currentShift)) {
+      setAttendanceError('Chưa đến khung giờ check-in ca làm.')
+      return
+    }
+
+    if (!isStudioVerified) {
+      setAttendanceError('Bạn chưa ở gần studio.')
+      return
+    }
+
+    setIsAttendanceLoading(true)
+    await wait()
+    updateShift(currentShift.id, {
+      status: 'IN_PROGRESS',
+      checkInTime: getCurrentTime(),
+    })
+    setIsAttendanceLoading(false)
+  }
+
+  const handleCheckOut = async () => {
+    setAttendanceError('')
+
+    if (!currentShift) {
+      setAttendanceError('Không có ca hiện tại.')
+      return
+    }
+
+    if (!currentShift.checkInTime) {
+      setAttendanceError('Bạn cần check-in trước khi check-out.')
+      return
+    }
+
+    if (currentShift.checkOutTime || currentShift.status === 'COMPLETED') {
+      setAttendanceError('Ca làm này đã hoàn tất.')
+      return
+    }
+
+    if (!isAfterShiftEnd(currentShift)) {
+      setAttendanceError(`Chưa đến giờ kết thúc ca. Bạn có thể check-out sau ${currentShift.endTime}.`)
+      return
+    }
+
+    if (!isStudioVerified) {
+      setAttendanceError('Bạn chưa ở gần studio.')
+      return
+    }
+
+    setIsAttendanceLoading(true)
+    await wait()
+    updateShift(currentShift.id, {
+      status: 'COMPLETED',
+      checkOutTime: getCurrentTime(),
+    })
+    setIsAttendanceLoading(false)
+  }
+
+  const updateShift = (id: string, patch: Partial<StaffShiftCell>) => {
+    setShifts((current) => current.map((shift) => (shift.id === id ? { ...shift, ...patch } : shift)))
   }
 
   return (
     <AuthGuard allowedRoles={['STAFF']}>
-      <div className="min-h-screen bg-brand-bgGray text-on-surface lg:flex">
-        <StaffSidebar />
-
-        <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-[1480px] space-y-6">
-            <header className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-              <div>
-                <h1 className="font-display text-[32px] font-bold leading-10 tracking-[-0.02em] text-on-surface">
-                  Lịch làm việc & lịch phòng
-                </h1>
-                <p className="mt-2 text-base leading-6 text-on-surface-variant">
-                  Theo dõi ca làm, lịch phòng và booking trong từng ca.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={goToToday}
-                  className="inline-flex h-10 items-center gap-2 rounded-lg border border-outline bg-white px-4 font-display text-sm font-semibold text-on-surface shadow-[var(--band-shadow-card)] transition hover:bg-surface-container-low"
-                >
-                  <IconCalendar className="h-4 w-4" />
-                  Hôm nay
-                </button>
-                <button
-                  type="button"
-                  onClick={() => moveWeek(-1)}
-                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-outline bg-white text-on-surface shadow-[var(--band-shadow-card)] transition hover:bg-surface-container-low"
-                  aria-label="Tuần trước"
-                >
-                  <IconChevron direction="left" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => moveWeek(1)}
-                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-outline bg-white text-on-surface shadow-[var(--band-shadow-card)] transition hover:bg-surface-container-low"
-                  aria-label="Tuần sau"
-                >
-                  <IconChevron direction="right" />
-                </button>
-                <div className="h-10 rounded-lg px-4 py-2 font-display text-sm font-semibold text-on-surface">
-                  {formatWeekRange(weekDays)}
-                </div>
-              </div>
-            </header>
-
-            {isLoading ? (
-              <ScheduleSkeleton />
-            ) : (
-              <>
-                <WeeklySchedule
-                  weekDays={weekDays}
-                  shifts={shifts}
-                  selectedDate={selectedDate}
-                  onSelectDate={setSelectedDate}
-                />
-
-                <div className="grid gap-5 xl:grid-cols-[minmax(0,0.45fr)_minmax(0,0.55fr)]">
-                  <ShiftList
-                    shifts={selectedDayShifts}
-                    bookingsByShift={bookingsByShift}
-                    selectedDate={selectedDate}
-                    selectedShiftId={selectedShift?.id ?? null}
-                    bookingCount={selectedDayBookingCount}
-                    onSelectShift={setSelectedShiftId}
-                    onViewShiftDetails={setShiftDetail}
-                    onGoToday={goToToday}
-                  />
-                  <BookingList
-                    shift={selectedShift}
-                    bookings={filteredBookings}
-                    totalBookingCount={selectedBookings.length}
-                    filters={activeFilters}
-                    draftFilters={draftFilters}
-                    isFilterOpen={isFilterOpen}
-                    openMenuId={openBookingMenuId}
-                    onToggleFilter={() => setIsFilterOpen((open) => !open)}
-                    onChangeDraftFilters={setDraftFilters}
-                    onApplyFilters={() => {
-                      setActiveFilters(draftFilters)
-                      setIsFilterOpen(false)
-                    }}
-                    onResetFilters={() => {
-                      setDraftFilters(defaultBookingFilters)
-                      setActiveFilters(defaultBookingFilters)
-                      setIsFilterOpen(false)
-                    }}
-                    onToggleMenu={(bookingId) => setOpenBookingMenuId((current) => (current === bookingId ? null : bookingId))}
-                    onViewBooking={(booking) => {
-                      setBookingDetailId(booking.id)
-                      setOpenBookingMenuId(null)
-                    }}
-                    onCopyBookingCode={handleCopyBookingCode}
-                    onPrimaryAction={handlePrimaryBookingAction}
-                    onRequestStatusChange={requestBookingStatusChange}
-                    onChooseAnotherDay={goToToday}
-                  />
-                </div>
-              </>
-            )}
+      <StaffPageShell>
+        <section className="space-y-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <h1 className="font-display text-3xl font-bold tracking-tight text-on-surface sm:text-4xl">Lịch làm việc</h1>
+            <div className="flex flex-wrap gap-3">
+              <button type="button" onClick={() => setIsAttendanceOpen(true)} className="inline-flex min-h-12 items-center gap-2 rounded-full bg-[#FFF5F5] px-6 font-display text-sm font-bold text-[#B91C1C] transition hover:bg-[#FFE8E8]">
+                Điểm danh
+                <IconCalendarCheck />
+              </button>
+              <button type="button" onClick={() => setIsRegisterOpen(true)} className="inline-flex min-h-12 items-center gap-2 rounded-full bg-[#C91F2E] px-6 font-display text-sm font-bold text-white shadow-[0_12px_26px_rgba(201,31,46,0.22)] transition hover:bg-[#A91724]">
+                Đăng ký ca làm việc
+                <IconCalendarPlus />
+              </button>
+            </div>
           </div>
-        </main>
 
-        {shiftDetail && (
-          <ShiftDetailPanel
-            shift={shiftDetail}
-            bookings={bookingsByShift[shiftDetail.id] ?? []}
-            onClose={() => setShiftDetail(null)}
-            onFocusBookings={() => {
-              setSelectedShiftId(shiftDetail.id)
-              setShiftDetail(null)
+          <div className="border border-outline-variant bg-white p-4 shadow-[var(--band-shadow-card)] sm:p-7">
+            {!hasAnyShift && (
+              <div className="mb-5 rounded-xl border border-dashed border-outline-variant bg-surface-container-low px-4 py-5 text-sm text-on-surface-variant">
+                Tuần này chưa có ca làm nào. Bạn có thể đăng ký ca làm việc ở nút phía trên.
+              </div>
+            )}
+
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[980px] border-collapse text-left">
+                <thead>
+                  <tr>
+                    <th className="h-14 w-[170px] border border-[#C9D3E1] bg-white" />
+                    {days.map((day) => (
+                      <th key={day.key} className="h-14 border border-[#C9D3E1] bg-white text-center font-display text-lg font-medium text-[#1F2937]">
+                        {day.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {shiftRows.map((row) => (
+                    <tr key={row.name}>
+                      <th className="h-[220px] w-[170px] border border-[#C9D3E1] bg-white px-3 align-middle sm:px-4">
+                        <div>
+                          <p className="font-display text-xl font-medium text-on-surface">{row.name}</p>
+                          <span className="mt-2 inline-flex rounded-full bg-[#E3E9F1] px-3 py-1 font-display text-sm font-bold text-[#253044]">
+                            {row.startTime} - {row.endTime}
+                          </span>
+                        </div>
+                      </th>
+                      {days.map((day) => {
+                        const cell = shiftMap[getCellKey(day.key, row.name)] ?? createEmptyCell(day.key, row)
+                        const meta = getShiftStatusMeta(cell.status)
+
+                        return (
+                          <td key={`${day.key}-${row.name}`} className={['h-[220px] border border-[#C9D3E1] align-middle', cell.status === 'OFFLINE' ? 'bg-[#F3F6F9]' : 'bg-white'].join(' ')}>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedCell(cell)}
+                              className="flex h-full w-full items-center justify-center p-4 text-center transition hover:bg-primary-container/30 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-orange"
+                            >
+                              <span className={['inline-flex rounded-full px-4 py-2 font-display text-sm font-bold', meta.className].join(' ')}>
+                                {meta.label}
+                              </span>
+                            </button>
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        {isAttendanceOpen && (
+          <AttendanceModal
+            shift={currentShift}
+            status={attendanceStatus}
+            isStudioVerified={isStudioVerified}
+            locationStatus={locationStatus}
+            locationDistance={locationDistance}
+            isLoading={isAttendanceLoading}
+            error={attendanceError}
+            onVerify={handleVerifyLocation}
+            onCheckIn={handleCheckIn}
+            onCheckOut={handleCheckOut}
+            onClose={() => {
+              setIsAttendanceOpen(false)
+              setAttendanceError('')
             }}
           />
         )}
-        {bookingDetail && (
-          <BookingDetailPanel
-            booking={bookingDetail}
-            onClose={() => setBookingDetailId(null)}
-            onPrimaryAction={handlePrimaryBookingAction}
+
+        {isRegisterOpen && (
+          <RegisterShiftModal
+            form={registerForm}
+            shifts={shifts}
+            shiftOptions={shiftOptions}
+            selectedShift={selectedShiftOption}
+            error={registerError}
+            success={registerSuccess}
+            isLoading={isRegisterLoading}
+            onChange={(nextForm) => {
+              setRegisterForm(nextForm)
+              setRegisterError('')
+              setRegisterSuccess('')
+            }}
+            onSubmit={handleRegisterShift}
+            onClose={() => {
+              setIsRegisterOpen(false)
+              setRegisterForm(defaultRegisterForm)
+              setRegisterError('')
+              setRegisterSuccess('')
+            }}
           />
         )}
-        {confirmAction && (
-          <ConfirmDialog
-            action={confirmAction}
-            onCancel={() => setConfirmAction(null)}
-          />
-        )}
-        {toastMessage && <Toast message={toastMessage} />}
-      </div>
+
+        {selectedCell && <ShiftDetailModal shift={selectedCell} onClose={() => setSelectedCell(null)} />}
+      </StaffPageShell>
     </AuthGuard>
   )
 }
 
-function StaffSidebar() {
-  const pathname = usePathname()
-  const { user } = useAuth()
-  const displayName = getDisplayName(user)
-  const roleLabel = getRoleLabel(user?.role)
-  const avatarInitial = getInitials(displayName || user?.email)
-  const menuItems = [
-    { label: 'Lịch làm việc', href: '/staff/dashboard' },
-    { label: 'Phòng & Thiết bị', href: '/staff/rooms' },
-    { label: 'Check-in', href: '/staff/check-in' },
-    { label: 'Booking', href: '/staff/bookings' },
-    { label: 'Khách hàng', href: '/staff/customers' },
-    { label: 'Thông báo', href: '/staff/notifications' },
-    { label: 'Báo cáo', href: '/staff/reports' },
-    { label: 'Cài đặt', href: '/staff/settings' },
-  ]
-
-  return (
-    <aside className="hidden w-72 shrink-0 border-r border-secondary-container/60 bg-secondary px-4 py-6 text-inverse-on-surface lg:flex lg:flex-col">
-      <div className="flex items-center gap-3 px-2">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-orange text-white shadow-[0_12px_28px_rgba(255,117,24,0.24)]">
-          <IconLogo />
-        </div>
-        <div>
-          <p className="font-display text-lg font-bold leading-none text-inverse-on-surface">BandHub Studio</p>
-          <p className="mt-1 font-display text-xs font-bold uppercase tracking-wide text-brand-orange">Staff</p>
-        </div>
-      </div>
-
-      <div className="mt-8 border-t border-secondary-container/60 pt-6">
-        <div className="rounded-xl border border-secondary-container/70 bg-secondary-container/45 px-3 py-3">
-          <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-primary-container font-display font-bold text-on-primary-container">
-            {user?.avatarUrl ? <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" /> : avatarInitial}
-          </div>
-          <div className="min-w-0">
-            <p className="truncate font-display text-sm font-bold text-inverse-on-surface">{displayName}</p>
-            <p className="text-xs text-on-secondary-container">{roleLabel}</p>
-          </div>
-          </div>
-        </div>
-      </div>
-
-      <nav className="mt-6 space-y-1">
-        {menuItems.map((item) => {
-          const active = pathname === item.href || pathname.startsWith(`${item.href}/`)
-          return (
-            <Link
-              key={item.label}
-              href={item.href}
-              className={[
-                'relative flex h-12 items-center gap-3 rounded-lg px-3 font-display text-sm font-medium transition',
-                active
-                  ? 'bg-[rgba(255,117,24,0.12)] text-brand-orange before:absolute before:left-0 before:top-2 before:h-8 before:w-[3px] before:rounded-full before:bg-brand-orange'
-                  : 'text-inverse-on-surface/75 hover:bg-brand-orange/10 hover:text-inverse-on-surface',
-              ].join(' ')}
-            >
-              <span className="flex h-5 w-5 items-center justify-center">
-                <IconMenuDot active={active} />
-              </span>
-              {item.label}
-            </Link>
-          )
-        })}
-      </nav>
-
-      <div className="mt-auto space-y-4">
-        <div className="rounded-xl border border-secondary-container/70 bg-secondary-container/45 p-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-orange text-white">
-              <IconLogo />
-            </div>
-            <div>
-              <p className="font-display text-sm font-bold text-inverse-on-surface">BandHub Studio</p>
-              <p className="text-xs text-on-secondary-container">123 Âu Cơ, Tân Bình</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-xl border border-brand-orange/20 bg-brand-orange/10 p-4">
-          <p className="font-display text-sm font-bold text-inverse-on-surface">Cần hỗ trợ?</p>
-          <p className="mt-1 text-xs text-inverse-on-surface/75">Hotline: 1900 1234</p>
-        </div>
-      </div>
-    </aside>
-  )
-}
-
-function WeeklySchedule({
-  weekDays,
-  shifts,
-  selectedDate,
-  onSelectDate,
+function AttendanceModal({
+  shift,
+  status,
+  isStudioVerified,
+  locationStatus,
+  locationDistance,
+  isLoading,
+  error,
+  onVerify,
+  onCheckIn,
+  onCheckOut,
+  onClose,
 }: {
-  weekDays: Date[]
-  shifts: StaffShift[]
-  selectedDate: string
-  onSelectDate: (date: string) => void
+  shift: StaffShiftCell | null
+  status: AttendanceStatus
+  isStudioVerified: boolean
+  locationStatus: VerificationStatus
+  locationDistance: number | null
+  isLoading: boolean
+  error: string
+  onVerify: () => void
+  onCheckIn: () => void
+  onCheckOut: () => void
+  onClose: () => void
 }) {
-  return (
-    <section className="overflow-hidden">
-      <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:thin] [scrollbar-color:#C9C2B6_transparent]">
-        {weekDays.map((day) => {
-          const dayKey = toDateKey(day)
-          const dayShifts = shifts.filter((shift) => shift.date === dayKey)
-          const bookingCount = dayShifts.reduce((total, shift) => total + shift.bookingCount, 0)
-          const selected = selectedDate === dayKey
-
-          return (
-            <DayCard
-              key={dayKey}
-              date={day}
-              shifts={dayShifts}
-              bookingCount={bookingCount}
-              selected={selected}
-              onSelect={() => onSelectDate(dayKey)}
-            />
-          )
-        })}
-      </div>
-    </section>
-  )
-}
-
-function DayCard({
-  date,
-  shifts,
-  bookingCount,
-  selected,
-  onSelect,
-}: {
-  date: Date
-  shifts: StaffShift[]
-  bookingCount: number
-  selected: boolean
-  onSelect: () => void
-}) {
-  const empty = shifts.length === 0
+  const statusMeta = getAttendanceStatusMeta(status)
+  const hasValidShift = Boolean(shift && shift.status !== 'EMPTY' && shift.status !== 'OFFLINE')
+  const withinCheckInWindow = shift ? isWithinCheckInWindow(shift) : false
+  const afterShiftEnd = shift ? isAfterShiftEnd(shift) : false
+  const canCheckIn = status === 'NOT_STARTED' && hasValidShift && withinCheckInWindow && isStudioVerified && !isLoading
+  const canCheckOut = status === 'CHECKED_IN' && afterShiftEnd && isStudioVerified && !isLoading
+  const locationConditionStatus = locationStatus === 'CHECKING' ? 'CHECKING' : isStudioVerified ? 'PASSED' : 'FAILED'
 
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={[
-        'min-h-[270px] w-[178px] shrink-0 rounded-xl border p-4 text-left transition',
-        selected
-          ? 'border-brand-orange bg-gradient-to-br from-white to-primary-container shadow-[var(--band-shadow-card)]'
-          : empty
-            ? 'border-outline-variant bg-surface-container text-on-surface-variant'
-            : 'border-outline-variant bg-white shadow-[var(--band-shadow-card)] hover:border-brand-orange/35 hover:bg-surface-container-low',
-      ].join(' ')}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className={['font-display text-xs font-semibold uppercase tracking-wide', selected ? 'text-brand-orange' : 'text-on-surface-variant'].join(' ')}>
-            {WEEKDAY_LABELS[date.getDay()]}
-          </p>
-          <p className="mt-2 font-display text-2xl font-bold leading-none text-on-surface">{dateFormatter.format(date)}</p>
-        </div>
-        {selected && <span className="rounded-full bg-brand-orange px-2.5 py-1 font-display text-[10px] font-bold text-white">Đang chọn</span>}
-      </div>
-
-      <p className={['mt-3 text-sm font-medium', selected ? 'text-on-primary-container' : 'text-on-surface'].join(' ')}>
-        {shifts.length} ca · {bookingCount} booking
-      </p>
-
-      <div className="mt-5 space-y-2">
-        {shifts.length > 0 ? (
-          shifts.slice(0, 3).map((shift) => (
-            <div key={shift.id} className="rounded-lg border border-outline-variant bg-surface-container-low px-3 py-3 shadow-sm hover:bg-surface-container">
-              <p className="font-display text-sm font-bold text-on-surface">{shift.name}</p>
-              <p className="mt-1 text-xs text-on-surface-variant">
-                {shift.startTime} - {shift.endTime}
-              </p>
-            </div>
-          ))
-        ) : (
-          <div className="flex min-h-[132px] flex-col items-center justify-center rounded-lg border border-dashed border-outline bg-surface-container px-3 text-center">
-            <IconCalendar className="h-8 w-8 text-outline" />
-            <p className="mt-3 font-display text-sm font-semibold text-on-surface">Không có ca</p>
-            <p className="mt-1 text-xs text-on-surface-variant">Chưa được phân công</p>
-          </div>
-        )}
-      </div>
-    </button>
-  )
-}
-
-function ShiftList({
-  shifts,
-  bookingsByShift,
-  selectedDate,
-  selectedShiftId,
-  bookingCount,
-  onSelectShift,
-  onViewShiftDetails,
-  onGoToday,
-}: {
-  shifts: StaffShift[]
-  bookingsByShift: Record<string, BookingInShift[]>
-  selectedDate: string
-  selectedShiftId: string | null
-  bookingCount: number
-  onSelectShift: (shiftId: string) => void
-  onViewShiftDetails: (shift: StaffShift) => void
-  onGoToday: () => void
-}) {
-  return (
-    <section className="rounded-xl border border-outline-variant bg-white p-5 shadow-[var(--band-shadow-card)]">
-      <div className="mb-5 flex items-start justify-between gap-3">
-        <div>
-          <h2 className="font-display text-2xl font-semibold text-on-surface">Ca làm trong ngày</h2>
-          <p className="mt-1 text-sm text-on-surface-variant">{formatFullDate(selectedDate)}</p>
-        </div>
-        <span className="rounded-full border border-outline-variant bg-primary-container px-3 py-1.5 font-display text-xs font-semibold text-on-primary-container">
-          {shifts.length} ca · {bookingCount} booking
-        </span>
-      </div>
-
-      {shifts.length === 0 ? (
-        <EmptyState
-          title="Không có ca trong ngày"
-          description="Bạn chưa được phân công ca nào trong ngày này. Hãy chọn ngày khác để xem lịch."
-          actionLabel="Chọn ngày khác"
-          onAction={onGoToday}
-        />
+    <ModalFrame title="Điểm danh ca hiện tại" description="Xác minh ca làm, vị trí tại studio và thời gian trước khi check-in hoặc check-out." onClose={onClose} size="lg">
+      {!shift ? (
+        <div className="rounded-xl border border-error-container bg-error-container px-4 py-3 text-sm font-semibold text-on-error-container">Không có ca hiện tại.</div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-          {shifts.map((shift) => (
-            <ShiftCard
-              key={shift.id}
-              shift={shift}
-              selected={selectedShiftId === shift.id}
-              bookings={bookingsByShift[shift.id] ?? []}
-              onSelect={() => onSelectShift(shift.id)}
-              onViewDetails={() => onViewShiftDetails(shift)}
-            />
-          ))}
+        <div className="space-y-5">
+          <section className="rounded-xl border border-outline-variant bg-surface-container-low p-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="font-display text-xl font-bold text-on-surface">{shift.shiftName}</p>
+                <p className="mt-1 text-sm text-on-surface-variant">
+                  {getDayLabel(shift.day)} · {shift.startTime} - {shift.endTime}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-on-surface-variant">{shift.note ?? 'Không có ghi chú cho ca này.'}</p>
+              </div>
+              <span className={['w-fit rounded-full px-3 py-1 font-display text-xs font-bold', statusMeta.className].join(' ')}>{statusMeta.label}</span>
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-outline-variant bg-white p-4 shadow-[0_8px_24px_rgba(26,28,30,0.04)]">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="font-display text-base font-bold text-on-surface">Xác minh vị trí</h3>
+                <p className="mt-1 text-sm text-on-surface-variant">
+                  {STUDIO_LOCATION.name} · {STUDIO_LOCATION.address} · bán kính {STUDIO_LOCATION.radiusMeters}m
+                </p>
+                {locationDistance !== null && (
+                  <p className="mt-1 text-sm font-semibold text-on-surface">Khoảng cách hiện tại: {formatDistance(locationDistance)}</p>
+                )}
+              </div>
+              <button type="button" onClick={onVerify} disabled={locationStatus === 'CHECKING' || isLoading} className="btn-secondary shrink-0 disabled:cursor-not-allowed disabled:opacity-60">
+                {locationStatus === 'CHECKING' ? 'Đang kiểm tra vị trí...' : 'Kiểm tra vị trí'}
+              </button>
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-outline-variant bg-white p-4 shadow-[0_8px_24px_rgba(26,28,30,0.04)]">
+            <h3 className="font-display text-base font-bold text-on-surface">Điều kiện điểm danh</h3>
+            <div className="mt-4 grid gap-2">
+              <ConditionLine status={hasValidShift ? 'PASSED' : 'FAILED'} label="Ca làm hợp lệ" />
+              <ConditionLine status={withinCheckInWindow ? 'PASSED' : 'FAILED'} label={`Đúng khung giờ check-in từ ${getCheckInStartTime(shift)} đến ${shift.endTime}`} />
+              <ConditionLine status={locationConditionStatus} label="Đang ở gần studio" />
+              <ConditionLine status={afterShiftEnd ? 'PASSED' : 'FAILED'} label={`Đã đến giờ kết thúc ca ${shift.endTime}`} />
+            </div>
+          </section>
+
+          <section className="grid gap-3 text-sm sm:grid-cols-2">
+            <InfoItem label="Giờ vào" value={shift.checkInTime ?? 'Chưa check-in'} />
+            <InfoItem label="Giờ ra" value={shift.checkOutTime ?? 'Chưa check-out'} />
+            <InfoItem label="Tổng thời lượng làm việc" value={calculateWorkingDuration(shift.checkInTime, shift.checkOutTime)} />
+            <InfoItem label="Trạng thái ca" value={statusMeta.label} />
+          </section>
+
+          <section className="rounded-xl border border-outline-variant bg-white p-4 shadow-[0_8px_24px_rgba(26,28,30,0.04)]">
+            <h3 className="font-display text-base font-bold text-on-surface">Timeline ca làm</h3>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <TimelineStep label="Bắt đầu ca" value={shift.startTime} active />
+              <TimelineStep label="Check-in" value={shift.checkInTime ?? 'Chưa có'} active={Boolean(shift.checkInTime)} />
+              <TimelineStep label="Kết thúc ca" value={shift.checkOutTime ?? shift.endTime} active={Boolean(shift.checkOutTime)} />
+            </div>
+          </section>
+
+          {status === 'CHECKED_IN' && !afterShiftEnd && (
+            <div className="rounded-xl border border-[#FEF3C7] bg-[#FFFBEB] px-4 py-3 text-sm font-semibold text-[#92400E]">
+              Chưa đến giờ kết thúc ca. Bạn có thể check-out sau {shift.endTime}.
+            </div>
+          )}
+          {error && <div className="rounded-xl border border-error-container bg-error-container px-4 py-3 text-sm font-semibold text-on-error-container">{error}</div>}
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+            <button type="button" onClick={onClose} className="btn-secondary" disabled={isLoading}>
+              Hủy
+            </button>
+            {status === 'NOT_STARTED' && (
+              <button type="button" onClick={onCheckIn} disabled={!canCheckIn} className="btn-warm disabled:cursor-not-allowed disabled:opacity-50">
+                {isLoading ? 'Đang check-in...' : 'Check-in'}
+              </button>
+            )}
+            {status === 'CHECKED_IN' && (
+              <button type="button" onClick={onCheckOut} disabled={!canCheckOut} className="btn-warm disabled:cursor-not-allowed disabled:opacity-50">
+                {isLoading ? 'Đang check-out...' : 'Check-out'}
+              </button>
+            )}
+            {status === 'CHECKED_OUT' && (
+              <button type="button" disabled className="btn-secondary opacity-70">
+                Đã hoàn tất ca
+              </button>
+            )}
+          </div>
         </div>
       )}
-    </section>
+    </ModalFrame>
   )
 }
 
-function ShiftCard({
-  shift,
-  selected,
-  bookings,
-  onSelect,
-  onViewDetails,
+function RegisterShiftModal({
+  form,
+  shifts,
+  shiftOptions,
+  selectedShift,
+  error,
+  success,
+  isLoading,
+  onChange,
+  onSubmit,
+  onClose,
 }: {
-  shift: StaffShift
-  selected: boolean
-  bookings: BookingInShift[]
-  onSelect: () => void
-  onViewDetails: () => void
+  form: RegisterForm
+  shifts: StaffShiftCell[]
+  shiftOptions: ShiftOption[]
+  selectedShift: ShiftOption | null
+  error: string
+  success: string
+  isLoading: boolean
+  onChange: (form: RegisterForm) => void
+  onSubmit: () => void
+  onClose: () => void
 }) {
-  const pendingCount = bookings.filter((booking) => booking.status === 'PENDING').length || shift.pendingCount
-  const inUseCount = bookings.filter((booking) => booking.status === 'IN_PROGRESS').length || shift.inUseCount
+  const dayOptions = days.map((day) => {
+    const slots = shiftOptions.filter((shift) => shift.day === day.key && !isShiftFull(shift)).length
+    return { ...day, slots }
+  })
+  const visibleShiftOptions = form.day ? shiftOptions.filter((shift) => shift.day === form.day) : []
+  const duplicateShift = Boolean(form.day && form.shiftName && shifts.some((shift) => shift.day === form.day && shift.shiftName === form.shiftName && isRegisteredShiftStatus(shift.status)))
+  const isSubmitDisabled = isLoading || !form.day || !form.shiftName || !selectedShift || isShiftFull(selectedShift) || duplicateShift
 
   return (
-    <article
-      role="button"
-      tabIndex={0}
-      onClick={onSelect}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') onSelect()
-      }}
-      className={[
-        'relative cursor-pointer overflow-hidden rounded-xl border bg-white p-5 transition',
-        selected
-          ? 'border-brand-orange bg-primary-container/25 shadow-[var(--band-shadow-card)]'
-          : 'border-outline-variant shadow-[var(--band-shadow-card)] hover:border-brand-orange/35 hover:bg-surface-container-low',
-      ].join(' ')}
-    >
-      {selected && <span className="absolute inset-x-0 top-0 h-1 bg-brand-orange" />}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 items-start gap-4">
-          <div className={['flex h-12 w-12 shrink-0 items-center justify-center rounded-xl', shiftIconClassName[shift.status]].join(' ')}>
-            <IconShift status={shift.status} />
-          </div>
-          <div className="min-w-0">
-          <h3 className="font-display text-xl font-semibold text-on-surface">{shift.name}</h3>
-            <p className="mt-1 text-sm text-on-surface-variant">
-              {shift.startTime} - {shift.endTime}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1A1C1E]/35 p-3 sm:p-4">
+      <section className="flex max-h-[calc(100vh-1.5rem)] w-full max-w-[760px] flex-col overflow-hidden rounded-xl border border-outline-variant bg-white shadow-[var(--band-shadow-elevated)]">
+        <header className="flex items-start justify-between gap-4 border-b border-outline-variant px-5 py-5 sm:px-6">
+          <div>
+            <h2 className="font-display text-2xl font-bold text-on-surface">Đăng ký ca làm việc</h2>
+            <p className="mt-1 max-w-xl text-sm leading-6 text-on-surface-variant">
+              Chọn ngày và ca phù hợp để đăng ký lịch làm việc trong tuần.
             </p>
           </div>
-        </div>
-        <StatusBadge meta={getShiftStatusMeta(shift.status)} />
-      </div>
-
-      <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3">
-        <ShiftMetric label="Nhân viên" value={shift.staffName} icon />
-        <ShiftMetric label="Phòng" value={shift.roomCount.toString()} />
-        <ShiftMetric label="Booking" value={shift.bookingCount.toString()} />
-        <ShiftMetric label="Chờ xác nhận" value={pendingCount.toString()} highlight={pendingCount > 0} />
-        <ShiftMetric label="Đang sử dụng" value={inUseCount.toString()} highlight={inUseCount > 0} />
-      </div>
-
-      <div className="mt-4 flex justify-end">
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation()
-            onViewDetails()
-          }}
-          className="inline-flex h-9 items-center gap-2 rounded-lg border border-outline bg-white px-3 font-display text-xs font-semibold text-on-surface transition hover:bg-surface-container-low"
-        >
-          Xem chi tiết
-          <IconChevron direction="right" />
-        </button>
-      </div>
-    </article>
-  )
-}
-
-function ShiftMetric({ label, value, icon = false, highlight = false }: { label: string; value: string; icon?: boolean; highlight?: boolean }) {
-  return (
-    <div className="min-w-0 rounded-lg border border-outline-variant bg-surface-container-low px-3 py-3">
-      <p className="font-display text-[10px] font-bold uppercase tracking-wide text-on-surface-variant">{label}</p>
-      <p className={['mt-2 truncate font-display text-sm font-bold', highlight ? 'text-brand-orange' : 'text-on-surface'].join(' ')}>
-        {icon && <span className="mr-1 text-brand-orange">♙</span>}
-        {value}
-      </p>
-    </div>
-  )
-}
-
-function BookingList({
-  shift,
-  bookings,
-  totalBookingCount,
-  filters,
-  draftFilters,
-  isFilterOpen,
-  openMenuId,
-  onToggleFilter,
-  onChangeDraftFilters,
-  onApplyFilters,
-  onResetFilters,
-  onToggleMenu,
-  onViewBooking,
-  onCopyBookingCode,
-  onPrimaryAction,
-  onRequestStatusChange,
-  onChooseAnotherDay,
-}: {
-  shift: StaffShift | null
-  bookings: BookingInShift[]
-  totalBookingCount: number
-  filters: BookingFilters
-  draftFilters: BookingFilters
-  isFilterOpen: boolean
-  openMenuId: string | null
-  onToggleFilter: () => void
-  onChangeDraftFilters: (filters: BookingFilters) => void
-  onApplyFilters: () => void
-  onResetFilters: () => void
-  onToggleMenu: (bookingId: string) => void
-  onViewBooking: (booking: BookingInShift) => void
-  onCopyBookingCode: (bookingId: string) => void
-  onPrimaryAction: (booking: BookingInShift) => void
-  onRequestStatusChange: (
-    booking: BookingInShift,
-    nextStatus: BookingStatus,
-    title: string,
-    description: string,
-    confirmLabel: string,
-    variant?: 'primary' | 'danger',
-  ) => void
-  onChooseAnotherDay: () => void
-}) {
-  const hasActiveFilters = filters.status !== 'ALL' || filters.hasEquipment || filters.hasNote
-
-  return (
-    <section className="overflow-hidden rounded-xl border border-outline-variant bg-white shadow-[var(--band-shadow-card)]">
-      <div className="flex items-start justify-between gap-3 border-b border-outline-variant px-5 py-4">
-        <div>
-          <h2 className="font-display text-2xl font-semibold text-on-surface">
-            Booking trong ca
-            {shift && <span className="font-sans text-sm font-medium text-on-surface-variant"> · {shift.name} ({shift.startTime} - {shift.endTime})</span>}
-          </h2>
-        </div>
-        <div className="relative">
-          <button
-            type="button"
-            onClick={onToggleFilter}
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-outline bg-white px-3 font-display text-sm font-semibold text-on-surface shadow-sm transition hover:bg-surface-container-low"
-          >
-            <IconFilter className="h-4 w-4" />
-            Lọc
-            {hasActiveFilters && <span className="h-2 w-2 rounded-full bg-brand-orange" />}
+          <button type="button" onClick={onClose} className="icon-button shrink-0" aria-label="Đóng" disabled={isLoading}>
+            <IconClose />
           </button>
-          {isFilterOpen && (
-            <BookingFilterPopover
-              draftFilters={draftFilters}
-              onChange={onChangeDraftFilters}
-              onApply={onApplyFilters}
-              onReset={onResetFilters}
-            />
-          )}
-        </div>
-      </div>
+        </header>
 
-      <div className="p-4">
-        {!shift ? (
-          <EmptyState title="Chưa chọn ca" description="Chọn một ca trong ngày để xem danh sách booking cần xử lý." />
-        ) : bookings.length === 0 ? (
-          hasActiveFilters && totalBookingCount > 0 ? (
-            <EmptyState
-              title="Không tìm thấy booking phù hợp"
-              description="Thử đổi bộ lọc hoặc chọn ca khác."
-              actionLabel="Đặt lại bộ lọc"
-              onAction={onResetFilters}
-            />
-          ) : (
-            <EmptyState
-              title="Không có booking trong ca này"
-              description="Ca làm này hiện chưa có booking nào. Hãy chọn ca khác để tiếp tục theo dõi."
-              actionLabel="Chọn ngày khác"
-              onAction={onChooseAnotherDay}
-            />
-          )
-        ) : (
-          <div className="space-y-3">
-            {bookings.map((booking) => (
-              <BookingRow
-                key={booking.id}
-                booking={booking}
-                menuOpen={openMenuId === booking.id}
-                onToggleMenu={() => onToggleMenu(booking.id)}
-                onView={() => onViewBooking(booking)}
-                onCopy={() => onCopyBookingCode(booking.id)}
-                onPrimaryAction={() => onPrimaryAction(booking)}
-                onMarkNoShow={() =>
-                  onRequestStatusChange(
-                    booking,
-                    'NO_SHOW',
-                    'Đánh dấu không đến?',
-                    `Booking ${booking.id} sẽ được chuyển sang trạng thái Không đến.`,
-                    'Đánh dấu',
-                    'danger',
+        <div className="space-y-5 overflow-y-auto bg-[#FDFBF8] px-5 py-5 sm:px-6">
+          <section className="rounded-xl border border-outline-variant bg-white p-4 shadow-[0_8px_24px_rgba(26,28,30,0.04)]">
+            <div className="flex flex-col gap-1">
+              <h3 className="font-display text-base font-bold text-on-surface">Chọn ngày</h3>
+              <p className="text-sm text-on-surface-variant">Chỉ hiển thị các ngày trong tuần hiện tại.</p>
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {dayOptions.map((day) => {
+                const active = form.day === day.key
+                return (
+                  <button
+                    key={day.key}
+                    type="button"
+                    onClick={() => onChange({ ...form, day: day.key, shiftName: '' })}
+                    disabled={isLoading}
+                    className={[
+                      'rounded-xl border p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-60',
+                      active ? 'border-brand-orange bg-primary-container/55 shadow-[0_10px_24px_rgba(255,117,24,0.12)]' : 'border-outline-variant bg-white hover:border-brand-orange/50 hover:bg-primary-container/20',
+                    ].join(' ')}
+                  >
+                    <span className="block font-display text-sm font-bold text-on-surface">{day.label}</span>
+                    <span className="mt-1 block text-lg font-bold text-on-surface">{day.date}</span>
+                    <span className="mt-2 inline-flex rounded-full bg-surface-container px-2.5 py-1 text-xs font-semibold text-on-surface-variant">
+                      {day.slots} ca còn trống
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-outline-variant bg-white p-4 shadow-[0_8px_24px_rgba(26,28,30,0.04)]">
+            <div className="flex flex-col gap-1">
+              <h3 className="font-display text-base font-bold text-on-surface">Chọn ca</h3>
+              <p className="text-sm text-on-surface-variant">Ca đã đủ nhân viên sẽ bị khóa và không thể đăng ký.</p>
+            </div>
+            <div className="mt-4 grid gap-3">
+              {visibleShiftOptions.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-outline-variant bg-surface-container-low px-4 py-5 text-sm text-on-surface-variant">
+                  Vui lòng chọn ngày làm việc để xem danh sách ca.
+                </div>
+              ) : (
+                visibleShiftOptions.map((shift) => {
+                  const active = form.shiftName === shift.shiftName
+                  const full = isShiftFull(shift)
+                  const meta = getShiftAvailabilityMeta(shift.status)
+                  return (
+                    <button
+                      key={shift.id}
+                      type="button"
+                      onClick={() => !full && onChange({ ...form, shiftName: shift.shiftName })}
+                      disabled={isLoading || full}
+                      className={[
+                        'rounded-xl border p-4 text-left transition',
+                        active ? 'border-brand-orange bg-primary-container/45 shadow-[0_12px_26px_rgba(255,117,24,0.14)]' : 'border-outline-variant bg-white hover:border-brand-orange/50',
+                        full ? 'cursor-not-allowed opacity-60 hover:border-outline-variant' : '',
+                      ].join(' ')}
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-display text-lg font-bold text-on-surface">{shift.shiftName}</p>
+                            {active && <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-brand-orange text-xs font-bold text-white">✓</span>}
+                          </div>
+                          <p className="mt-1 font-semibold text-on-surface">{shift.startTime} - {shift.endTime}</p>
+                          <p className="mt-2 text-sm leading-6 text-on-surface-variant">{shift.description}</p>
+                        </div>
+                        <div className="flex shrink-0 flex-row items-center gap-2 sm:flex-col sm:items-end">
+                          <span className={['rounded-full px-3 py-1 font-display text-xs font-bold', meta.className].join(' ')}>
+                            {meta.label}
+                          </span>
+                          <span className="rounded-full bg-surface-container px-3 py-1 text-xs font-semibold text-on-surface-variant">
+                            {shift.registeredCount}/{shift.requiredCount} nhân viên
+                          </span>
+                        </div>
+                      </div>
+                    </button>
                   )
-                }
-                onCancelBooking={() =>
-                  onRequestStatusChange(
-                    booking,
-                    'CANCELLED',
-                    'Hủy booking này?',
-                    `Booking ${booking.id} sẽ bị hủy trong giao diện hiện tại.`,
-                    'Hủy booking',
-                    'danger',
-                  )
-                }
+                })
+              )}
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-outline-variant bg-white p-4 shadow-[0_8px_24px_rgba(26,28,30,0.04)]">
+            <label className="block">
+              <span className="font-display text-sm font-bold text-on-surface">Ghi chú cho quản lý</span>
+              <textarea
+                value={form.note}
+                onChange={(event) => onChange({ ...form, note: event.target.value })}
+                disabled={isLoading}
+                className="mt-2 min-h-28 w-full resize-none rounded-xl border border-outline-variant bg-surface-container-low px-4 py-3 text-sm outline-none transition placeholder:text-on-surface-variant/70 focus:border-brand-orange focus:bg-white focus:ring-4 focus:ring-brand-orange/10 disabled:cursor-not-allowed disabled:opacity-60"
+                placeholder="Ví dụ: Có thể hỗ trợ phòng thu vocal, setup thiết bị hoặc trực ca tối."
               />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {shift && bookings.length > 0 && (
-        <div className="border-t border-outline-variant bg-surface-container-low px-5 py-3 text-sm text-on-surface-variant">
-          Hiển thị {bookings.length} booking{hasActiveFilters ? ` / ${totalBookingCount}` : ''}
-        </div>
-      )}
-    </section>
-  )
-}
-
-function BookingFilterPopover({
-  draftFilters,
-  onChange,
-  onApply,
-  onReset,
-}: {
-  draftFilters: BookingFilters
-  onChange: (filters: BookingFilters) => void
-  onApply: () => void
-  onReset: () => void
-}) {
-  const options: Array<{ value: BookingFilterStatus; label: string }> = [
-    { value: 'ALL', label: 'Tất cả' },
-    ...bookingStatusOrder.map((status) => ({ value: status, label: getBookingStatusMeta(status).label })),
-  ]
-
-  return (
-    <div className="absolute right-0 top-11 z-30 w-72 rounded-xl border border-outline-variant bg-white p-4 shadow-[var(--band-shadow-elevated)]">
-      <p className="font-display text-sm font-bold text-on-surface">Lọc booking</p>
-      <div className="mt-3 space-y-2">
-        {options.map((option) => (
-          <label key={option.value} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-on-surface hover:bg-surface-container-low">
-            <input
-              type="radio"
-              name="booking-status-filter"
-              checked={draftFilters.status === option.value}
-              onChange={() => onChange({ ...draftFilters, status: option.value })}
-              className="accent-brand-orange"
-            />
-            {option.label}
-          </label>
-        ))}
-      </div>
-
-      <div className="mt-3 border-t border-outline-variant pt-3">
-        <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-on-surface hover:bg-surface-container-low">
-          <input
-            type="checkbox"
-            checked={draftFilters.hasEquipment}
-            onChange={(event) => onChange({ ...draftFilters, hasEquipment: event.target.checked })}
-            className="accent-brand-orange"
-          />
-          Có thuê thiết bị
-        </label>
-        <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-on-surface hover:bg-surface-container-low">
-          <input
-            type="checkbox"
-            checked={draftFilters.hasNote}
-            onChange={(event) => onChange({ ...draftFilters, hasNote: event.target.checked })}
-            className="accent-brand-orange"
-          />
-          Có ghi chú
-        </label>
-      </div>
-
-      <div className="mt-4 flex gap-2">
-        <button type="button" onClick={onReset} className="h-9 flex-1 rounded-lg border border-outline bg-white font-display text-sm font-semibold text-on-surface hover:bg-surface-container-low">
-          Đặt lại
-        </button>
-        <button type="button" onClick={onApply} className="h-9 flex-1 rounded-lg bg-brand-orange font-display text-sm font-semibold text-white hover:bg-brand-orangeHover">
-          Áp dụng
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function BookingRow({
-  booking,
-  menuOpen,
-  onToggleMenu,
-  onView,
-  onCopy,
-  onPrimaryAction,
-  onMarkNoShow,
-  onCancelBooking,
-}: {
-  booking: BookingInShift
-  menuOpen: boolean
-  onToggleMenu: () => void
-  onView: () => void
-  onCopy: () => void
-  onPrimaryAction: () => void
-  onMarkNoShow: () => void
-  onCancelBooking: () => void
-}) {
-  const meta = getBookingStatusMeta(booking.status)
-  const primaryAction = getAvailableBookingActions(booking.status)[0]
-  const terminal = isTerminalBookingStatus(booking.status)
-
-  return (
-    <article className="grid gap-4 rounded-xl border border-outline-variant bg-surface-container-low p-4 shadow-[var(--band-shadow-card)] transition hover:bg-surface-container sm:grid-cols-[64px_minmax(0,1fr)_auto]">
-      <div className={['flex h-16 w-16 items-center justify-center rounded-lg', meta.iconClassName].join(' ')}>
-        <IconBooking status={booking.status} />
-      </div>
-
-      <div className="min-w-0">
-        <p className="font-display text-xs font-bold uppercase tracking-wide text-brand-orange">{booking.id}</p>
-        <h3 className="mt-1 font-display text-lg font-semibold text-on-surface">{booking.customerName}</h3>
-        <p className="mt-1 text-sm text-on-surface-variant">
-          {booking.roomName} · {booking.startTime} - {booking.endTime} · {booking.guestCount} người
-        </p>
-
-        <div className="mt-2 flex flex-wrap gap-2">
-          {booking.equipment.length > 0 ? (
-            booking.equipment.map((item) => (
-              <span key={item} className="rounded-full border border-outline-variant bg-surface-container px-2.5 py-1 text-xs font-medium text-on-surface-variant">
-                {item}
+              <span className="mt-2 block text-sm text-on-surface-variant">
+                Ghi chú là tùy chọn và sẽ được gửi kèm yêu cầu đăng ký ca.
               </span>
-            ))
-          ) : (
-            <span className="rounded-full border border-outline-variant bg-surface-container px-2.5 py-1 text-xs font-medium text-on-surface-variant">Không thuê thiết bị</span>
-          )}
-        </div>
+            </label>
+          </section>
 
-        {booking.note && <p className="mt-2 rounded-lg border border-outline-variant bg-white px-3 py-2 text-xs text-on-surface-variant">• {booking.note}</p>}
-      </div>
-
-      <div className="flex items-start justify-between gap-3 sm:flex-col sm:items-end">
-        <div className="flex items-center gap-2">
-          <StatusBadge meta={meta} />
-          <div className="relative">
-            <button
-              type="button"
-              onClick={onToggleMenu}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-outline bg-white text-on-surface-variant shadow-sm transition hover:bg-surface-container-low"
-              aria-label="Mở menu booking"
-            >
-              <IconDots />
-            </button>
-            {menuOpen && (
-              <BookingMenu
-                terminal={terminal}
-                onView={onView}
-                onCopy={onCopy}
-                onMarkNoShow={onMarkNoShow}
-                onCancelBooking={onCancelBooking}
-              />
-            )}
-          </div>
-        </div>
-        {primaryAction && (
-          <button
-            type="button"
-            onClick={onPrimaryAction}
-            className="inline-flex h-10 items-center rounded-lg bg-brand-orange px-4 font-display text-sm font-bold text-white shadow-[0_12px_28px_rgba(255,117,24,0.24)] transition hover:bg-brand-orangeHover active:scale-[0.98]"
-          >
-            {primaryAction.label}
-          </button>
-        )}
-      </div>
-    </article>
-  )
-}
-
-function BookingMenu({
-  terminal,
-  onView,
-  onCopy,
-  onMarkNoShow,
-  onCancelBooking,
-}: {
-  terminal: boolean
-  onView: () => void
-  onCopy: () => void
-  onMarkNoShow: () => void
-  onCancelBooking: () => void
-}) {
-  return (
-    <div className="absolute right-0 top-9 z-20 w-52 overflow-hidden rounded-xl border border-outline-variant bg-white py-1 shadow-[var(--band-shadow-elevated)]">
-      <MenuButton onClick={onView}>Xem chi tiết</MenuButton>
-      <MenuButton onClick={onCopy}>Sao chép mã booking</MenuButton>
-      <MenuButton onClick={onMarkNoShow} disabled={terminal}>
-        Đánh dấu không đến
-      </MenuButton>
-      <MenuButton onClick={onCancelBooking} disabled={terminal} danger>
-        Hủy booking
-      </MenuButton>
-    </div>
-  )
-}
-
-function MenuButton({
-  children,
-  onClick,
-  disabled = false,
-  danger = false,
-}: {
-  children: ReactNode
-  onClick: () => void
-  disabled?: boolean
-  danger?: boolean
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={[
-        'block w-full px-3 py-2 text-left text-sm transition',
-        disabled
-          ? 'cursor-not-allowed text-on-surface-variant/40'
-          : danger
-            ? 'text-on-error-container hover:bg-error-container'
-            : 'text-on-surface hover:bg-surface-container-low',
-      ].join(' ')}
-    >
-      {children}
-    </button>
-  )
-}
-
-function ShiftDetailPanel({
-  shift,
-  bookings,
-  onClose,
-  onFocusBookings,
-}: {
-  shift: StaffShift
-  bookings: BookingInShift[]
-  onClose: () => void
-  onFocusBookings: () => void
-}) {
-  return (
-    <div className="fixed inset-0 z-40 flex justify-end bg-inverse-surface/45 backdrop-blur-sm">
-      <aside className="h-full w-full max-w-xl overflow-y-auto bg-brand-bgGray p-6 shadow-[var(--band-shadow-elevated)]">
-        <PanelHeader title="Chi tiết ca làm" onClose={onClose} />
-        <div className="mt-5 rounded-xl border border-outline-variant bg-white p-5 shadow-[var(--band-shadow-card)]">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="font-display text-xs font-bold uppercase tracking-wide text-brand-orange">{shift.date}</p>
-              <h2 className="mt-1 font-display text-2xl font-semibold text-on-surface">{shift.name}</h2>
-              <p className="mt-1 text-sm text-on-surface-variant">
-                {shift.startTime} - {shift.endTime}
+          <section className="rounded-xl border border-outline-variant bg-white p-4 shadow-[0_8px_24px_rgba(26,28,30,0.04)]">
+            <h3 className="font-display text-base font-bold text-on-surface">Tóm tắt đăng ký</h3>
+            {!form.day || !form.shiftName || !selectedShift ? (
+              <p className="mt-3 rounded-xl border border-dashed border-outline-variant bg-surface-container-low px-4 py-4 text-sm text-on-surface-variant">
+                Vui lòng chọn ngày và ca làm việc để xem tóm tắt.
               </p>
-            </div>
-            <StatusBadge meta={getShiftStatusMeta(shift.status)} />
-          </div>
-
-          <div className="mt-5 grid grid-cols-2 gap-3">
-            <DetailMetric label="Nhân viên" value={shift.staffName} />
-            <DetailMetric label="Số phòng" value={shift.roomCount.toString()} />
-            <DetailMetric label="Tổng booking" value={shift.bookingCount.toString()} />
-            <DetailMetric label="Chờ xác nhận" value={shift.pendingCount.toString()} />
-            <DetailMetric label="Phòng đang sử dụng" value={shift.inUseCount.toString()} />
-            <DetailMetric label="Ghi chú ca" value="Theo dõi phòng trước giờ nhận khách." />
-          </div>
-
-          <button
-            type="button"
-            onClick={onFocusBookings}
-            className="mt-5 h-10 rounded-lg bg-brand-orange px-4 font-display text-sm font-bold text-white transition hover:bg-brand-orangeHover"
-          >
-            Xem booking trong ca
-          </button>
-        </div>
-
-        <div className="mt-5 rounded-xl border border-outline-variant bg-white p-5 shadow-[var(--band-shadow-card)]">
-          <h3 className="font-display text-lg font-semibold text-on-surface">Danh sách booking</h3>
-          <div className="mt-3 space-y-2">
-            {bookings.length > 0 ? (
-              bookings.map((booking) => (
-                <div key={booking.id} className="rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-display text-sm font-bold text-brand-orange">{booking.id}</p>
-                      <p className="text-sm font-semibold text-on-surface">{booking.customerName}</p>
-                      <p className="text-xs text-on-surface-variant">
-                        {booking.roomName} · {booking.startTime} - {booking.endTime}
-                      </p>
-                    </div>
-                    <StatusBadge meta={getBookingStatusMeta(booking.status)} />
-                  </div>
-                </div>
-              ))
             ) : (
-              <p className="rounded-lg bg-surface-container-low px-3 py-4 text-sm text-on-surface-variant">
-                Ca này hiện chưa có booking.
-              </p>
-            )}
-          </div>
-        </div>
-      </aside>
-    </div>
-  )
-}
-
-function BookingDetailPanel({
-  booking,
-  onClose,
-  onPrimaryAction,
-}: {
-  booking: BookingInShift
-  onClose: () => void
-  onPrimaryAction: (booking: BookingInShift) => void
-}) {
-  const primaryAction = getAvailableBookingActions(booking.status)[0]
-
-  return (
-    <div className="fixed inset-0 z-40 flex justify-end bg-inverse-surface/45 backdrop-blur-sm">
-      <aside className="h-full w-full max-w-lg overflow-y-auto bg-brand-bgGray p-6 shadow-[var(--band-shadow-elevated)]">
-        <PanelHeader title="Chi tiết booking" onClose={onClose} />
-        <div className="mt-5 rounded-xl border border-outline-variant bg-white p-5 shadow-[var(--band-shadow-card)]">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="font-display text-xs font-bold uppercase tracking-wide text-brand-orange">{booking.id}</p>
-              <h2 className="mt-1 font-display text-2xl font-semibold text-on-surface">{booking.customerName}</h2>
-              <p className="mt-1 text-sm text-on-surface-variant">
-                {booking.roomName} · {booking.startTime} - {booking.endTime} · {booking.guestCount} người
-              </p>
-            </div>
-            <StatusBadge meta={getBookingStatusMeta(booking.status)} />
-          </div>
-
-          <div className="mt-5 grid gap-3">
-            <DetailMetric label="Thiết bị thuê thêm" value={booking.equipment.length ? booking.equipment.join(', ') : 'Không thuê thiết bị'} />
-            <DetailMetric label="Ghi chú" value={booking.note ?? 'Không có ghi chú'} />
-          </div>
-
-          <div className="mt-5">
-            <h3 className="font-display text-sm font-bold uppercase tracking-wide text-on-surface-variant">Timeline trạng thái</h3>
-            <div className="mt-3 space-y-3">
-              {['Tạo booking', 'Xác nhận', 'Check-in', 'Check-out / Hoàn tất'].map((item, index) => (
-                <div key={item} className="flex items-center gap-3">
-                  <span className={['h-2.5 w-2.5 rounded-full', index === 0 ? 'bg-brand-orange' : 'bg-outline'].join(' ')} />
-                  <span className="text-sm text-on-surface-variant">{item}</span>
+              <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                <InfoItem label="Ngày đã chọn" value={`${getDayLabel(selectedShift.day)} · ${selectedShift.date}`} />
+                <InfoItem label="Ca đã chọn" value={selectedShift.shiftName} />
+                <InfoItem label="Thời gian" value={`${selectedShift.startTime} - ${selectedShift.endTime}`} />
+                <InfoItem label="Trạng thái ca" value={getShiftAvailabilityMeta(selectedShift.status).label} />
+                <div className="sm:col-span-2">
+                  <InfoItem label="Ghi chú" value={form.note.trim() || 'Không có'} />
                 </div>
-              ))}
-            </div>
-          </div>
+              </dl>
+            )}
+          </section>
 
-          {primaryAction && (
-            <button
-              type="button"
-              onClick={() => onPrimaryAction(booking)}
-              className="mt-5 h-10 rounded-lg bg-brand-orange px-4 font-display text-sm font-bold text-white transition hover:bg-brand-orangeHover"
-            >
-              {primaryAction.label}
-            </button>
-          )}
+          {error && <div className="rounded-xl border border-error-container bg-error-container px-4 py-3 text-sm font-semibold text-on-error-container">{error}</div>}
+          {success && <div className="rounded-xl border border-[#CDE9D6] bg-[#E8F5EC] px-4 py-3 text-sm font-semibold text-secondary">{success}</div>}
         </div>
-      </aside>
-    </div>
-  )
-}
 
-function ConfirmDialog({ action, onCancel }: { action: ConfirmAction; onCancel: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-inverse-surface/55 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-xl border border-outline-variant bg-white p-5 shadow-[var(--band-shadow-elevated)]">
-        <h2 className="font-display text-xl font-semibold text-on-surface">{action.title}</h2>
-        <p className="mt-2 text-sm leading-6 text-on-surface-variant">{action.description}</p>
-        <div className="mt-5 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="h-10 rounded-lg border border-outline bg-white px-4 font-display text-sm font-semibold text-on-surface hover:bg-surface-container-low"
-          >
+        <footer className="flex flex-col-reverse gap-3 border-t border-outline-variant bg-white px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+          <button type="button" onClick={onClose} className="btn-secondary" disabled={isLoading}>
             Hủy
           </button>
-          <button
-            type="button"
-            onClick={action.onConfirm}
-            className={[
-              'h-10 rounded-lg px-4 font-display text-sm font-semibold text-white transition active:scale-[0.98]',
-              action.variant === 'danger' ? 'bg-error hover:bg-error/90' : 'bg-brand-orange hover:bg-brand-orangeHover',
-            ].join(' ')}
-          >
-            {action.confirmLabel}
+          <button type="button" onClick={onSubmit} disabled={isSubmitDisabled} className="btn-warm disabled:cursor-not-allowed disabled:opacity-50">
+            {isLoading ? 'Đang đăng ký...' : 'Đăng ký ca'}
           </button>
+        </footer>
+      </section>
+    </div>
+  )
+}
+
+function ShiftDetailModal({ shift, onClose }: { shift: StaffShiftCell; onClose: () => void }) {
+  const meta = getShiftStatusMeta(shift.status)
+
+  return (
+    <ModalFrame title="Chi tiết ca làm" onClose={onClose}>
+      <div className="space-y-4">
+        <div className="flex items-start justify-between gap-4 rounded-xl border border-outline-variant bg-surface-container-low p-4">
+          <div>
+            <p className="font-display text-xl font-bold text-on-surface">{shift.shiftName}</p>
+            <p className="mt-1 text-sm text-on-surface-variant">
+              {getDayLabel(shift.day)} · {shift.startTime} - {shift.endTime}
+            </p>
+          </div>
+          <span className={['rounded-full px-3 py-1 font-display text-xs font-bold', meta.className].join(' ')}>{meta.label}</span>
         </div>
+        <dl className="grid gap-3 text-sm sm:grid-cols-2">
+          <InfoItem label="Ngày" value={getDayLabel(shift.day)} />
+          <InfoItem label="Ca" value={shift.shiftName} />
+          <InfoItem label="Thời gian" value={`${shift.startTime} - ${shift.endTime}`} />
+          <InfoItem label="Trạng thái" value={meta.label} />
+          <InfoItem label="Ghi chú" value={shift.note ?? 'Không có'} />
+          <InfoItem label="Check-in" value={shift.checkInTime ?? 'Chưa có'} />
+          <InfoItem label="Check-out" value={shift.checkOutTime ?? 'Chưa có'} />
+          <InfoItem label="Tổng thời lượng" value={calculateWorkingDuration(shift.checkInTime, shift.checkOutTime)} />
+        </dl>
       </div>
-    </div>
+    </ModalFrame>
   )
 }
 
-function Toast({ message }: { message: string }) {
-  return (
-    <div className="fixed right-5 top-5 z-[60] rounded-xl border border-outline-variant bg-white px-4 py-3 text-sm font-semibold text-on-surface shadow-[var(--band-shadow-elevated)]">
-      {message}
-    </div>
-  )
-}
-
-function PanelHeader({ title, onClose }: { title: string; onClose: () => void }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <h1 className="font-display text-2xl font-semibold text-on-surface">{title}</h1>
-      <button
-        type="button"
-        onClick={onClose}
-        className="flex h-10 w-10 items-center justify-center rounded-lg border border-outline bg-white text-on-surface transition hover:bg-surface-container-low"
-        aria-label="Đóng"
-      >
-        ×
-      </button>
-    </div>
-  )
-}
-
-function DetailMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-outline-variant bg-surface-container-low p-3">
-      <p className="font-display text-[10px] font-bold uppercase tracking-wide text-on-surface-variant">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-on-surface">{value}</p>
-    </div>
-  )
-}
-
-function StatusBadge({ meta }: { meta: StatusMeta }) {
-  return <span className={['inline-flex shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold', meta.className].join(' ')}>{meta.label}</span>
-}
-
-function EmptyState({
+function ModalFrame({
   title,
   description,
-  actionLabel,
-  onAction,
+  children,
+  onClose,
+  size = 'md',
 }: {
   title: string
-  description: string
-  actionLabel?: string
-  onAction?: () => void
+  description?: string
+  children: ReactNode
+  onClose: () => void
+  size?: 'md' | 'lg'
 }) {
   return (
-    <div className="rounded-xl border border-dashed border-outline bg-white px-5 py-10 text-center shadow-[var(--band-shadow-card)]">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-primary-container text-brand-orange shadow-sm">
-        <IconCalendar className="h-6 w-6" />
-      </div>
-      <h3 className="mt-4 font-display text-lg font-semibold text-on-surface">{title}</h3>
-      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-on-surface-variant">{description}</p>
-      {actionLabel && (
-        <button
-          type="button"
-          onClick={onAction}
-          className="mt-4 rounded-lg bg-brand-orange px-4 py-2 font-display text-sm font-bold text-white shadow-[0_12px_28px_rgba(255,117,24,0.24)] transition hover:bg-brand-orangeHover active:scale-[0.98]"
-        >
-          {actionLabel}
-        </button>
-      )}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1A1C1E]/35 p-3 sm:p-4">
+      <section className={['flex max-h-[calc(100vh-1.5rem)] w-full flex-col overflow-hidden rounded-xl border border-outline-variant bg-white shadow-[var(--band-shadow-elevated)]', size === 'lg' ? 'max-w-[760px]' : 'max-w-xl'].join(' ')}>
+        <header className="flex items-start justify-between gap-4 border-b border-outline-variant px-5 py-5 sm:px-6">
+          <div>
+            <h2 className="font-display text-2xl font-bold text-on-surface">{title}</h2>
+            {description && <p className="mt-1 max-w-xl text-sm leading-6 text-on-surface-variant">{description}</p>}
+          </div>
+          <button type="button" onClick={onClose} className="icon-button shrink-0" aria-label="Đóng">
+            <IconClose />
+          </button>
+        </header>
+        <div className="overflow-y-auto bg-[#FDFBF8] px-5 py-5 sm:px-6">{children}</div>
+      </section>
     </div>
   )
 }
 
-function ScheduleSkeleton() {
+function InfoItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="space-y-6">
-      <div className="flex gap-3 overflow-hidden">
-        {Array.from({ length: 7 }).map((_, index) => (
-          <div key={index} className="h-[270px] w-[178px] shrink-0 animate-pulse rounded-xl bg-white shadow-[var(--band-shadow-card)]">
-            <div className="space-y-3 p-4">
-              <SkeletonLine className="h-3 w-14" />
-              <SkeletonLine className="h-7 w-20" />
-              <SkeletonLine className="h-4 w-28" />
-              <div className="pt-4 space-y-2">
-                <SkeletonLine className="h-14 w-full rounded-lg" />
-                <SkeletonLine className="h-14 w-full rounded-lg" />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,0.45fr)_minmax(0,0.55fr)]">
-        <div className="rounded-xl bg-white p-5 shadow-[var(--band-shadow-card)]">
-          <SkeletonLine className="h-6 w-48" />
-          <div className="mt-5 grid gap-4 lg:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-            <SkeletonLine className="h-44 w-full rounded-xl" />
-            <SkeletonLine className="h-44 w-full rounded-xl" />
-          </div>
-        </div>
-        <div className="rounded-xl bg-white p-5 shadow-[var(--band-shadow-card)]">
-          <SkeletonLine className="h-6 w-52" />
-          <div className="mt-5 space-y-3">
-            <SkeletonLine className="h-28 w-full rounded-xl" />
-            <SkeletonLine className="h-28 w-full rounded-xl" />
-            <SkeletonLine className="h-28 w-full rounded-xl" />
-          </div>
-        </div>
-      </div>
+    <div className="rounded-xl border border-outline-variant bg-white px-4 py-3">
+      <dt className="font-display text-xs font-bold uppercase text-on-surface-variant">{label}</dt>
+      <dd className="mt-1 font-medium text-on-surface">{value}</dd>
     </div>
   )
 }
 
-function SkeletonLine({ className }: { className: string }) {
-  return <div className={['animate-pulse rounded-lg bg-surface-container-high', className].join(' ')} />
+function ConditionLine({ status, label }: { status: ConditionStatus; label: string }) {
+  const meta = {
+    PASSED: { mark: '✓', label: 'Đạt', className: 'bg-secondary text-white', textClass: 'text-secondary' },
+    FAILED: { mark: '•', label: 'Chưa đạt', className: 'bg-surface-container-high text-on-surface-variant', textClass: 'text-on-surface-variant' },
+    CHECKING: { mark: '…', label: 'Đang kiểm tra', className: 'bg-primary-container text-on-primary-container', textClass: 'text-on-primary-container' },
+  }[status]
+
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-outline-variant bg-white px-4 py-3">
+      <div className="flex min-w-0 items-center gap-2">
+        <span className={['flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold', meta.className].join(' ')}>{meta.mark}</span>
+        <span className="font-medium text-on-surface">{label}</span>
+      </div>
+      <span className={['shrink-0 text-xs font-bold', meta.textClass].join(' ')}>{meta.label}</span>
+    </div>
+  )
 }
 
-function getShiftStatusMeta(status: ShiftStatus) {
-  return shiftStatusMeta[status]
+function TimelineStep({ label, value, active }: { label: string; value: string; active: boolean }) {
+  return (
+    <div className={['rounded-xl border px-4 py-3', active ? 'border-brand-orange bg-primary-container/35' : 'border-outline-variant bg-surface-container-low'].join(' ')}>
+      <p className="font-display text-xs font-bold uppercase text-on-surface-variant">{label}</p>
+      <p className="mt-1 font-display text-lg font-bold text-on-surface">{value}</p>
+    </div>
+  )
 }
 
-function getBookingStatusMeta(status: BookingStatus) {
-  return bookingStatusMeta[status]
-}
-
-function getAvailableBookingActions(status: BookingStatus) {
-  const actionMap: Partial<
-    Record<
-      BookingStatus,
-      Array<{
-        label: string
-        nextStatus: BookingStatus
-        requiresConfirm: boolean
-        confirmTitle: string
-        confirmDescription: string
-        variant?: 'primary' | 'danger'
-      }>
-    >
-  > = {
-    PENDING: [
-      {
-        label: 'Xác nhận',
-        nextStatus: 'CONFIRMED',
-        requiresConfirm: true,
-        confirmTitle: 'Xác nhận booking này?',
-        confirmDescription: 'Booking sẽ chuyển sang trạng thái Đã xác nhận và có thể check-in.',
-      },
-    ],
-    CONFIRMED: [
-      {
-        label: 'Check-in',
-        nextStatus: 'CHECKED_IN',
-        requiresConfirm: false,
-        confirmTitle: '',
-        confirmDescription: '',
-      },
-    ],
-    CHECKED_IN: [
-      {
-        label: 'Check-out',
-        nextStatus: 'COMPLETED',
-        requiresConfirm: true,
-        confirmTitle: 'Check-out booking này?',
-        confirmDescription: 'Booking sẽ được hoàn tất sau khi check-out.',
-      },
-    ],
-    IN_PROGRESS: [
-      {
-        label: 'Kết thúc',
-        nextStatus: 'COMPLETED',
-        requiresConfirm: true,
-        confirmTitle: 'Kết thúc booking này?',
-        confirmDescription: 'Booking sẽ chuyển sang trạng thái Hoàn tất.',
-      },
-    ],
+function getShiftAvailabilityMeta(status: ShiftAvailabilityStatus): StatusMeta {
+  const meta: Record<ShiftAvailabilityStatus, StatusMeta> = {
+    AVAILABLE: { label: 'Còn chỗ', className: 'bg-[#E8F5EC] text-secondary' },
+    ALMOST_FULL: { label: 'Sắp đủ', className: 'bg-[#FEF3C7] text-[#92400E]' },
+    FULL: { label: 'Đã đủ', className: 'bg-error-container text-on-error-container' },
   }
 
-  return actionMap[status] ?? []
+  return meta[status]
 }
 
-function isTerminalBookingStatus(status: BookingStatus) {
-  return status === 'COMPLETED' || status === 'CANCELLED' || status === 'NO_SHOW'
+function getShiftStatusMeta(status: ShiftStatus): StatusMeta {
+  const meta: Record<ShiftStatus, StatusMeta> = {
+    EMPTY: { label: 'Trống', className: 'bg-surface-container text-on-surface-variant' },
+    OFFLINE: { label: 'Offline', className: 'bg-[#FFF3F3] text-[#B91C1C]' },
+    REGISTERED: { label: 'Đã đăng ký', className: 'bg-primary-container text-on-primary-container' },
+    ASSIGNED: { label: 'Đã phân công', className: 'bg-[#E8F5EC] text-secondary' },
+    IN_PROGRESS: { label: 'Đang làm', className: 'bg-[#FEF3C7] text-[#92400E]' },
+    COMPLETED: { label: 'Hoàn tất', className: 'bg-[#E8E4DC] text-on-surface-variant' },
+  }
+
+  return meta[status]
 }
 
-function filterBookings(bookings: BookingInShift[], filters: BookingFilters) {
-  return bookings.filter((booking) => {
-    if (filters.status !== 'ALL' && booking.status !== filters.status) return false
-    if (filters.hasEquipment && booking.equipment.length === 0) return false
-    if (filters.hasNote && !booking.note) return false
-    return true
-  })
+function getAttendanceStatusMeta(status: AttendanceStatus): StatusMeta {
+  const meta: Record<AttendanceStatus, StatusMeta> = {
+    NOT_STARTED: { label: 'Chưa check-in', className: 'bg-primary-container text-on-primary-container' },
+    CHECKED_IN: { label: 'Đã check-in', className: 'bg-[#FEF3C7] text-[#92400E]' },
+    CHECKED_OUT: { label: 'Đã check-out', className: 'bg-[#E8E4DC] text-on-surface-variant' },
+    NO_SHIFT: { label: 'Không có ca', className: 'bg-error-container text-on-error-container' },
+  }
+
+  return meta[status]
 }
 
-function createWeekShifts(days: Date[]): StaffShift[] {
-  return days.flatMap((day, dayIndex) => {
-    const date = toDateKey(day)
-    return getShiftTemplates(dayIndex).map((template, index) => ({
-      ...template,
-      id: `${date}-${index}`,
-      date,
-      status: getShiftStatus(date, template.startTime, template.endTime),
-    }))
-  })
+function validateShiftRegistration(form: RegisterForm, selectedShift: ShiftOption | null, shiftMap: Record<string, StaffShiftCell>) {
+  if (!form.day) return 'Vui lòng chọn ngày làm việc.'
+  if (!form.shiftName) return 'Vui lòng chọn ca làm việc.'
+  if (!selectedShift) return 'Vui lòng chọn ca làm việc.'
+  if (isShiftFull(selectedShift)) return 'Ca này đã đủ nhân viên, vui lòng chọn ca khác.'
+
+  const existing = shiftMap[getCellKey(form.day, form.shiftName)]
+  if (existing && isRegisteredShiftStatus(existing.status)) return 'Bạn đã đăng ký ca này.'
+
+  return ''
 }
 
-function getShiftTemplates(dayIndex: number): Omit<StaffShift, 'id' | 'date' | 'status'>[] {
-  const templates: Array<Omit<StaffShift, 'id' | 'date' | 'status'>[]> = [
-    [
-      { name: 'Ca sáng', startTime: '08:00', endTime: '12:00', staffName: 'Nhân viên', roomCount: 3, bookingCount: 6, pendingCount: 1, inUseCount: 1 },
-      { name: 'Ca chiều', startTime: '13:00', endTime: '17:00', staffName: 'Gia Hân', roomCount: 3, bookingCount: 0, pendingCount: 0, inUseCount: 0 },
-    ],
-    [
-      { name: 'Ca sáng', startTime: '08:00', endTime: '12:00', staffName: 'Gia Hân', roomCount: 2, bookingCount: 3, pendingCount: 1, inUseCount: 0 },
-      { name: 'Ca tối', startTime: '18:00', endTime: '22:00', staffName: 'Hoàng Nam', roomCount: 5, bookingCount: 4, pendingCount: 0, inUseCount: 2 },
-    ],
-    [
-      { name: 'Ca sáng', startTime: '08:00', endTime: '12:00', staffName: 'Gia Hân', roomCount: 3, bookingCount: 5, pendingCount: 1, inUseCount: 1 },
-      { name: 'Ca tối', startTime: '18:00', endTime: '22:00', staffName: 'Hoàng Nam', roomCount: 4, bookingCount: 4, pendingCount: 0, inUseCount: 2 },
-    ],
-    [
-      { name: 'Ca sáng', startTime: '08:00', endTime: '12:00', staffName: 'Minh Anh', roomCount: 3, bookingCount: 4, pendingCount: 1, inUseCount: 1 },
-      { name: 'Ca chiều', startTime: '13:00', endTime: '17:00', staffName: 'Tuấn Kiệt', roomCount: 2, bookingCount: 3, pendingCount: 0, inUseCount: 1 },
-      { name: 'Ca tối', startTime: '18:00', endTime: '22:00', staffName: 'Hoàng Nam', roomCount: 5, bookingCount: 7, pendingCount: 2, inUseCount: 2 },
-    ],
-    [
-      { name: 'Ca sáng', startTime: '08:00', endTime: '12:00', staffName: 'Gia Hân', roomCount: 3, bookingCount: 4, pendingCount: 1, inUseCount: 1 },
-      { name: 'Ca tối', startTime: '18:00', endTime: '22:00', staffName: 'Hoàng Nam', roomCount: 4, bookingCount: 4, pendingCount: 0, inUseCount: 1 },
-    ],
-    [
-      { name: 'Ca sáng', startTime: '08:00', endTime: '12:00', staffName: 'Tuấn Kiệt', roomCount: 4, bookingCount: 2, pendingCount: 0, inUseCount: 0 },
-      { name: 'Ca chiều', startTime: '13:00', endTime: '17:00', staffName: 'Minh Anh', roomCount: 3, bookingCount: 3, pendingCount: 1, inUseCount: 1 },
-    ],
-    [],
-  ]
-
-  return templates[dayIndex] ?? []
+function isShiftFull(shift: ShiftOption) {
+  return shift.status === 'FULL' || shift.registeredCount >= shift.requiredCount
 }
 
-function createInitialBookings(shifts: StaffShift[]) {
-  return shifts.flatMap((shift, shiftIndex) =>
-    Array.from({ length: Math.min(shift.bookingCount, 4) }).map((_, index) =>
-      createBooking(shift, shiftIndex, index),
-    ),
-  )
+function isRegisteredShiftStatus(status: ShiftStatus) {
+  return status === 'REGISTERED' || status === 'ASSIGNED' || status === 'IN_PROGRESS' || status === 'COMPLETED'
 }
 
-function groupBookingsByShift(bookings: BookingInShift[]) {
-  return bookings.reduce<Record<string, BookingInShift[]>>((bookingMap, booking) => {
-    const existingBookings = bookingMap[booking.shiftId] ?? []
-    bookingMap[booking.shiftId] = [...existingBookings, booking]
-    return bookingMap
-  }, {})
+function calculateDistanceMeters(fromLat: number, fromLng: number, toLat: number, toLng: number) {
+  const earthRadiusMeters = 6371000
+  const fromPhi = toRadians(fromLat)
+  const toPhi = toRadians(toLat)
+  const deltaPhi = toRadians(toLat - fromLat)
+  const deltaLambda = toRadians(toLng - fromLng)
+  const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) + Math.cos(fromPhi) * Math.cos(toPhi) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+
+  return earthRadiusMeters * c
 }
 
-function createBooking(shift: StaffShift, shiftIndex: number, index: number): BookingInShift {
-  const customers = ['Blue River Band', 'Mộc Session', 'The Monday Jam', 'Hải Đăng', 'An Acoustic']
-  const rooms = ['Studio B', 'Live Room', 'Drum Booth', 'Studio Violet', 'Studio A']
-  const statuses: BookingStatus[] = ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS', 'COMPLETED', 'NO_SHOW']
-  const startHour = Number(shift.startTime.slice(0, 2)) + index
+function isWithinStudioRadius(distanceMeters: number) {
+  return distanceMeters <= STUDIO_LOCATION.radiusMeters
+}
 
+function isWithinCheckInWindow(shift: StaffShiftCell, now = new Date()) {
+  const start = createDateFromTime(shift.startTime, now)
+  const end = createDateFromTime(shift.endTime, now)
+  const earliestCheckIn = new Date(start.getTime() - CHECK_IN_EARLY_MINUTES * 60 * 1000)
+
+  return now >= earliestCheckIn && now <= end
+}
+
+function isAfterShiftEnd(shift: StaffShiftCell, now = new Date()) {
+  return now >= createDateFromTime(shift.endTime, now)
+}
+
+function calculateWorkingDuration(checkInTime?: string, checkOutTime?: string) {
+  if (!checkInTime) return 'Chưa bắt đầu'
+  if (!checkOutTime) return 'Đang tính'
+
+  const checkIn = parseTimeToMinutes(checkInTime)
+  const checkOut = parseTimeToMinutes(checkOutTime)
+  const minutes = Math.max(0, checkOut - checkIn)
+  const hours = Math.floor(minutes / 60)
+  const remainingMinutes = minutes % 60
+
+  if (hours === 0) return `${remainingMinutes} phút`
+  return `${hours} giờ ${remainingMinutes} phút`
+}
+
+function getAttendanceStatus(shift: StaffShiftCell | null): AttendanceStatus {
+  if (!shift) return 'NO_SHIFT'
+  if (shift.checkOutTime || shift.status === 'COMPLETED') return 'CHECKED_OUT'
+  if (shift.checkInTime || shift.status === 'IN_PROGRESS') return 'CHECKED_IN'
+  return 'NOT_STARTED'
+}
+
+function findCurrentShift(shifts: StaffShiftCell[]) {
+  return shifts.find((shift) => shift.status === 'ASSIGNED' || shift.status === 'IN_PROGRESS') ?? null
+}
+
+function option(day: DayKey, shiftName: ShiftName, registeredCount: number, requiredCount: number): ShiftOption {
+  const template = shiftTemplates[shiftName]
   return {
-    id: `BK-${shift.date.slice(5).replace('-', '')}-${60 + index}`,
-    shiftId: shift.id,
-    customerName: customers[(shiftIndex + index) % customers.length],
-    roomName: rooms[(shiftIndex + index) % rooms.length],
-    startTime: `${startHour.toString().padStart(2, '0')}:00`,
-    endTime: `${(startHour + 1).toString().padStart(2, '0')}:30`,
-    guestCount: 3 + ((shiftIndex + index) % 4),
-    equipment: index % 2 === 0 ? ['Micro Shure SM58', 'Amp guitar'] : [],
-    note: index === 1 ? 'Khách yêu cầu kiểm tra mixer trước khi vào phòng.' : undefined,
-    status: statuses[(shiftIndex + index) % statuses.length],
+    id: `${day}-${shiftName}`,
+    day,
+    date: days.find((item) => item.key === day)?.date ?? '',
+    shiftName,
+    startTime: template.startTime,
+    endTime: template.endTime,
+    registeredCount,
+    requiredCount,
+    status: getAvailabilityStatus(registeredCount, requiredCount),
+    description: template.description,
   }
 }
 
-function getShiftStatus(dateKey: string, startTime: string, endTime: string): ShiftStatus {
-  const now = new Date()
-  const todayKey = toDateKey(now)
-
-  if (dateKey < todayKey) return 'ENDED'
-  if (dateKey > todayKey) return 'UPCOMING'
-
-  const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
-  if (currentTime >= startTime && currentTime <= endTime) return 'ACTIVE'
-  if (currentTime < startTime) return 'UPCOMING'
-  return 'ENDED'
+function getAvailabilityStatus(registeredCount: number, requiredCount: number): ShiftAvailabilityStatus {
+  if (registeredCount >= requiredCount) return 'FULL'
+  if (registeredCount >= Math.max(1, requiredCount - 1)) return 'ALMOST_FULL'
+  return 'AVAILABLE'
 }
 
-function startOfWeek(date: Date) {
-  const nextDate = new Date(date)
-  const day = nextDate.getDay()
-  nextDate.setDate(nextDate.getDate() + (day === 0 ? -6 : 1 - day))
-  nextDate.setHours(0, 0, 0, 0)
-  return nextDate
+function findShiftOption(shiftOptions: ShiftOption[], day: DayKey, shiftName: ShiftName) {
+  return shiftOptions.find((shift) => shift.day === day && shift.shiftName === shiftName) ?? null
 }
 
-function getWeekDays(date: Date) {
-  const start = startOfWeek(date)
-  return Array.from({ length: 7 }, (_, index) => addDays(start, index))
+function createCell(day: DayKey, shiftName: ShiftName, status: ShiftStatus, note?: string): StaffShiftCell {
+  const row = shiftRows.find((shift) => shift.name === shiftName) ?? shiftRows[0]
+  return {
+    id: `${day}-${shiftName}`,
+    day,
+    shiftName,
+    startTime: row.startTime,
+    endTime: row.endTime,
+    status,
+    note,
+  }
 }
 
-function addDays(date: Date, days: number) {
-  const nextDate = new Date(date)
-  nextDate.setDate(nextDate.getDate() + days)
-  return nextDate
+function createEmptyCell(day: DayKey, row: { name: ShiftName; startTime: string; endTime: string }): StaffShiftCell {
+  return {
+    id: `${day}-${row.name}-empty`,
+    day,
+    shiftName: row.name,
+    startTime: row.startTime,
+    endTime: row.endTime,
+    status: 'EMPTY',
+  }
 }
 
-function toDateKey(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+function getCellKey(day: DayKey, shiftName: ShiftName) {
+  return `${day}-${shiftName}`
 }
 
-function formatWeekRange(days: Date[]) {
-  return `${dateFormatter.format(days[0])} - ${dateFormatter.format(days[6])}/${days[6].getFullYear()}`
+function getDayLabel(day: DayKey) {
+  return days.find((item) => item.key === day)?.longLabel ?? day
 }
 
-function formatFullDate(dateKey: string) {
-  const [year, month, day] = dateKey.split('-').map(Number)
-  return fullDateFormatter.format(new Date(year, month - 1, day))
+function getCurrentTime() {
+  return new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date())
 }
 
-function IconLogo() {
-  return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M4 9v6M8 5v14M12 8v8M16 3v18M20 9v6" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
-    </svg>
-  )
+function getCurrentPosition() {
+  return new Promise<GeolocationPosition>((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0,
+    })
+  })
 }
 
-function IconCalendar({ className = 'h-5 w-5' }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M7 3v3M17 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  )
+function getCheckInStartTime(shift: StaffShiftCell) {
+  const startMinutes = parseTimeToMinutes(shift.startTime) - CHECK_IN_EARLY_MINUTES
+  const normalizedMinutes = Math.max(0, startMinutes)
+  const hours = Math.floor(normalizedMinutes / 60)
+  const minutes = normalizedMinutes % 60
+
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
 }
 
-function IconChevron({ direction }: { direction: 'left' | 'right' }) {
-  return <span className="text-lg leading-none">{direction === 'left' ? '‹' : '›'}</span>
+function createDateFromTime(time: string, baseDate: Date) {
+  const [hours, minutes] = time.split(':').map(Number)
+  const date = new Date(baseDate)
+  date.setHours(hours, minutes, 0, 0)
+  return date
 }
 
-function IconMenuDot({ active }: { active: boolean }) {
-  return <span className={['h-2.5 w-2.5 rounded-full', active ? 'bg-brand-orange' : 'bg-inverse-on-surface/35'].join(' ')} />
+function parseTimeToMinutes(time: string) {
+  const [hours, minutes] = time.split(':').map(Number)
+  return hours * 60 + minutes
 }
 
-function IconFilter({ className = 'h-5 w-5' }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M5 7h14M8 12h8M10 17h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  )
+function toRadians(value: number) {
+  return (value * Math.PI) / 180
 }
 
-function IconDots() {
-  return <span className="text-lg leading-none">···</span>
+function formatDistance(distanceMeters: number) {
+  if (distanceMeters < 1000) return `${Math.round(distanceMeters)}m`
+  return `${(distanceMeters / 1000).toFixed(1)}km`
 }
 
-function IconShift({ status }: { status: ShiftStatus }) {
-  if (status === 'ACTIVE') return <span className="text-xl">◐</span>
-  if (status === 'ENDED') return <span className="text-xl">✓</span>
-  return <span className="text-xl">☼</span>
+function wait() {
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, 450)
+  })
 }
 
-function IconBooking({ status }: { status: BookingStatus }) {
-  if (status === 'PENDING') return <span className="text-2xl">◷</span>
-  if (status === 'CONFIRMED') return <span className="text-2xl">✓</span>
-  if (status === 'CHECKED_IN') return <span className="text-2xl">◎</span>
-  if (status === 'IN_PROGRESS') return <span className="text-2xl">▶</span>
-  return <span className="text-2xl">•</span>
+function IconCalendarCheck() {
+  return <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden="true"><path d="M7 3v3M17 3v3M4.5 9h15M6.5 5h11A2.5 2.5 0 0 1 20 7.5v10A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5v-10A2.5 2.5 0 0 1 6.5 5Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /><path d="m8.5 14 2 2 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+}
+
+function IconCalendarPlus() {
+  return <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden="true"><path d="M7 3v3M17 3v3M4.5 9h15M6.5 5h11A2.5 2.5 0 0 1 20 7.5v10A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5v-10A2.5 2.5 0 0 1 6.5 5Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /><path d="M12 12v5M9.5 14.5h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+}
+
+function IconClose() {
+  return <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
 }
