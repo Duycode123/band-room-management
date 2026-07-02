@@ -46,7 +46,7 @@ export default function BookingConfirmationClient() {
   const displayRoom = apiRoom ?? room
   const roomSubtotal = displayRoom.pricePerHour * getBookingDuration(searchParams)
   const activePaymentMethod = paymentMethods.find((method) => method.id === paymentMethod) ?? paymentMethods[0]
-  const selectionHref = apiRoom ? '/customer/booking' : '/#rooms'
+  const selectionHref = apiRoom ? '/customer/booking' : '/rooms'
   const date = searchParams.get('date') || DEFAULT_BOOKING_DATE
   const startTime = searchParams.get('startTime') || DEFAULT_START_TIME
   const duration = getBookingDuration(searchParams)

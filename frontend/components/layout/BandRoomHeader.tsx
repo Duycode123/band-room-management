@@ -5,7 +5,7 @@ import AccountMenu from '@/components/layout/AccountMenu'
 import { useAuth } from '@/contexts/AuthContext'
 
 const navItems = [
-  { label: 'Phòng tập', href: '/#rooms' },
+  { label: 'Phòng tập', href: '/rooms' },
   { label: 'Về chúng tôi', href: '/#about' },
 ]
 

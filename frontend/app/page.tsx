@@ -28,7 +28,7 @@ import {
 import { fetchRoomReviewSummaries } from '@/lib/public-room-review-service'
 
 const navItems = [
-  { label: 'Phòng tập', href: '#rooms' },
+  { label: 'Phòng tập', href: '/rooms' },
   { label: 'Về chúng tôi', href: '#about' },
 ]
 
@@ -826,13 +826,13 @@ export default function HomePage() {
             <div>
               <h3 className="font-display text-sm font-bold uppercase tracking-[0.08em] text-white">Khám phá</h3>
               <nav className="mt-5 grid gap-3 text-sm text-white/62" aria-label="Footer khám phá">
-                <a href="#rooms" className="transition-colors hover:text-brand-orange">
+                <a href="/rooms" className="transition-colors hover:text-brand-orange">
                   Phòng tập
                 </a>
                 <a href="#features" className="transition-colors hover:text-brand-orange">
                   Thiết bị
                 </a>
-                <a href="#rooms" className="transition-colors hover:text-brand-orange">
+                <a href="/rooms" className="transition-colors hover:text-brand-orange">
                   Bảng giá
                 </a>
                 <a href="#about" className="transition-colors hover:text-brand-orange">
@@ -847,10 +847,10 @@ export default function HomePage() {
                 <a href="#about" className="transition-colors hover:text-brand-orange">
                   Trung tâm hỗ trợ
                 </a>
-                <a href="#rooms" className="transition-colors hover:text-brand-orange">
+                <a href="/rooms" className="transition-colors hover:text-brand-orange">
                   Chính sách đặt phòng
                 </a>
-                <a href="#rooms" className="transition-colors hover:text-brand-orange">
+                <a href="/rooms" className="transition-colors hover:text-brand-orange">
                   Chính sách hủy lịch
                 </a>
                 <a href="mailto:support@bandroom.local" className="transition-colors hover:text-brand-orange">
