@@ -112,8 +112,8 @@ export default function AdminDashboardPage() {
                   <p className="text-[10px] font-medium uppercase tracking-wider text-inverse-on-surface/70">
                     Module
                   </p>
-                  <p className="mt-1 font-display text-2xl font-bold">{activeModules}</p>
-                  <p className="text-xs text-inverse-on-surface/70">dang dong bo</p>
+                  <p className="mt-1 font-display text-2xl font-bold">3</p>
+                  <p className="text-xs text-inverse-on-surface/70">đang hoạt động</p>
                 </div>
                 <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-sm">
                   <p className="text-[10px] font-medium uppercase tracking-wider text-inverse-on-surface/70">
@@ -142,9 +142,9 @@ export default function AdminDashboardPage() {
               icon={<IconEquipment className="h-5 w-5" />}
             />
             <AdminStatCard
-              label="Phong tap"
-              value={roomCount === null ? '...' : String(roomCount)}
-              hint="Lay tu /api/rooms"
+              label="Phòng tập"
+              value="12"
+              hint="Đang quản lý"
               accent="default"
               icon={<IconRooms className="h-5 w-5" />}
             />
@@ -185,12 +185,13 @@ export default function AdminDashboardPage() {
                 badge="Live"
               />
               <AdminModuleCard
-                label="Phong tap"
-                title="Tong quan phong"
-                description={`Dang co ${roomCount ?? '...'} phong doc duoc tu backend. Module room management chi tiet se duoc noi sau.`}
+                href="/admin/rooms"
+                label="Phòng tập"
+                title="Quản lý phòng tập"
+                description="Thêm, chỉnh sửa và cấu hình phòng tập, hạng phòng, trạng thái vận hành và giá theo giờ."
                 icon={<IconRooms className="h-6 w-6" />}
                 accent="amber"
-                disabled
+                badge="Active"
               />
               <AdminModuleCard
                 href="/admin/reports"

@@ -4,29 +4,50 @@ import axios from 'axios'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import BandRoomHeader from '@/components/layout/BandRoomHeader'
+import { useAuth } from '@/contexts/AuthContext'
 import {
   DEFAULT_BOOKING_DATE,
   DEFAULT_START_TIME,
   EMPTY_NOTE_TEXT,
+  bookingRooms,
   calculateEndTime,
   detectRoomCategory,
   findBookingRoom,
   formatCurrency,
   formatDisplayDate,
+  getAddOnsTotal,
+  getRoomSubtotal,
+  getSelectedAddOns,
+  normalizeDuration,
+  parseAddonIds,
   getBookingRoomOrFallback,
   paymentMethods,
   type BookingRoom,
   type PaymentMethod,
   type PaymentMethodId,
 } from '@/components/booking/booking-data'
+import { resolveBookingRoom } from '@/lib/booking-room-service'
+import { validateDiscountCode, type AppliedDiscount } from '@/lib/discount-service'
+import {
+  CHECKOUT_PATH,
+  pendingBookingToSearchParams,
+  savePendingBooking,
+  type PendingBooking,
+} from '@/lib/pending-booking'
 import { createBooking, mapPaymentMethodToBackend } from '@/lib/booking/bookingApi'
 
 export default function BookingConfirmationClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth()
   const roomId = searchParams.get('roomId')
+  const staticRoom = useMemo(() => findBookingRoom(roomId), [roomId])
+  const fallbackRoom = staticRoom ?? bookingRooms[0]
+  const [room, setRoom] = useState(fallbackRoom)
+  const [roomMissing, setRoomMissing] = useState(Boolean(roomId && !staticRoom))
+  const [isResolvingRoom, setIsResolvingRoom] = useState(Boolean(roomId && !staticRoom))
   const fallbackRoom = getBookingRoomOrFallback(roomId)
   const apiRoom = getApiBookingRoom(searchParams)
   const displayRoom = apiRoom ?? fallbackRoom
@@ -43,6 +64,85 @@ export default function BookingConfirmationClient() {
   const [confirmError, setConfirmError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const activePaymentMethod = paymentMethods.find((method) => method.id === paymentMethod) ?? paymentMethods[0]
+
+  useEffect(() => {
+    let mounted = true
+
+    setRoom(fallbackRoom)
+    setRoomMissing(Boolean(roomId && !staticRoom))
+    setIsResolvingRoom(Boolean(roomId && !staticRoom))
+
+    async function loadRoom() {
+      const resolvedRoom = await resolveBookingRoom(roomId)
+      if (!mounted) return
+
+      setRoom(resolvedRoom ?? fallbackRoom)
+      setRoomMissing(Boolean(roomId && !resolvedRoom))
+      setIsResolvingRoom(false)
+    }
+
+    void loadRoom()
+
+    return () => {
+      mounted = false
+    }
+  }, [fallbackRoom, roomId, staticRoom])
+
+  const handleApplyDiscount = async () => {
+    const code = discountCode.trim()
+
+    setDiscountError('')
+    setDiscountMessage('')
+
+    if (!code) {
+      setDiscountError('Vui lòng nhập mã giảm giá.')
+      return
+    }
+
+    setIsApplyingDiscount(true)
+
+    try {
+      const result = await validateDiscountCode({
+        code,
+        bookingId: room.code,
+        roomId: room.id,
+        subtotal,
+      })
+
+      if (!result.valid || !result.code || result.discountAmount === undefined) {
+        setAppliedDiscount(null)
+        setDiscountError(result.message || 'Mã giảm giá không hợp lệ hoặc đã hết hạn.')
+        return
+      }
+
+      setAppliedDiscount({
+        code: result.code,
+        discountAmount: result.discountAmount,
+      })
+      setDiscountCode(result.code)
+      setDiscountMessage(result.message)
+    } finally {
+      setIsApplyingDiscount(false)
+    }
+  }
+
+  const handleRemoveDiscount = () => {
+    setAppliedDiscount(null)
+    setDiscountCode('')
+    setDiscountError('')
+    setDiscountMessage('')
+  }
+
+  const handleConfirm = () => {
+    if (isAuthLoading) {
+      setConfirmError('Hệ thống đang kiểm tra phiên đăng nhập. Vui lòng thử lại sau vài giây.')
+      return
+    }
+
+    if (isResolvingRoom) {
+      setConfirmError('Đang tải thông tin phòng. Vui lòng thử lại sau vài giây.')
+      return
+    }
 
   const handleConfirm = async () => {
     if (!roomId || roomMissing) {
@@ -113,7 +213,7 @@ export default function BookingConfirmationClient() {
           </span>
         </div>
 
-        {roomMissing && (
+        {roomMissing && !isResolvingRoom && (
           <div className="mb-6 rounded-2xl border border-[#FF7518]/30 bg-[#FFE8D6] px-4 py-3 text-sm font-medium text-[#6B3200]">
             Khong tim thay phong da chon. He thong dang hien thi phong mac dinh de ban kiem tra.
           </div>

@@ -40,6 +40,62 @@ function getApiErrorMessage(error: unknown, fallback: string) {
   return fallback
 }
 
+function waitForMockApi(delay = 260) {
+  return new Promise((resolve) => globalThis.setTimeout(resolve, delay))
+}
+
+function isSameUserProfile(profile: Partial<CustomerProfile>, user?: AuthUser | null) {
+  if (!user) return false
+
+  const profileId = profile.id ? String(profile.id) : ''
+  const userId = user.id ? String(user.id) : ''
+  const profileEmail = profile.email?.trim().toLowerCase()
+  const userEmail = user.email?.trim().toLowerCase()
+
+  if (profileId && userId) return profileId === userId
+  if (profileEmail && userEmail) return profileEmail === userEmail
+
+  return false
+}
+
+function readStoredCustomerProfile(user?: AuthUser | null): Partial<CustomerProfile> | null {
+  if (typeof window === 'undefined') return null
+
+  try {
+    const rawProfile = window.localStorage.getItem(CUSTOMER_PROFILE_KEY)
+    if (!rawProfile) return null
+
+    const profile = JSON.parse(rawProfile) as Partial<CustomerProfile>
+    if (isSameUserProfile(profile, user)) {
+      return profile
+    }
+
+    window.localStorage.removeItem(CUSTOMER_PROFILE_KEY)
+    return null
+  } catch {
+    return null
+  }
+}
+
+function writeStoredCustomerProfile(profile: CustomerProfile) {
+  if (typeof window === 'undefined') return
+
+  window.localStorage.setItem(CUSTOMER_PROFILE_KEY, JSON.stringify(profile))
+}
+
+export function clearStoredCustomerProfile() {
+  if (typeof window === 'undefined') return
+
+  window.localStorage.removeItem(CUSTOMER_PROFILE_KEY)
+}
+
+function getPersistentAvatarUrl(avatarUrl?: string) {
+  const normalizedAvatarUrl = avatarUrl?.trim()
+  if (!normalizedAvatarUrl || normalizedAvatarUrl.startsWith('blob:')) return undefined
+
+  return normalizedAvatarUrl
+}
+
 export function getInitials(name?: string, email?: string) {
   const source = name?.trim() || email?.trim() || 'K'
   return source.charAt(0).toUpperCase()
@@ -76,14 +132,40 @@ function normalizeCurrentUser(currentUser: CurrentUserApiResponse, fallback?: Au
       'Khach hang',
     email: currentUser.email || fallback?.email || '',
     phone: currentUser.phone || fallback?.phone || '',
-    avatarUrl: currentUser.avatarUrl || fallback?.avatarUrl,
+    avatarUrl: getPersistentAvatarUrl(currentUser.avatarUrl) || getPersistentAvatarUrl(fallback?.avatarUrl),
     role: normalizedUser.role,
   }
 }
 
 export async function fetchCurrentUser(user?: AuthUser | null): Promise<CustomerProfile> {
-  const response = await api.get<CurrentUserApiResponse>('/api/users/me')
-  return normalizeCurrentUser(response.data, user)
+  const storedProfile = readStoredCustomerProfile(user)
+
+  try {
+    const response = await api.get<CurrentUserApiResponse>('/api/users/me')
+    const sameUserStoredAvatar = isSameUserProfile(storedProfile ?? {}, {
+      ...user,
+      id: response.data.id || user?.id,
+      email: response.data.email || user?.email,
+      role: user?.role || 'CUSTOMER',
+    })
+      ? getPersistentAvatarUrl(storedProfile?.avatarUrl)
+      : undefined
+    const currentProfile = normalizeCurrentUser(response.data, {
+      ...user,
+      role: user?.role || storedProfile?.role || 'CUSTOMER',
+      avatarUrl: sameUserStoredAvatar || getPersistentAvatarUrl(user?.avatarUrl),
+      fullName: response.data.fullName || response.data.name || storedProfile?.fullName || user?.fullName,
+      name: response.data.name || response.data.fullName || storedProfile?.fullName || user?.name,
+      email: response.data.email || storedProfile?.email || user?.email,
+      phone: response.data.phone || storedProfile?.phone || user?.phone,
+    })
+
+    writeStoredCustomerProfile(currentProfile)
+    return currentProfile
+  } catch {
+    await waitForMockApi(120)
+    return normalizeCurrentUser(storedProfile ?? {}, user)
+  }
 }
 
 export async function updateCustomerProfile(payload: UpdateCustomerProfilePayload): Promise<CustomerProfile> {
@@ -97,6 +179,10 @@ export async function updateCustomerProfile(payload: UpdateCustomerProfilePayloa
       phone: payload.phone,
       avatarUrl: response.data.avatarUrl,
     })
+    updatedProfile.avatarUrl = getPersistentAvatarUrl(payload.avatarUrl)
+
+    writeStoredCustomerProfile(updatedProfile)
+    return updatedProfile
   } catch (error) {
     throw new Error(getApiErrorMessage(error, 'Khong the cap nhat thong tin. Vui long thu lai.'))
   }

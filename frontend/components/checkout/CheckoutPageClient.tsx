@@ -13,6 +13,11 @@ import {
   type CheckoutBooking,
 } from '@/lib/checkout-data'
 import { createPaymentSession, type PaymentMethod } from '@/lib/payment-service'
+import {
+  clearPendingBooking,
+  getPendingBooking,
+  pendingBookingToSearchParams,
+} from '@/lib/pending-booking'
 
 export default function CheckoutPageClient() {
   const router = useRouter()
@@ -34,11 +39,24 @@ export default function CheckoutPageClient() {
       setError('')
 
       try {
-        const loadedBooking = await getCheckoutBookingFromParams(new URLSearchParams(searchParams.toString()))
+        const checkoutParams = new URLSearchParams(searchParams.toString())
+
+        if (!checkoutParams.get('bookingId')) {
+          const pendingBooking = getPendingBooking()
+
+          if (pendingBooking) {
+            const pendingParams = pendingBookingToSearchParams(pendingBooking)
+            pendingParams.forEach((value, key) => {
+              checkoutParams.set(key, value)
+            })
+          }
+        }
+
+        const loadedBooking = await getCheckoutBookingFromParams(checkoutParams)
         if (!mounted) return
 
         if (!searchParams.get('bookingId')) {
-          setError('Thieu ma dat phong. Vui long quay lai buoc xac nhan.')
+          setError('Thiếu mã đặt phòng. Vui lòng quay lại bước xác nhận đặt phòng.')
           setBooking(null)
           return
         }
@@ -50,6 +68,8 @@ export default function CheckoutPageClient() {
         }
 
         setBooking(loadedBooking)
+        setPaymentMethod(getInitialPaymentMethod(checkoutParams.get('method')))
+        setAppliedDiscount(getAppliedDiscountFromParams(checkoutParams, loadedBooking))
       } catch {
         if (mounted) {
           setError('Khong the tai thong tin thanh toan. Vui long thu lai.')
@@ -92,6 +112,10 @@ export default function CheckoutPageClient() {
         bookingId: booking.backendBookingId,
         method: paymentMethod,
       })
+
+      if (session.status === 'success') {
+        clearPendingBooking()
+      }
 
       router.push(session.paymentUrl)
     } catch (paymentSessionError) {

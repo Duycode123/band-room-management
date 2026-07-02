@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { useEffect } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import {
   formatCurrency,
@@ -9,87 +10,24 @@ import {
   getReturnStatusContent,
   normalizePaymentStatus,
 } from '@/lib/checkout-data'
-import { getPaymentTransactionDetail } from '@/lib/payment-service'
-
-type PaymentTransactionState = {
-  bookingCode: string
-  method: string
-  status: string
-  amount: number
-}
+import { clearPendingBooking } from '@/lib/pending-booking'
 
 export default function PaymentReturnStatus() {
   const searchParams = useSearchParams()
-  const paymentId = searchParams.get('paymentId')
-  const fallbackBookingId = searchParams.get('bookingId')
-  const [transaction, setTransaction] = useState<PaymentTransactionState | null>(null)
-  const [isLoading, setIsLoading] = useState(Boolean(paymentId))
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    let active = true
-
-    if (!paymentId) {
-      setIsLoading(false)
-      return
-    }
-
-    void getPaymentTransactionDetail(paymentId)
-      .then((detail) => {
-        if (!active) return
-
-        setTransaction({
-          bookingCode: detail.bookingCode,
-          method: detail.method,
-          status: detail.status,
-          amount: detail.amount,
-        })
-        setError('')
-      })
-      .catch((paymentError) => {
-        if (!active) return
-
-        setError(paymentError instanceof Error ? paymentError.message : 'Khong the kiem tra giao dich.')
-      })
-      .finally(() => {
-        if (!active) return
-
-        setIsLoading(false)
-      })
-
-    return () => {
-      active = false
-    }
-  }, [paymentId])
-
-  const bookingId = transaction?.bookingCode || fallbackBookingId
-  const status = normalizePaymentStatus(transaction?.status || searchParams.get('status'))
-  const content = getReturnStatusContent(transaction?.status || searchParams.get('status'))
-  const method = transaction?.method || searchParams.get('method')
-  const amount = transaction?.amount ?? Number(searchParams.get('amount') || 0)
-  const retryHref = useMemo(() => {
-    const backendBookingId = searchParams.get('backendBookingId')
-
-    if (backendBookingId) {
-      return `/customer/checkout?bookingId=${encodeURIComponent(bookingId || '')}&backendBookingId=${encodeURIComponent(backendBookingId)}`
-    }
-
-    return bookingId ? `/customer/checkout?bookingId=${encodeURIComponent(bookingId)}` : '/customer/booking'
-  }, [bookingId, searchParams])
-  const primaryHref = content.primaryLabel === 'Thu lai thanh toan' ? retryHref : content.primaryHref
+  const bookingId = searchParams.get('bookingId')
+  const status = normalizePaymentStatus(searchParams.get('status'))
+  const method = searchParams.get('method')
+  const amount = Number(searchParams.get('amount') || 0)
+  const content = getReturnStatusContent(searchParams.get('status'))
+  const retryHref = bookingId ? `/checkout?bookingId=${encodeURIComponent(bookingId)}` : '/#rooms'
+  const primaryHref = content.primaryLabel === 'Thử lại thanh toán' ? retryHref : content.primaryHref
   const missingBooking = !bookingId
 
-  if (isLoading) {
-    return (
-      <main className="min-h-screen bg-[#F5F2EC] px-6 py-10 text-[#1A1C1E]">
-        <section className="mx-auto flex min-h-[calc(100vh-80px)] max-w-[720px] items-center">
-          <div className="w-full rounded-[24px] border border-[#E8E4DC] bg-white p-6 text-center shadow-[0_12px_48px_rgba(26,28,30,0.12)] md:p-8">
-            <p className="font-display text-lg font-semibold">Dang kiem tra trang thai thanh toan tu backend...</p>
-          </div>
-        </section>
-      </main>
-    )
-  }
+  useEffect(() => {
+    if (status === 'success') {
+      clearPendingBooking()
+    }
+  }, [status])
 
   return (
     <main className="min-h-screen bg-[#F5F2EC] px-6 py-10 text-[#1A1C1E]">

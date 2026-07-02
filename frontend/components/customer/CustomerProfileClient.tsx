@@ -32,6 +32,7 @@ export default function CustomerProfileClient() {
     email: '',
     phone: '',
   })
+  const [avatarPreview, setAvatarPreview] = useState<string | null | undefined>()
   const [profileMessage, setProfileMessage] = useState<Message | null>(null)
   const [isFetchingProfile, setIsFetchingProfile] = useState(true)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
@@ -40,6 +41,13 @@ export default function CustomerProfileClient() {
     let mounted = true
 
     const loadProfile = async () => {
+      setProfile(null)
+      setProfileForm({
+        fullName: '',
+        email: '',
+        phone: '',
+      })
+      setAvatarPreview(undefined)
       setIsFetchingProfile(true)
       try {
         const currentProfile = await fetchCurrentUser(user)
@@ -51,6 +59,7 @@ export default function CustomerProfileClient() {
           email: currentProfile.email,
           phone: currentProfile.phone,
         })
+        setAvatarPreview(currentProfile.avatarUrl ?? null)
       } catch {
         if (!mounted) return
         setProfileMessage({ type: 'error', text: 'Khong the tai thong tin ho so. Vui long thu lai.' })
@@ -77,7 +86,7 @@ export default function CustomerProfileClient() {
   })
   const displayEmail = profileForm.email || profile?.email || ''
   const avatarInitial = getInitials(displayName, displayEmail)
-  const avatarUrl = profile?.avatarUrl
+  const avatarUrl = avatarPreview !== undefined ? avatarPreview || undefined : profile?.avatarUrl
   const role = profile?.role || user?.role || 'CUSTOMER'
 
   const validateProfile = () => {
@@ -97,6 +106,44 @@ export default function CustomerProfileClient() {
     }
 
     return null
+  }
+
+  const handleAvatarChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (!ACCEPTED_AVATAR_TYPES.includes(file.type)) {
+      setProfileMessage({ type: 'error', text: 'Ảnh đại diện chỉ hỗ trợ JPG, PNG hoặc WebP.' })
+      event.target.value = ''
+      return
+    }
+
+    if (file.size > MAX_AVATAR_SIZE) {
+      setProfileMessage({ type: 'error', text: 'Ảnh đại diện tối đa 2MB.' })
+      event.target.value = ''
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setAvatarPreview(reader.result)
+      }
+    }
+    reader.readAsDataURL(file)
+    setProfileMessage(null)
+  }
+
+  const handleRemoveAvatar = () => {
+    setAvatarPreview((currentPreview) => {
+      if (currentPreview?.startsWith('blob:')) {
+        URL.revokeObjectURL(currentPreview)
+      }
+      return null
+    })
+    if (avatarInputRef.current) {
+      avatarInputRef.current.value = ''
+    }
   }
 
   const handleSaveProfile = async (event: FormEvent<HTMLFormElement>) => {

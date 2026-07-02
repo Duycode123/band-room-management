@@ -11,7 +11,66 @@ type BookingRoomCardProps = {
   onBook?: (room: BookingRoom) => void
 }
 
+type AvailabilityCardMeta = {
+  badgeLabel: string
+  subStatus: string
+  ctaLabel: string
+  badgeClassName: string
+  subStatusClassName: string
+  ctaClassName: string
+  cardClassName: string
+  imageClassName: string
+  overlayClassName: string
+}
+
+function getRoomAvailabilityMeta(room: BookingRoom): AvailabilityCardMeta {
+  if (room.availabilityStatus === 'FULL_TODAY') {
+    return {
+      badgeLabel: 'Kín lịch hôm nay',
+      subStatus: `Lịch gần nhất: ${room.nextAvailableSlot ?? 'Ngày mai, 18:00'}`,
+      ctaLabel: 'Chọn ngày khác',
+      badgeClassName: 'border-outline bg-white/95 text-on-surface shadow-[0_8px_20px_rgba(26,28,30,0.08)]',
+      subStatusClassName: 'border-outline-variant bg-surface-container-low text-on-surface-variant',
+      ctaClassName:
+        'border border-outline bg-white text-on-surface shadow-none hover:border-brand-orange/50 hover:bg-primary-container/35 hover:text-brand-orange',
+      cardClassName: 'bg-white/88 shadow-[var(--shadow-card)]',
+      imageClassName: 'opacity-72 saturate-[0.82]',
+      overlayClassName: 'bg-[linear-gradient(to_top,rgba(255,255,255,0.74),rgba(255,255,255,0.18)_52%,rgba(255,255,255,0.08))]',
+    }
+  }
+
+  if (room.availabilityStatus === 'ALMOST_FULL') {
+    return {
+      badgeLabel: 'Sắp kín lịch',
+      subStatus: 'Còn 1 khung giờ hôm nay',
+      ctaLabel: 'Đặt ngay',
+      badgeClassName: 'border-[#FF7518]/35 bg-[#FFF2E8] text-[#9A4A08] shadow-[0_10px_24px_rgba(255,117,24,0.14)]',
+      subStatusClassName: 'border-[#FF7518]/28 bg-[#FFF7EF] text-[#9A4A08]',
+      ctaClassName:
+        'bg-brand-orange text-white shadow-[0_10px_26px_rgba(255,117,24,0.24)] hover:bg-brand-orangeHover group-hover:shadow-[0_14px_32px_rgba(255,117,24,0.32)]',
+      cardClassName: 'bg-white shadow-[var(--shadow-card)]',
+      imageClassName: '',
+      overlayClassName: 'bg-[linear-gradient(to_top,rgba(4,42,22,0.6),rgba(4,42,22,0.08)_58%,transparent)]',
+    }
+  }
+
+  return {
+    badgeLabel: 'Còn trống hôm nay',
+    subStatus: `Còn ${room.remainingSlots} khung giờ`,
+    ctaLabel: 'Đặt ngay',
+    badgeClassName: 'border-secondary-container/50 bg-secondary-container/30 text-secondary',
+    subStatusClassName: 'border-primary-container/60 bg-primary-container/30 text-on-primary-container',
+    ctaClassName:
+      'bg-brand-orange text-white shadow-[0_10px_26px_rgba(255,117,24,0.22)] hover:bg-brand-orangeHover group-hover:shadow-[0_14px_32px_rgba(255,117,24,0.3)]',
+    cardClassName: 'bg-white shadow-[var(--shadow-card)]',
+    imageClassName: '',
+    overlayClassName: 'bg-[linear-gradient(to_top,rgba(4,42,22,0.6),rgba(4,42,22,0.08)_58%,transparent)]',
+  }
+}
+
 export default function BookingRoomCard({ room, renderIcon, onOpenDetail, onBook }: BookingRoomCardProps) {
+  const availabilityMeta = getRoomAvailabilityMeta(room)
+
   const openDetail = () => {
     onOpenDetail?.(room)
   }
@@ -36,7 +95,10 @@ export default function BookingRoomCard({ room, renderIcon, onOpenDetail, onBook
       onClick={openDetail}
       onKeyDown={handleKeyDown}
       aria-label={`Xem chi tiết ${room.name}`}
-      className="group cursor-pointer overflow-hidden rounded-xl border border-outline-variant bg-white shadow-[var(--shadow-card)] transition-all duration-300 hover:-translate-y-1 hover:border-[#FF7518]/40 hover:shadow-[0_16px_44px_rgba(26,28,30,0.12)] focus:outline-none focus-visible:-translate-y-1 focus-visible:border-[#FF7518]/60 focus-visible:ring-4 focus-visible:ring-[#FF7518]/18"
+      className={[
+        'group cursor-pointer overflow-hidden rounded-xl border border-outline-variant transition-all duration-300 hover:-translate-y-1 hover:border-[#FF7518]/40 hover:shadow-[0_16px_44px_rgba(26,28,30,0.12)] focus:outline-none focus-visible:-translate-y-1 focus-visible:border-[#FF7518]/60 focus-visible:ring-4 focus-visible:ring-[#FF7518]/18',
+        availabilityMeta.cardClassName,
+      ].join(' ')}
     >
       <div className="relative aspect-[16/10] overflow-hidden bg-surface-container">
         {room.image ? (
@@ -131,7 +193,10 @@ export default function BookingRoomCard({ room, renderIcon, onOpenDetail, onBook
           <button
             type="button"
             onClick={handleBook}
-            className="rounded-lg bg-brand-orange px-4 py-2.5 font-display text-xs font-semibold text-white shadow-[0_10px_26px_rgba(255,117,24,0.22)] transition-all duration-300 hover:bg-brand-orangeHover group-hover:shadow-[0_14px_32px_rgba(255,117,24,0.3)]"
+            className={[
+              'rounded-lg px-4 py-2.5 font-display text-xs font-semibold transition-all duration-300 active:scale-[0.98]',
+              availabilityMeta.ctaClassName,
+            ].join(' ')}
           >
             {room.availabilityKnown ? (room.isAvailable ? 'Đặt ngay' : 'Chọn ngày khác') : 'Xem lịch trống'}
           </button>

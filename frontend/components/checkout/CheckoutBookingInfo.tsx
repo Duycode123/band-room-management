@@ -21,10 +21,31 @@ export default function CheckoutBookingInfo({ booking }: { booking: CheckoutBook
         <Detail label="Địa điểm" value={booking.location} />
       </div>
 
+      <InfoList title="Thiết bị có sẵn" items={booking.equipments} />
+      <InfoList
+        title="Dịch vụ thuê thêm"
+        items={booking.addons.length > 0 ? booking.addons.map((addon) => addon.name) : ['Chưa chọn dịch vụ thuê thêm']}
+      />
+
       <div className="mt-6 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4 text-sm text-[#5C5348]">
         Mã đặt phòng sẽ được gửi sau khi thanh toán thành công.
       </div>
     </section>
+  )
+}
+
+function InfoList({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="mt-6">
+      <h3 className="font-display text-sm font-bold uppercase tracking-wider text-[#5C5348]">{title}</h3>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {items.map((item) => (
+          <span key={item} className="rounded-full bg-[#F0EDE6] px-3 py-1 text-sm text-[#5C5348]">
+            {item}
+          </span>
+        ))}
+      </div>
+    </div>
   )
 }
 

@@ -1,4 +1,4 @@
-'use client'
+import StaffSchedulePage from '@/components/staff/StaffSchedulePage'
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'

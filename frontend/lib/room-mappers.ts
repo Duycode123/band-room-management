@@ -1,0 +1,255 @@
+import {
+  bookingRooms,
+  roomCategories,
+  type BookingRoom,
+  type RoomAvailabilityStatus,
+  type RoomCategory,
+} from '@/components/booking/booking-data'
+import {
+  roomCategoryLabels,
+  type AdminRoom,
+  type AdminRoomTypeOption,
+  type RoomStatus,
+} from '@/lib/admin/rooms/types'
+import type { BackendRoom, BackendRoomStatus, BackendRoomType } from '@/lib/rooms-api'
+
+const fallbackImage = '/images/band-room-hero.png'
+
+const defaultCapacity: Record<RoomCategory, number> = {
+  standard: 2,
+  band: 8,
+  recording: 4,
+  premium: 12,
+}
+
+const defaultPrice: Record<RoomCategory, number> = {
+  standard: 150000,
+  band: 320000,
+  recording: 450000,
+  premium: 650000,
+}
+
+const categoryEquipment: Record<RoomCategory, string[]> = {
+  standard: ['Drum kit', 'Guitar amp', 'Tai nghe kiểm âm'],
+  band: ['Drum kit', 'Guitar amp', 'Mixer'],
+  recording: ['Micro condenser', 'Audio interface', 'Monitor kiểm âm'],
+  premium: ['Drum kit cao cấp', 'Stage monitor', 'Private lounge'],
+}
+
+const categoryBadges: Record<RoomCategory, string> = {
+  standard: 'Linh hoạt',
+  band: 'Rehearsal',
+  recording: 'Recording',
+  premium: 'Premium',
+}
+
+const categoryDescriptions: Record<RoomCategory, string> = {
+  standard: 'Không gian luyện tập gọn gàng, phù hợp cá nhân hoặc nhóm nhỏ.',
+  band: 'Phòng rehearsal đầy đủ cho ban nhạc, hỗ trợ setup nhanh theo lịch đặt.',
+  recording: 'Không gian thu âm và kiểm âm phù hợp cho demo, vocal hoặc podcast.',
+  premium: 'Studio cao cấp dành cho rehearsal riêng tư và session cần trải nghiệm chỉn chu.',
+}
+
+function normalizeSearchText(value?: string | null) {
+  return (value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+}
+
+function asNumber(value: number | string | null | undefined, fallback: number) {
+  const numberValue = Number(value)
+  return Number.isFinite(numberValue) && numberValue >= 0 ? numberValue : fallback
+}
+
+function getCategoryLabel(category: RoomCategory) {
+  return roomCategories.find((item) => item.id === category)?.label ?? roomCategoryLabels[category]
+}
+
+function getRoomCode(room: BackendRoom) {
+  return `ROOM-${String(room.id).padStart(3, '0')}`
+}
+
+function getImageUrl(imageUrl: string | null | undefined, allowRemote = false) {
+  const value = imageUrl?.trim()
+
+  if (!value) return fallbackImage
+  if (value.startsWith('/')) return value
+  if (allowRemote && /^https?:\/\//i.test(value)) return value
+
+  return fallbackImage
+}
+
+function getRoomTypeName(room: BackendRoom, category: RoomCategory) {
+  return room.roomType?.typeName?.trim() || getCategoryLabel(category)
+}
+
+function getRoomDescription(room: BackendRoom, category: RoomCategory) {
+  return room.description?.trim() || room.roomType?.description?.trim() || categoryDescriptions[category]
+}
+
+function getRoomCapacity(room: BackendRoom, category: RoomCategory) {
+  return room.maxPeople ?? room.roomType?.capacity ?? defaultCapacity[category]
+}
+
+function getRoomPrice(room: BackendRoom, category: RoomCategory) {
+  return asNumber(room.roomType?.pricePerHour, defaultPrice[category])
+}
+
+function getAvailability(status: BackendRoomStatus | null | undefined, index: number) {
+  if (status === 'BAO_TRI') {
+    return {
+      availabilityStatus: 'FULL_TODAY' as RoomAvailabilityStatus,
+      remainingSlots: 0,
+      nextAvailableSlot: 'Ngày mai, 18:00',
+      isAvailable: false,
+      nextAvailableTime: 'Ngày mai 18:00',
+      todaySchedule: 'Đang bảo trì, tạm khóa lịch hôm nay',
+      occupancyRateToday: 0,
+    }
+  }
+
+  if (status === 'DANG_DUNG') {
+    return {
+      availabilityStatus: 'ALMOST_FULL' as RoomAvailabilityStatus,
+      remainingSlots: 1,
+      nextAvailableSlot: 'Hôm nay, 21:00',
+      isAvailable: true,
+      nextAvailableTime: '21:00',
+      todaySchedule: 'Sắp kín lịch hôm nay',
+      occupancyRateToday: 85,
+    }
+  }
+
+  const availableTimes = ['18:00', '19:00', '20:00', '21:00']
+  const nextTime = availableTimes[index % availableTimes.length]
+
+  return {
+    availabilityStatus: 'AVAILABLE' as RoomAvailabilityStatus,
+    remainingSlots: 3 + (index % 2),
+    nextAvailableSlot: `Hôm nay, ${nextTime}`,
+    isAvailable: true,
+    nextAvailableTime: nextTime,
+    todaySchedule: 'Còn lịch trống hôm nay',
+    occupancyRateToday: 35 + (index % 3) * 10,
+  }
+}
+
+function getStatusNote(status: BackendRoomStatus | null | undefined) {
+  if (status === 'BAO_TRI') {
+    return 'Phòng đang được bảo trì. Bạn vẫn có thể chọn ngày khác hoặc liên hệ nhân viên để được hỗ trợ.'
+  }
+
+  if (status === 'DANG_DUNG') {
+    return 'Phòng gần kín lịch hôm nay. Nên đặt sớm để giữ khung giờ phù hợp.'
+  }
+
+  return 'Phòng còn nhiều khung giờ hôm nay, phù hợp để đặt nhanh trong ngày.'
+}
+
+export function inferRoomCategoryFromTypeName(typeName?: string | null): RoomCategory {
+  const normalized = normalizeSearchText(typeName)
+
+  if (/record|mix|thu|vocal|podcast/.test(normalized)) return 'recording'
+  if (/premium|vip|private|suite|cao cap/.test(normalized)) return 'premium'
+  if (/band|rehearsal|studio|nhom/.test(normalized)) return 'band'
+  return 'standard'
+}
+
+export function mapBackendStatusToAdminStatus(status?: BackendRoomStatus | null): RoomStatus {
+  if (status === 'DANG_DUNG') return 'occupied'
+  if (status === 'BAO_TRI') return 'maintenance'
+  return 'active'
+}
+
+export function mapAdminStatusToBackendStatus(status?: RoomStatus | null): BackendRoomStatus {
+  if (status === 'occupied') return 'DANG_DUNG'
+  if (status === 'maintenance' || status === 'inactive') return 'BAO_TRI'
+  return 'TRONG'
+}
+
+export function mapRoomTypeToAdminOption(roomType: BackendRoomType): AdminRoomTypeOption {
+  const category = inferRoomCategoryFromTypeName(`${roomType.typeName} ${roomType.description ?? ''}`)
+
+  return {
+    id: roomType.id,
+    label: roomType.typeName,
+    category,
+    pricePerHour: asNumber(roomType.pricePerHour, defaultPrice[category]),
+    capacity: roomType.capacity ?? defaultCapacity[category],
+  }
+}
+
+export function mapBackendRoomToAdminRoom(room: BackendRoom, index = 0): AdminRoom {
+  const category = inferRoomCategoryFromTypeName(
+    `${room.roomType?.typeName ?? ''} ${room.roomType?.description ?? ''}`,
+  )
+  const equipments = categoryEquipment[category]
+  const availability = getAvailability(room.status, index)
+  const status = mapBackendStatusToAdminStatus(room.status)
+
+  return {
+    id: String(room.id),
+    code: getRoomCode(room),
+    name: room.roomName,
+    roomTypeId: room.roomType?.id ?? null,
+    roomTypeName: room.roomType?.typeName,
+    category,
+    categoryLabel: getCategoryLabel(category),
+    capacity: getRoomCapacity(room, category),
+    pricePerHour: getRoomPrice(room, category),
+    status,
+    image: getImageUrl(room.imageUrl, true),
+    equipmentCount: equipments.length,
+    equipments,
+    todaySchedule: availability.todaySchedule,
+    lastUpdated: 'Đồng bộ từ backend',
+    description: getRoomDescription(room, category),
+    occupancyRateToday: availability.occupancyRateToday,
+    monthlyRevenue: 0,
+    averageRating: 0,
+    latestMaintenance: status === 'maintenance' ? 'Đang bảo trì' : 'Chưa có lịch bảo trì gần đây',
+  }
+}
+
+export function mapBackendRoomToBookingRoom(room: BackendRoom, index = 0): BookingRoom {
+  const category = inferRoomCategoryFromTypeName(
+    `${room.roomType?.typeName ?? ''} ${room.roomType?.description ?? ''}`,
+  )
+  const equipments = categoryEquipment[category]
+  const availability = getAvailability(room.status, index)
+  const capacity = getRoomCapacity(room, category)
+
+  return {
+    id: String(room.id),
+    code: getRoomCode(room),
+    name: room.roomName,
+    category,
+    categoryLabel: getCategoryLabel(category),
+    type: getRoomTypeName(room, category),
+    badge: categoryBadges[category],
+    rating: 4.8,
+    reviews: 0,
+    capacity: `Tối đa ${capacity} người`,
+    location: room.floor ? `Tầng ${room.floor}, Band Room Studio` : 'Band Room Studio',
+    image: getImageUrl(room.imageUrl),
+    imageClassName: '',
+    pricePerHour: getRoomPrice(room, category),
+    equipments: equipments.slice(0, 3),
+    includedEquipments: equipments,
+    addons: ['Dây jack dự phòng', 'Stand micro', 'Kỹ thuật viên hỗ trợ'],
+    description: getRoomDescription(room, category),
+    availabilityStatus: availability.availabilityStatus,
+    remainingSlots: availability.remainingSlots,
+    nextAvailableSlot: availability.nextAvailableSlot,
+    isAvailable: availability.isAvailable,
+    nextAvailableTime: availability.nextAvailableTime,
+    note: getStatusNote(room.status),
+  }
+}
+
+export function findBookingRoomInCatalog(roomId: string | null, catalog: BookingRoom[]) {
+  if (!roomId) return null
+  return catalog.find((room) => room.id === roomId) ?? bookingRooms.find((room) => room.id === roomId) ?? null
+}

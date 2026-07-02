@@ -74,17 +74,13 @@ export default function AccountMenu({ onNavigate, align = 'right' }: AccountMenu
       return
     }
 
-    void fetchCurrentUser(user)
-      .then((currentUser) => {
-        if (mounted) {
-          setProfile(currentUser)
-        }
-      })
-      .catch(() => {
-        if (mounted) {
-          setProfile(null)
-        }
-      })
+    setProfile(null)
+
+    void fetchCurrentUser(user).then((currentUser) => {
+      if (mounted) {
+        setProfile(currentUser)
+      }
+    })
 
     return () => {
       mounted = false

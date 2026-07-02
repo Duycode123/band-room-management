@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useEffect, useState, type ReactNode } from 'react'
 import BookingRoomCard from '@/components/booking/BookingRoomCard'
 import BookingQuickModal from '@/components/booking/BookingQuickModal'
 import RoomDetailModal from '@/components/booking/RoomDetailModal'
@@ -16,6 +16,8 @@ import {
 } from '@/components/booking/booking-data'
 import { useAuth } from '@/contexts/AuthContext'
 import { useHomepageLiveData } from '@/hooks/useHomepageLiveData'
+import { fetchPublicBookingRooms } from '@/lib/booking-room-service'
+import { findBookingRoomInCatalog } from '@/lib/room-mappers'
 import { fetchAvailableSlots, fetchRooms } from '@/lib/booking/bookingApi'
 import {
   formatRelativeTime,
@@ -246,6 +248,7 @@ export default function HomePage() {
   const [roomCatalogError, setRoomCatalogError] = useState('')
   const [quickBooking, setQuickBooking] = useState<QuickBookingState | null>(null)
   const [selectedRoomDetail, setSelectedRoomDetail] = useState<BookingRoom | null>(null)
+  const [rooms, setRooms] = useState<BookingRoom[]>(bookingRooms)
   const [activeRoomFilter, setActiveRoomFilter] = useState<RoomCatalogFilter>('all')
   useEffect(() => {
     let active = true
@@ -321,6 +324,26 @@ export default function HomePage() {
 
     setActiveRoomFilter('all')
   }, [activeRoomFilter, roomTierFilters])
+  const roomCatalogStats = [
+    [String(roomCategories.filter((category) => rooms.some((room) => room.category === category.id)).length), 'Hạng phòng'],
+    [String(rooms.length), 'Phòng tập'],
+    ['Live', 'Cập nhật lịch trống'],
+  ]
+
+  useEffect(() => {
+    let mounted = true
+
+    async function loadRooms() {
+      const data = await fetchPublicBookingRooms()
+      if (mounted) setRooms(data)
+    }
+
+    void loadRooms()
+
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   const scrollToRooms = () => {
     document.getElementById('rooms')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -692,8 +715,9 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {isRoomCatalogLoading ? (
+          {visibleRooms.length > 0 ? (
+            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {isRoomCatalogLoading ? (
               <div className="rounded-xl border border-outline-variant bg-white px-5 py-8 text-center text-sm text-on-surface-variant shadow-[var(--shadow-card)] sm:col-span-2 lg:col-span-3">
                 Đang tải room list từ backend...
               </div>
@@ -703,20 +727,28 @@ export default function HomePage() {
               </div>
             ) : visibleRooms.length > 0 ? (
               visibleRooms.map((room) => (
-                <BookingRoomCard
-                  key={room.id}
-                  room={room}
-                  renderIcon={(name, className) => <Icon name={name} className={className} />}
-                  onOpenDetail={setSelectedRoomDetail}
-                  onBook={handleBookRoom}
-                />
-              ))
+                  <BookingRoomCard
+                    key={room.id}
+                    room={room}
+                    renderIcon={(name, className) => <Icon name={name} className={className} />}
+                    onOpenDetail={setSelectedRoomDetail}
+                    onBook={handleBookRoom}
+                  />
+                ))
             ) : (
               <div className="rounded-xl border border-outline-variant bg-white px-5 py-8 text-center text-sm text-on-surface-variant shadow-[var(--shadow-card)] sm:col-span-2 lg:col-span-3">
                 Backend hiện chưa trả về phòng nào để hiển thị.
               </div>
             )}
-          </div>
+            </div>
+          ) : (
+            <div className="mt-10 rounded-xl border border-dashed border-outline-variant bg-white px-6 py-12 text-center shadow-[var(--shadow-card)]">
+              <p className="font-display text-lg font-bold text-on-surface">Chưa có phòng phù hợp</p>
+              <p className="mt-2 text-sm text-on-surface-variant">
+                Vui lòng thử hạng phòng khác hoặc quay lại sau khi admin thêm phòng mới.
+              </p>
+            </div>
+          )}
         </div>
       </section>
 

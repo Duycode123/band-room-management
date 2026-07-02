@@ -1,9 +1,17 @@
 import {
-  detectRoomCategory,
+  DEFAULT_BOOKING_DATE,
+  DEFAULT_DURATION,
+  DEFAULT_START_TIME,
+  EMPTY_NOTE_TEXT,
+  bookingAddOns,
+  bookingRooms,
+  calculateEndTime,
+  findBookingRoom,
   formatCurrency,
   formatDisplayDate,
 } from '@/components/booking/booking-data'
 import { fetchRooms } from '@/lib/booking/bookingApi'
+import { resolveBookingRoom } from '@/lib/booking-room-service'
 import type { AppliedDiscount } from '@/lib/discount-service'
 import { getBookingDetail } from '@/lib/customer-booking-service'
 import type { PaymentMethod, PaymentStatus } from '@/lib/payment-service'
@@ -105,9 +113,9 @@ export function getReturnStatusContent(status?: string | null) {
     failed: {
       tone: 'failed',
       icon: '!',
-      title: 'Thanh toan that bai',
-      message: 'Giao dich chua hoan tat. Vui long thu lai hoac chon cach thanh toan khac.',
-      primaryLabel: 'Thu lai thanh toan',
+      title: 'Thanh toán thất bại',
+      message: 'Giao dịch chưa hoàn tất. Vui lòng thử lại hoặc chọn phương thức khác.',
+      primaryLabel: 'Thử lại thanh toán',
       primaryHref: '/customer/checkout',
     },
     pending: {
@@ -120,10 +128,10 @@ export function getReturnStatusContent(status?: string | null) {
     },
     cancelled: {
       tone: 'cancelled',
-      icon: 'X',
-      title: 'Thanh toan da bi huy',
-      message: 'Phien thanh toan da bi huy. Ban co the mo lai checkout bat cu luc nao.',
-      primaryLabel: 'Thu lai thanh toan',
+      icon: '×',
+      title: 'Thanh toán đã bị hủy',
+      message: 'Bạn đã hủy quá trình thanh toán. Bạn có thể thử lại bất cứ lúc nào.',
+      primaryLabel: 'Thử lại thanh toán',
       primaryHref: '/customer/checkout',
     },
     unknown: {
@@ -151,22 +159,16 @@ export async function getCheckoutBookingFromParams(searchParams: URLSearchParams
   const bookingId = searchParams.get('bookingId')
   if (!bookingId) return null
 
-  const rawBackendBookingId = Number(searchParams.get('backendBookingId'))
-  const backendBookingId = Number.isFinite(rawBackendBookingId) && rawBackendBookingId > 0 ? rawBackendBookingId : undefined
-  const booking = await getBookingDetail(bookingId, backendBookingId)
+  const roomId = searchParams.get('roomId') || bookingRooms.find((room) => room.code === bookingId)?.id || 'studio-a'
+  const room = (await resolveBookingRoom(roomId)) ?? bookingRooms.find((item) => item.code === bookingId)
+  if (!room) return null
 
-  if (!booking) {
-    return null
-  }
-
-  const rooms = await fetchRooms().catch(() => [])
-  const room = rooms.find((item) => item.id === booking.roomId)
-  const categoryLabel = room?.roomTypeName?.trim() || inferCategoryLabel(searchParams.get('roomType'))
-  const image = room?.imageUrl?.trim()?.startsWith('/') ? room.imageUrl.trim() : undefined
-  const pricePerHour = room?.pricePerHour ?? inferPricePerHour(searchParams.get('pricePerHour'), booking.totalAmount)
-  const capacity = room ? `Toi da ${room.capacity} nguoi` : 'Chua ro suc chua'
-  const location = room?.location || searchParams.get('roomLocation')?.trim() || 'Band Room Studio'
-  const equipments = room?.equipment?.length ? room.equipment : inferEquipments(searchParams.get('equipments'), categoryLabel)
+  const date = searchParams.get('date') || DEFAULT_BOOKING_DATE
+  const startTime = searchParams.get('startTime') || DEFAULT_START_TIME
+  const duration = normalizeDuration(searchParams.get('duration') || DEFAULT_DURATION)
+  const addonIds = parseAddonIds(searchParams.get('addons'))
+  const selectedAddOns = addonIds.length > 0 ? getSelectedAddOns(addonIds) : bookingAddOns.slice(0, 2)
+  const note = searchParams.get('note')?.trim() || EMPTY_NOTE_TEXT
 
   return {
     bookingId: booking.bookingId,
