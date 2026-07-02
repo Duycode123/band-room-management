@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { validateRoomForm } from '@/lib/admin/rooms/adminRoomApi'
 import type { AdminRoomTypeOption, RoomFormData, RoomFormErrors } from '@/lib/admin/rooms/types'
+import type { RoomFormData, RoomFormErrors } from '@/lib/admin/rooms/types'
 import {
   roomCategoryLabels,
   roomCategoryOptions,
@@ -187,6 +188,17 @@ export default function RoomFormModal({
                             {roomCategoryLabels[category]}
                           </option>
                         ))}
+                    value={form.category}
+                    onChange={(event) =>
+                      set({ category: event.target.value as RoomFormData['category'] })
+                    }
+                    className={inputClass}
+                  >
+                    {roomCategoryOptions.map((category) => (
+                      <option key={category} value={category}>
+                        {roomCategoryLabels[category]}
+                      </option>
+                    ))}
                   </select>
                   {errors.category && <p className="mt-1 text-xs text-error">{errors.category}</p>}
                 </label>

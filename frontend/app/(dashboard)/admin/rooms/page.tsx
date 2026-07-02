@@ -24,6 +24,7 @@ import {
   updateRoomStatus,
 } from '@/lib/admin/rooms/adminRoomApi'
 import type { AdminRoom, AdminRoomTypeOption, RoomFilters, RoomFormData } from '@/lib/admin/rooms/types'
+import type { AdminRoom, RoomFilters, RoomFormData } from '@/lib/admin/rooms/types'
 
 const DEFAULT_FILTERS: RoomFilters = {
   query: '',
@@ -83,6 +84,8 @@ export default function AdminRoomsPage() {
       ])
       setRooms(data)
       setRoomTypes(typeData)
+      const data = await getAdminRooms()
+      setRooms(data)
       setSelected((current) => {
         if (!current) return null
         return data.find((room) => room.id === current.id) ?? null
@@ -159,6 +162,12 @@ export default function AdminRoomsPage() {
     } catch (error) {
       setToast(error instanceof Error ? error.message : 'Không thể đổi trạng thái phòng.')
     }
+    const updated = await updateRoomStatus(room.id, 'maintenance')
+    if (!updated) throw new Error('Không tìm thấy phòng tập.')
+
+    setToast(`${room.name} đã được chuyển sang trạng thái bảo trì.`)
+    setSelected((current) => (current?.id === room.id ? updated : current))
+    await loadRooms()
   }
 
   return (

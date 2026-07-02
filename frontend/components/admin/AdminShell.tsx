@@ -19,8 +19,8 @@ const NAV_ITEMS: AdminNavItem[] = [
   { href: '/admin/dashboard', label: 'Tổng quan', icon: <IconDashboard className="h-5 w-5" /> },
   { href: '/admin/bookings', label: 'Đơn đặt phòng', icon: <IconBookings className="h-5 w-5" /> },
   { href: '/admin/equipment', label: 'Thiết bị', icon: <IconEquipment className="h-5 w-5" /> },
-  { href: '#', label: 'Phòng tập', icon: <IconRooms className="h-5 w-5" />, disabled: true },
-  { href: '/admin/reports', label: 'Báo cáo', icon: <IconReports className="h-5 w-5" /> },
+  { href: '/admin/rooms', label: 'Phòng tập', icon: <IconRooms className="h-5 w-5" /> },
+  { href: '#', label: 'Báo cáo', icon: <IconReports className="h-5 w-5" />, disabled: true },
 ]
 
 type AdminShellProps = {
