@@ -1,17 +1,19 @@
 package backend.controller;
 
 import backend.booking.application.port.in.CalculateBookingCostUseCase;
+import backend.booking.application.port.in.CancelCustomerBookingUseCase;
 import backend.booking.application.port.in.CreateBookingUseCase;
-import backend.booking.application.port.in.GetCustomerBookingDetailUseCase;
 import backend.booking.application.port.in.GetCustomerBookingHistoryUseCase;
 import backend.booking.application.port.in.command.CalculateBookingCostCommand;
+import backend.booking.application.port.in.command.CancelCustomerBookingCommand;
 import backend.booking.application.port.in.command.CreateBookingCommand;
 import backend.booking.application.port.in.query.CustomerBookingHistoryQuery;
-import backend.booking.application.port.in.query.GetCustomerBookingDetailQuery;
+import backend.dto.request.CancelBookingRequest;
 import backend.dto.request.CalculateBookingCostRequest;
 import backend.dto.request.CreateBookingRequest;
 import backend.dto.response.BookingCostResponse;
 import backend.dto.response.BookingResponse;
+import backend.dto.response.CustomerBookingCancellationResponse;
 import backend.dto.response.PagedResponse;
 import backend.entity.BookingStatus;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -29,19 +31,19 @@ public class BookingController {
 
     private final CalculateBookingCostUseCase calculateBookingCostUseCase;
     private final CreateBookingUseCase createBookingUseCase;
-    private final GetCustomerBookingDetailUseCase getCustomerBookingDetailUseCase;
     private final GetCustomerBookingHistoryUseCase getCustomerBookingHistoryUseCase;
+    private final CancelCustomerBookingUseCase cancelCustomerBookingUseCase;
 
     public BookingController(
             CalculateBookingCostUseCase calculateBookingCostUseCase,
             CreateBookingUseCase createBookingUseCase,
-            GetCustomerBookingDetailUseCase getCustomerBookingDetailUseCase,
-            GetCustomerBookingHistoryUseCase getCustomerBookingHistoryUseCase
+            GetCustomerBookingHistoryUseCase getCustomerBookingHistoryUseCase,
+            CancelCustomerBookingUseCase cancelCustomerBookingUseCase
     ) {
         this.calculateBookingCostUseCase = calculateBookingCostUseCase;
         this.createBookingUseCase = createBookingUseCase;
-        this.getCustomerBookingDetailUseCase = getCustomerBookingDetailUseCase;
         this.getCustomerBookingHistoryUseCase = getCustomerBookingHistoryUseCase;
+        this.cancelCustomerBookingUseCase = cancelCustomerBookingUseCase;
     }
 
     @PostMapping("/calculate-cost")
@@ -50,8 +52,7 @@ public class BookingController {
                 new CalculateBookingCostCommand(
                         request.getRoomId(),
                         request.getStartTime(),
-                        request.getEndTime(),
-                        request.getCouponCode()
+                        request.getEndTime()
                 )
         );
 
@@ -71,25 +72,12 @@ public class BookingController {
                         request.getStartTime(),
                         request.getEndTime(),
                         request.getPaymentMethod(),
-                        request.getCouponCode(),
                         request.getNote(),
                         customerEmail
                 )
         );
 
         return ResponseEntity.ok(success("Dat lich thanh cong, vui long thanh toan", data));
-    }
-
-    @GetMapping("/my/{bookingId}")
-    public ResponseEntity<?> getMyBookingDetail(
-            @PathVariable Integer bookingId,
-            Authentication authentication
-    ) {
-        BookingResponse data = getCustomerBookingDetailUseCase.getCustomerBookingDetail(
-                new GetCustomerBookingDetailQuery(bookingId, authentication.getName())
-        );
-
-        return ResponseEntity.ok(success("Lay chi tiet dat phong thanh cong", data));
     }
 
     @GetMapping("/my/history")
@@ -119,6 +107,23 @@ public class BookingController {
         );
 
         return ResponseEntity.ok(success("Lay lich su dat phong thanh cong", data));
+    }
+
+    @PutMapping("/{id}/cancel")
+    public ResponseEntity<?> cancelMyBooking(
+            @PathVariable Integer id,
+            @RequestBody(required = false) CancelBookingRequest request,
+            Authentication authentication
+    ) {
+        CustomerBookingCancellationResponse data = cancelCustomerBookingUseCase.cancelCustomerBooking(
+                new CancelCustomerBookingCommand(
+                        id,
+                        request != null ? request.getReason() : null,
+                        authentication.getName()
+                )
+        );
+
+        return ResponseEntity.ok(success("Huy lich thanh cong, thong tin hoan tien da duoc gui", data));
     }
 
     private Map<String, Object> success(String message, Object data) {
