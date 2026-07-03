@@ -1,3 +1,5 @@
-import StaffCustomersPage from '@/components/staff/StaffCustomersPage'
+import { redirect } from 'next/navigation'
 
-export default StaffCustomersPage
+export default function StaffCustomersRedirectPage() {
+  redirect('/staff/dashboard')
+}

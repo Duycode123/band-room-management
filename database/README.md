@@ -24,6 +24,7 @@ The current backend source clearly models these areas:
 - review and admin review response data
 - payment transaction data
 - customer issue report data
+- staff attendance data
 - revoked token data
 
 Core model/entity classes currently present in backend source:
@@ -41,6 +42,7 @@ Core model/entity classes currently present in backend source:
 - `ReviewAdminResponse`
 - `PaymentTransaction`
 - `CustomerIssueReport`
+- `staff_attendance` table through the attendance JDBC adapter
 - `RevokedToken`
 
 ## Existing Files
@@ -54,6 +56,7 @@ Core model/entity classes currently present in backend source:
 - `database/migrations/20260701_add_customer_issue_report_and_counter_provider.sql`
 - `database/migrations/20260701_create_app_notifications.sql`
 - `database/migrations/20260702_optimize_reporting_indexes.sql`
+- `database/migrations/20260703_create_staff_attendance.sql`
 - `database/sample-data/seed_rooms_and_equipment.sql`
 - `database/sample-data/seed_bookings_and_reviews.sql`
 - `database/schema-target-en.dbml`
@@ -193,6 +196,30 @@ If the change is part of the Vietnamese-to-English rename:
 
 Operational note:
 The current admin revenue report still queries raw `booking` rows because the HTTP API accepts arbitrary `from` and `to` timestamps. The materialized view is intended for day-aligned analytics or a future reporting pipeline that can tolerate refresh lag.
+- `staff_attendance` stores staff check-in/check-out timestamps linked to `staff` and optionally `shift`, with lifecycle statuses `WORKING`, `DONE`, and `MISSING_CHECKOUT`.
+
+## Staff Attendance Table
+
+`staff_attendance` is the source record for actual staff working time.
+
+- Purpose: record check-in and check-out events for payroll, work tracking, and reconciliation.
+- Main relationships:
+  - `staff_id -> staff.id`
+  - `shift_id -> shift.id`, nullable to keep the model open for future manual/admin records
+- Status meanings:
+  - `WORKING`: staff checked in and has not checked out yet
+  - `DONE`: staff checked out and `work_duration_hours` was calculated
+  - `MISSING_CHECKOUT`: end-of-day sweep found an unfinished working record
+- Uniqueness and concurrency:
+  - partial unique index `ux_staff_attendance_working_shift` prevents two `WORKING` rows for the same staff and shift.
+  - application logic also rejects duplicate check-in before inserting.
+- Lifecycle fields:
+  - `check_in_time` is required.
+  - `check_out_time` is written on checkout and must be after `check_in_time`.
+  - `work_duration_hours` is calculated in hours with two decimal places.
+  - `created_at` and `updated_at` support operational auditing.
+- Migration:
+  - `database/migrations/20260703_create_staff_attendance.sql`
 
 ## Coupon Usage Table
 

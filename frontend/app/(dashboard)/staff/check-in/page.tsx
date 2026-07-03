@@ -1,3 +1,5 @@
-import StaffCheckInPage from '@/components/staff/StaffCheckInPage'
+import { redirect } from 'next/navigation'
 
-export default StaffCheckInPage
+export default function StaffCheckInRedirectPage() {
+  redirect('/staff/dashboard')
+}

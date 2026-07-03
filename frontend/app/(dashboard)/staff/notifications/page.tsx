@@ -1,3 +1,5 @@
-import StaffNotificationsPage from '@/components/staff/StaffNotificationsPage'
+import { redirect } from 'next/navigation'
 
-export default StaffNotificationsPage
+export default function StaffNotificationsRedirectPage() {
+  redirect('/staff/dashboard')
+}
