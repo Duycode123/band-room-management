@@ -97,6 +97,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/session", "/api/v1/auth/session").authenticated()
                         .requestMatchers("/api/staff/attendance/**").hasRole("STAFF")
                         .requestMatchers("/api/staff/facility/**").hasRole("STAFF")
+                        .requestMatchers("/api/staff/performance/**").hasRole("STAFF")
                         .requestMatchers("/api/admin/equipment/**").hasAnyRole("ADMIN", "STAFF")
                         .requestMatchers("/api/admin/bookings/**").hasAnyRole("ADMIN", "STAFF")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
