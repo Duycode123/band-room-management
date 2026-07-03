@@ -2,14 +2,19 @@ package backend.controller;
 
 import backend.common.ApiResponse;
 import backend.dto.request.ChangePasswordRequest;
+import backend.dto.request.NotificationSettingsRequest;
 import backend.dto.request.UpdateProfileRequest;
+import backend.dto.response.NotificationSettingsResponse;
 import backend.dto.response.UserResponse;
 import backend.security.AuthCookieService;
 import backend.user.application.model.UserProfileUpdateResult;
 import backend.user.application.port.in.ChangeCurrentUserPasswordUseCase;
+import backend.user.application.port.in.GetCurrentUserNotificationSettingsUseCase;
 import backend.user.application.port.in.GetCurrentUserProfileUseCase;
+import backend.user.application.port.in.UpdateCurrentUserNotificationSettingsUseCase;
 import backend.user.application.port.in.UpdateCurrentUserProfileUseCase;
 import backend.user.application.port.in.command.ChangeCurrentUserPasswordCommand;
+import backend.user.application.port.in.command.UpdateCurrentUserNotificationSettingsCommand;
 import backend.user.application.port.in.command.UpdateCurrentUserProfileCommand;
 import backend.user.application.port.in.query.GetCurrentUserProfileQuery;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +22,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,6 +37,8 @@ public class UserController {
     private final GetCurrentUserProfileUseCase getCurrentUserProfileUseCase;
     private final UpdateCurrentUserProfileUseCase updateCurrentUserProfileUseCase;
     private final ChangeCurrentUserPasswordUseCase changeCurrentUserPasswordUseCase;
+    private final GetCurrentUserNotificationSettingsUseCase getCurrentUserNotificationSettingsUseCase;
+    private final UpdateCurrentUserNotificationSettingsUseCase updateCurrentUserNotificationSettingsUseCase;
     private final AuthCookieService authCookieService;
 
     @GetMapping("/me")
@@ -60,7 +68,7 @@ public class UserController {
                 .body(result.userResponse());
     }
 
-    @PutMapping("/me/password")
+    @RequestMapping(value = {"/me/password", "/me/change-password"}, method = {RequestMethod.PUT, RequestMethod.POST})
     public ResponseEntity<ApiResponse<String>> changePassword(
             Authentication authentication,
             @RequestBody(required = false) ChangePasswordRequest request
@@ -77,6 +85,30 @@ public class UserController {
                         .success(true)
                         .message("C\u1eadp nh\u1eadt m\u1eadt kh\u1ea9u th\u00e0nh c\u00f4ng")
                         .build()
+        );
+    }
+
+    @GetMapping("/me/notification-settings")
+    public NotificationSettingsResponse getNotificationSettings(Authentication authentication) {
+        return getCurrentUserNotificationSettingsUseCase.getNotificationSettings(
+                new GetCurrentUserProfileQuery(authentication == null ? null : authentication.getName())
+        );
+    }
+
+    @PutMapping("/me/notification-settings")
+    public NotificationSettingsResponse updateNotificationSettings(
+            Authentication authentication,
+            @RequestBody(required = false) NotificationSettingsRequest request
+    ) {
+        return updateCurrentUserNotificationSettingsUseCase.updateNotificationSettings(
+                new UpdateCurrentUserNotificationSettingsCommand(
+                        authentication == null ? null : authentication.getName(),
+                        request == null ? null : request.getNewBooking(),
+                        request == null ? null : request.getBookingReminder(),
+                        request == null ? null : request.getShiftReminder(),
+                        request == null ? null : request.getRoomIssue(),
+                        request == null ? null : request.getEquipmentIssue()
+                )
         );
     }
 }

@@ -180,6 +180,21 @@ html.accessibility-reduced-motion *::after {
   transition-duration: 0.01ms !important;
 }
 
+html.staff-reduced-motion *,
+html.staff-reduced-motion *::before,
+html.staff-reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+  transition-duration: 0.01ms !important;
+}
+
+html.staff-density-compact .staff-settings-density-scope .input-field,
+html.staff-density-compact .staff-settings-density-scope .btn-warm,
+html.staff-density-compact .staff-settings-density-scope .btn-secondary {
+  min-height: 40px;
+}
+
 html.accessibility-enhanced-focus :focus-visible {
   outline: 3px solid #FF7518 !important;
   outline-offset: 4px !important;
