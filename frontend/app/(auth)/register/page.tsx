@@ -110,7 +110,7 @@ export default function RegisterPage() {
         password,
       })
       if (response.status === 200 || response.status === 201) {
-        router.push('/login?registered=1')
+        router.push(`/verify-email?sent=1&email=${encodeURIComponent(email)}`)
       }
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } }

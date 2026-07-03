@@ -4,22 +4,29 @@ import backend.auth.application.port.in.LoginUserUseCase;
 import backend.auth.application.port.in.LogoutUseCase;
 import backend.auth.application.port.in.RefreshSessionUseCase;
 import backend.auth.application.port.in.RegisterUserUseCase;
+import backend.auth.application.port.in.ResendEmailVerificationUseCase;
 import backend.auth.application.port.in.RequestPasswordResetUseCase;
 import backend.auth.application.port.in.ResetPasswordUseCase;
+import backend.auth.application.port.in.VerifyEmailUseCase;
 import backend.auth.application.port.in.command.LoginUserCommand;
 import backend.auth.application.port.in.command.LogoutCommand;
 import backend.auth.application.port.in.command.RefreshSessionCommand;
 import backend.auth.application.port.in.command.RegisterUserCommand;
+import backend.auth.application.port.in.command.ResendEmailVerificationCommand;
 import backend.auth.application.port.in.command.RequestPasswordResetCommand;
 import backend.auth.application.port.in.command.ResetPasswordCommand;
+import backend.auth.application.port.in.command.VerifyEmailCommand;
 import backend.dto.request.LoginRequest;
 import backend.dto.request.RegisterRequest;
+import backend.dto.request.ResendEmailVerificationRequest;
 import backend.dto.request.ResetPasswordRequest;
+import backend.dto.request.VerifyEmailRequest;
 import backend.dto.response.AuthResponse;
 import backend.entity.User;
 import backend.security.AuthCookieService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -38,15 +45,18 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AuthController {
 
-    private static final String RESET_PASSWORD_LINK_PREFIX = "http://localhost:3000/reset-password?token=";
-
     private final RegisterUserUseCase registerUserUseCase;
     private final LoginUserUseCase loginUserUseCase;
     private final RefreshSessionUseCase refreshSessionUseCase;
     private final LogoutUseCase logoutUseCase;
     private final RequestPasswordResetUseCase requestPasswordResetUseCase;
     private final ResetPasswordUseCase resetPasswordUseCase;
+    private final VerifyEmailUseCase verifyEmailUseCase;
+    private final ResendEmailVerificationUseCase resendEmailVerificationUseCase;
     private final AuthCookieService authCookieService;
+
+    @Value("${app.frontend.base-url:http://localhost:3000}")
+    private String frontendBaseUrl;
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@RequestBody @Valid RegisterRequest request) {
@@ -56,7 +66,8 @@ public class AuthController {
                         request.getEmail(),
                         request.getPhone(),
                         request.getDateOfBirth(),
-                        request.getPassword()
+                        request.getPassword(),
+                        frontendLink("/verify-email?token=")
                 )));
     }
 
@@ -116,7 +127,7 @@ public class AuthController {
 
         requestPasswordResetUseCase.requestPasswordReset(new RequestPasswordResetCommand(
                 email,
-                RESET_PASSWORD_LINK_PREFIX
+                frontendLink("/reset-password?token=")
         ));
 
         return ResponseEntity.ok(Map.of(
@@ -133,5 +144,28 @@ public class AuthController {
         ));
 
         return ResponseEntity.ok(Map.of("message", "Doi mat khau thanh cong"));
+    }
+
+    @PostMapping("/verify-email")
+    public ResponseEntity<Map<String, String>> verifyEmail(@RequestBody @Valid VerifyEmailRequest request) {
+        verifyEmailUseCase.verifyEmail(new VerifyEmailCommand(request.getToken()));
+
+        return ResponseEntity.ok(Map.of("message", "Xac thuc email thanh cong"));
+    }
+
+    @PostMapping("/resend-verification-email")
+    public ResponseEntity<Map<String, String>> resendVerificationEmail(
+            @RequestBody @Valid ResendEmailVerificationRequest request
+    ) {
+        resendEmailVerificationUseCase.resendVerificationEmail(new ResendEmailVerificationCommand(
+                request.getEmail(),
+                frontendLink("/verify-email?token=")
+        ));
+
+        return ResponseEntity.ok(Map.of("message", "He thong da gui lai email xac thuc"));
+    }
+
+    private String frontendLink(String path) {
+        return frontendBaseUrl.replaceAll("/+$", "") + path;
     }
 }

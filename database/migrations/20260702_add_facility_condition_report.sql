@@ -1,30 +1,29 @@
--- ISSUE-262/264: Staff room status updates and room/equipment condition reports.
---
--- This migration stores staff inspection history for rooms and equipment.
--- It also adds NEED_CLEANING to room_status so staff can mark a room that
--- needs cleaning but does not require maintenance.
-
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 ALTER TYPE room_status ADD VALUE IF NOT EXISTS 'NEED_CLEANING';
+
+CREATE TYPE facility_condition AS ENUM (
+    'GOOD',
+    'NEED_CLEANING',
+    'NEED_CHECK',
+    'BROKEN'
+);
 
 CREATE TABLE IF NOT EXISTS facility_condition_report (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     staff_id INT NOT NULL REFERENCES staff(id),
     room_id INT NOT NULL REFERENCES room(id),
     equipment_id INT REFERENCES equipment(id),
-    condition VARCHAR(30) NOT NULL,
+    condition facility_condition NOT NULL,
     note VARCHAR(500),
     image_url VARCHAR(500),
     maintenance_suggested BOOLEAN NOT NULL DEFAULT false,
     room_status_after_update room_status,
     created_at TIMESTAMP NOT NULL DEFAULT now(),
-    CONSTRAINT chk_facility_condition_report_condition
-        CHECK (condition IN ('GOOD', 'NEED_CLEANING', 'NEED_CHECK', 'BROKEN')),
     CONSTRAINT chk_facility_condition_report_broken_note
         CHECK (
             condition <> 'BROKEN'
-            OR note IS NOT NULL AND btrim(note) <> ''
+            OR (note IS NOT NULL AND btrim(note) <> '')
         ),
     CONSTRAINT chk_facility_condition_report_note_length
         CHECK (note IS NULL OR char_length(note) <= 500),

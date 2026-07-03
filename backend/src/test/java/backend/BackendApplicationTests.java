@@ -1,6 +1,7 @@
 package backend;
 
 import backend.equipment.adapter.out.persistence.EquipmentRepository;
+import backend.auth.application.port.out.EmailVerificationNotificationPort;
 import backend.entity.Customer;
 import backend.entity.Role;
 import backend.entity.Room;
@@ -52,6 +53,9 @@ class BackendApplicationTests {
 
     @MockBean
     private JavaMailSender javaMailSender;
+
+    @MockBean
+    private EmailVerificationNotificationPort emailVerificationNotificationPort;
 
     @Autowired
     private MockMvc mockMvc;
@@ -199,6 +203,7 @@ class BackendApplicationTests {
                 .email("login@example.com")
                 .password("encoded")
                 .role(Role.CUSTOMER)
+                .emailVerified(true)
                 .build();
         when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
 
@@ -224,6 +229,7 @@ class BackendApplicationTests {
                 .email("refresh@example.com")
                 .password("encoded")
                 .role(Role.CUSTOMER)
+                .emailVerified(true)
                 .build();
         String currentRefreshToken = jwtService.generateRefreshToken(user);
         when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
@@ -246,6 +252,7 @@ class BackendApplicationTests {
                 .email("reused-refresh@example.com")
                 .password("encoded")
                 .role(Role.CUSTOMER)
+                .emailVerified(true)
                 .build();
         String refreshToken = jwtService.generateRefreshToken(user);
         when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
@@ -265,6 +272,7 @@ class BackendApplicationTests {
                 .email("wrong-token-type@example.com")
                 .password("encoded")
                 .role(Role.CUSTOMER)
+                .emailVerified(true)
                 .build();
         String accessToken = jwtService.generateAccessToken(user);
         when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));

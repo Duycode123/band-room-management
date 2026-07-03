@@ -7,6 +7,7 @@ public record RegisterUserCommand(
         String email,
         String phone,
         LocalDate dateOfBirth,
-        String password
+        String password,
+        String emailVerificationUrlBase
 ) {
 }
