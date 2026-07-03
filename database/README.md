@@ -57,6 +57,7 @@ Core model/entity classes currently present in backend source:
 - `database/migrations/20260701_create_app_notifications.sql`
 - `database/migrations/20260702_optimize_reporting_indexes.sql`
 - `database/migrations/20260703_create_staff_attendance.sql`
+- `database/migrations/20260703_add_email_verification_to_account.sql`
 - `database/sample-data/seed_rooms_and_equipment.sql`
 - `database/sample-data/seed_bookings_and_reviews.sql`
 - `database/schema-target-en.dbml`
@@ -184,6 +185,23 @@ If the change is part of the Vietnamese-to-English rename:
 - `customer_issue_report` stores customer-submitted support issues, optionally linked to one owned booking, and keeps a small explicit lifecycle (`OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`).
 - Revenue reporting still accepts arbitrary `timestamp` ranges, so any daily pre-aggregation must remain an optimization layer and not silently replace the exact `booking.start_time` source for partial-day windows.
 - A standalone `booking(room_id)` index is intentionally not added because the existing `idx_booking_room_start_end` index already exposes `room_id` as its left-most access path; duplicating it would add write overhead without improving the current report predicates.
+- `account.email_verified` controls whether a customer can sign in after registration. New customer accounts remain unverified until the email verification token is confirmed.
+
+## Account Email Verification Fields
+
+The `account` table stores email verification state for customer registration.
+
+- Purpose: require new customer accounts to prove access to their email address before login.
+- Lifecycle fields:
+  - `email_verified`: `false` for new customer registrations and `true` after a valid verification token is confirmed.
+  - `email_verification_token_hash`: SHA-256 hash of the current verification token. Raw tokens are sent only by email and are not stored.
+  - `email_verification_expires_at`: expiration timestamp for the verification link.
+  - `email_verification_sent_at`: timestamp used to enforce resend cooldown.
+- Uniqueness and security:
+  - `ux_account_email_verification_token_hash` prevents token-hash collisions while allowing nulls for verified accounts.
+  - existing accounts are marked verified by the migration so current users are not locked out.
+- Migration:
+  - `database/migrations/20260703_add_email_verification_to_account.sql`
 
 ## Reporting Optimization Assets
 

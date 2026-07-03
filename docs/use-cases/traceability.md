@@ -4,8 +4,8 @@ This file maps the source backlog/SRS use cases to the current backend repositor
 
 | UC ID | Title | Current Backend Coverage | Related Endpoints | Notes / Gaps |
 | --- | --- | --- | --- | --- |
-| UC001 | Register account | Implemented | `POST /api/auth/register` | Covers registration; backlog text also mixes login/logout into the same item. |
-| UC016 | Secure login and session | Partially implemented | `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `GET /api/auth/session` | Current backend sets auth cookies and returns tokens in body. Frontend route-guard behavior is outside this repo's backend scope. |
+| UC001 | Register account | Implemented | `POST /api/auth/register`, `POST /api/auth/verify-email`, `POST /api/auth/resend-verification-email` | Registration now creates an unverified account, sends an email verification link, stores only a hashed verification token, and blocks login until verification. |
+| UC016 | Secure login and session | Partially implemented | `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `GET /api/auth/session` | Current backend sets auth cookies and returns tokens in body. Login requires a verified email. Frontend route-guard behavior is outside this repo's backend scope. |
 | UC002 | List rooms | Partially implemented | `GET /api/rooms` | Current backend supports filter by `roomTypeId` and `status`. Search, richer filters, and pagination are still gaps. |
 | UC003 | View room detail | Partially implemented | `GET /api/rooms/{id}` | Backend detail endpoint exists. SRS/gallery/404 presentation concerns belong mostly to frontend. |
 | UC004 | Create booking | Implemented core flow | `GET /api/rooms/{id}/available-slots`, `POST /api/bookings/calculate-cost`, `POST /api/bookings` | Overlap prevention and pending-payment creation exist. Full payment completion flow is still separate/incomplete in current source. |
