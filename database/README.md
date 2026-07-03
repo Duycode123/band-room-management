@@ -54,6 +54,8 @@ Core model/entity classes currently present in backend source:
 - `database/migrations/20260630_add_review_response_table.sql`
 - `database/migrations/20260701_add_coupon_usage_and_sepay.sql`
 - `database/migrations/20260701_add_customer_issue_report_and_counter_provider.sql`
+- `database/migrations/20260701_create_app_notifications.sql`
+- `database/migrations/20260702_optimize_reporting_indexes.sql`
 - `database/migrations/20260703_create_staff_attendance.sql`
 - `database/sample-data/seed_rooms_and_equipment.sql`
 - `database/sample-data/seed_bookings_and_reviews.sql`
@@ -180,6 +182,20 @@ If the change is part of the Vietnamese-to-English rename:
 - `payment_provider` also includes `SEPAY` for the upcoming dedicated online checkout integration.
 - `coupon_usage` records the exact discount amount actually consumed by one paid booking and enforces one usage row per booking through `booking_id` uniqueness.
 - `customer_issue_report` stores customer-submitted support issues, optionally linked to one owned booking, and keeps a small explicit lifecycle (`OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`).
+- Revenue reporting still accepts arbitrary `timestamp` ranges, so any daily pre-aggregation must remain an optimization layer and not silently replace the exact `booking.start_time` source for partial-day windows.
+- A standalone `booking(room_id)` index is intentionally not added because the existing `idx_booking_room_start_end` index already exposes `room_id` as its left-most access path; duplicating it would add write overhead without improving the current report predicates.
+
+## Reporting Optimization Assets
+
+`database/migrations/20260702_optimize_reporting_indexes.sql` adds report-oriented structures on the English schema.
+
+- `idx_booking_status_start_time` keeps a direct `(status, start_time)` access path for revenue and usage slicing by booking start timestamp.
+- `idx_payment_transaction_status_paid_at` targets paid transaction reporting by status and `paid_at`. The index is partial (`WHERE paid_at IS NOT NULL`) because rows without a payment timestamp do not help time-based reporting.
+- `report_daily_booking_summary` is a materialized view that pre-aggregates reportable bookings (`PAID`, `CHECKED_IN`, `COMPLETED`) by day with total revenue, booking count, and usage hours.
+- `idx_report_daily_booking_summary_day` is unique so the materialized view can be refreshed with `REFRESH MATERIALIZED VIEW CONCURRENTLY report_daily_booking_summary;`.
+
+Operational note:
+The current admin revenue report still queries raw `booking` rows because the HTTP API accepts arbitrary `from` and `to` timestamps. The materialized view is intended for day-aligned analytics or a future reporting pipeline that can tolerate refresh lag.
 - `staff_attendance` stores staff check-in/check-out timestamps linked to `staff` and optionally `shift`, with lifecycle statuses `WORKING`, `DONE`, and `MISSING_CHECKOUT`.
 
 ## Staff Attendance Table
