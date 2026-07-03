@@ -7,28 +7,18 @@ import { StaffPageShell, Toast } from './StaffShared'
 import { useAuth } from '@/contexts/AuthContext'
 import { clearStaffAuthCaches, getDisplayName, getInitials, getProfileValue, getRoleLabel } from '@/lib/staff-profile'
 import {
-  applyUiPreferences,
   changePassword,
-  defaultStaffUiPreferences,
   getCurrentUser,
-  getNotificationSettings,
-  loadUiPreferences,
-  saveUiPreferences,
   updateMyProfile,
-  updateNotificationSettings,
-  type StaffNotificationSettings,
   type StaffProfile,
-  type StaffUiPreferences,
 } from '@/lib/staff-settings-service'
 
-type SettingsTab = 'PROFILE' | 'NOTIFICATIONS' | 'SECURITY' | 'APPEARANCE'
+type SettingsTab = 'PROFILE' | 'SECURITY'
 type ToastState = { type: 'success' | 'error'; text: string }
 
 const tabs: Array<{ id: SettingsTab; label: string }> = [
   { id: 'PROFILE', label: 'Hồ sơ' },
-  { id: 'NOTIFICATIONS', label: 'Thông báo' },
   { id: 'SECURITY', label: 'Bảo mật' },
-  { id: 'APPEARANCE', label: 'Giao diện' },
 ]
 
 const emptyProfile: StaffProfile = {
@@ -50,34 +40,18 @@ export default function StaffSettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('PROFILE')
   const [profile, setProfile] = useState<StaffProfile>(emptyProfile)
   const [profileErrors, setProfileErrors] = useState<Partial<Record<keyof StaffProfile, string>>>({})
-  const [notificationSettings, setNotificationSettings] = useState<StaffNotificationSettings>({
-    newBooking: true,
-    bookingReminder: true,
-    shiftReminder: true,
-    roomIssue: true,
-    equipmentIssue: true,
-  })
   const [passwordForm, setPasswordForm] = useState(emptyPasswordForm)
   const [passwordErrors, setPasswordErrors] = useState<Partial<Record<keyof typeof passwordForm, string>>>({})
-  const [appearance, setAppearance] = useState<StaffUiPreferences>(defaultStaffUiPreferences)
   const [toast, setToast] = useState<ToastState | null>(null)
   const [pageError, setPageError] = useState('')
   const [isProfileLoading, setIsProfileLoading] = useState(true)
   const [isProfileSaving, setIsProfileSaving] = useState(false)
-  const [isNotificationLoading, setIsNotificationLoading] = useState(true)
-  const [savingNotificationKey, setSavingNotificationKey] = useState<keyof StaffNotificationSettings | null>(null)
   const [isPasswordSaving, setIsPasswordSaving] = useState(false)
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
-  const cardPadding = appearance.displayDensity === 'compact' ? 'p-4 sm:p-5' : 'p-5 sm:p-6'
+  const cardPadding = 'p-5 sm:p-6'
   const profileInitials = useMemo(() => getInitials(profile.fullName || profile.email || getDisplayName(user)), [profile.email, profile.fullName, user])
-
-  useEffect(() => {
-    const preferences = loadUiPreferences()
-    setAppearance(preferences)
-    applyUiPreferences(preferences)
-  }, [])
 
   useEffect(() => {
     if (!user) return
@@ -97,14 +71,6 @@ export default function StaffSettingsPage() {
       .catch((error) => setPageError(error instanceof Error ? error.message : 'Không thể tải hồ sơ nhân viên.'))
       .finally(() => setIsProfileLoading(false))
   }, [user?.id, user?.email])
-
-  useEffect(() => {
-    setIsNotificationLoading(true)
-    void getNotificationSettings()
-      .then(setNotificationSettings)
-      .catch((error) => showToast('error', error instanceof Error ? error.message : 'Không thể tải tùy chọn thông báo.'))
-      .finally(() => setIsNotificationLoading(false))
-  }, [])
 
   useEffect(() => {
     if (!toast) return
@@ -178,33 +144,6 @@ export default function StaffSettingsPage() {
     }
   }
 
-  const toggleNotification = async (key: keyof StaffNotificationSettings) => {
-    if (savingNotificationKey) return
-
-    const previousSettings = notificationSettings
-    const nextSettings = { ...previousSettings, [key]: !previousSettings[key] }
-    setNotificationSettings(nextSettings)
-    setSavingNotificationKey(key)
-
-    try {
-      const savedSettings = await updateNotificationSettings(nextSettings)
-      setNotificationSettings(savedSettings)
-      showToast('success', 'Đã lưu tùy chọn thông báo.')
-    } catch (error) {
-      setNotificationSettings(previousSettings)
-      showToast('error', error instanceof Error ? error.message : 'Không thể lưu tùy chọn thông báo.')
-    } finally {
-      setSavingNotificationKey(null)
-    }
-  }
-
-  const updateAppearance = <Key extends keyof StaffUiPreferences>(key: Key, value: StaffUiPreferences[Key]) => {
-    const nextPreferences = { ...appearance, [key]: value }
-    setAppearance(nextPreferences)
-    saveUiPreferences(nextPreferences)
-    showToast('success', 'Đã lưu tùy chọn giao diện.')
-  }
-
   const handleLogout = async () => {
     setIsLoggingOut(true)
     try {
@@ -225,7 +164,7 @@ export default function StaffSettingsPage() {
           <p className="font-display text-sm font-bold uppercase tracking-wide text-brand-orange">Không gian làm việc</p>
           <h1 className="mt-2 font-display text-[32px] font-bold leading-10 text-on-surface">Cài đặt</h1>
           <p className="mt-2 max-w-2xl text-base leading-6 text-on-surface-variant">
-            Quản lý hồ sơ, bảo mật, thông báo và cách hiển thị workspace nhân viên.
+            Quản lý hồ sơ và bảo mật tài khoản nhân viên.
           </p>
         </header>
 
@@ -284,22 +223,6 @@ export default function StaffSettingsPage() {
           </SettingsCard>
         )}
 
-        {activeTab === 'NOTIFICATIONS' && (
-          <SettingsCard title="Thông báo" description="Các lựa chọn này được lưu theo tài khoản nhân viên và vẫn giữ sau khi đăng nhập lại." paddingClassName={cardPadding}>
-            {isNotificationLoading ? (
-              <LoadingState message="Đang tải tùy chọn thông báo..." />
-            ) : (
-              <div className="grid gap-3">
-                <SettingsToggle label="Nhận thông báo booking mới" checked={notificationSettings.newBooking} isSaving={savingNotificationKey === 'newBooking'} disabled={Boolean(savingNotificationKey)} onChange={() => toggleNotification('newBooking')} />
-                <SettingsToggle label="Nhắc khách sắp đến" checked={notificationSettings.bookingReminder} isSaving={savingNotificationKey === 'bookingReminder'} disabled={Boolean(savingNotificationKey)} onChange={() => toggleNotification('bookingReminder')} />
-                <SettingsToggle label="Nhắc ca làm" checked={notificationSettings.shiftReminder} isSaving={savingNotificationKey === 'shiftReminder'} disabled={Boolean(savingNotificationKey)} onChange={() => toggleNotification('shiftReminder')} />
-                <SettingsToggle label="Thông báo sự cố phòng" checked={notificationSettings.roomIssue} isSaving={savingNotificationKey === 'roomIssue'} disabled={Boolean(savingNotificationKey)} onChange={() => toggleNotification('roomIssue')} />
-                <SettingsToggle label="Thông báo thiết bị lỗi" checked={notificationSettings.equipmentIssue} isSaving={savingNotificationKey === 'equipmentIssue'} disabled={Boolean(savingNotificationKey)} onChange={() => toggleNotification('equipmentIssue')} />
-              </div>
-            )}
-          </SettingsCard>
-        )}
-
         {activeTab === 'SECURITY' && (
           <SettingsCard title="Bảo mật" description="Đổi mật khẩu thật cho tài khoản hiện tại. Sau khi đổi thành công bạn sẽ cần đăng nhập lại." paddingClassName={cardPadding}>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -317,34 +240,6 @@ export default function StaffSettingsPage() {
               <button type="button" onClick={updatePassword} className="btn-warm" disabled={isPasswordSaving}>
                 {isPasswordSaving ? 'Đang cập nhật...' : 'Cập nhật mật khẩu'}
               </button>
-            </div>
-          </SettingsCard>
-        )}
-
-        {activeTab === 'APPEARANCE' && (
-          <SettingsCard title="Giao diện" description="Tùy chọn hiển thị được lưu trên trình duyệt bằng localStorage và tự áp dụng lại khi reload." paddingClassName={cardPadding}>
-            <div className="grid gap-4 lg:grid-cols-2">
-              <OptionGroup
-                label="Mật độ hiển thị"
-                options={[
-                  { value: 'comfortable', label: 'Thoải mái' },
-                  { value: 'compact', label: 'Gọn' },
-                ]}
-                value={appearance.displayDensity}
-                onChange={(value) => updateAppearance('displayDensity', value as StaffUiPreferences['displayDensity'])}
-              />
-              <OptionGroup
-                label="Ưu tiên hiển thị"
-                options={[
-                  { value: 'card', label: 'Card' },
-                  { value: 'table', label: 'Bảng' },
-                ]}
-                value={appearance.preferredView}
-                onChange={(value) => updateAppearance('preferredView', value as StaffUiPreferences['preferredView'])}
-              />
-              <div className="lg:col-span-2">
-                <SettingsToggle label="Giảm hiệu ứng chuyển động" checked={appearance.reduceMotion} onChange={() => updateAppearance('reduceMotion', !appearance.reduceMotion)} />
-              </div>
             </div>
           </SettingsCard>
         )}
@@ -418,43 +313,6 @@ function Field({ label, error, children }: { label: string; error?: string; chil
       <span className="mt-2 block">{children}</span>
       {error && <span className="mt-2 block text-sm font-semibold text-error">{error}</span>}
     </label>
-  )
-}
-
-function SettingsToggle({ label, checked, disabled, isSaving, onChange }: { label: string; checked: boolean; disabled?: boolean; isSaving?: boolean; onChange: () => void }) {
-  return (
-    <button type="button" onClick={onChange} disabled={disabled} className="flex items-center justify-between gap-4 rounded-2xl border border-outline-variant bg-surface-container-low p-4 text-left transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-70">
-      <span>
-        <span className="block font-display text-sm font-bold text-on-surface">{label}</span>
-        {isSaving && <span className="mt-1 block text-xs font-semibold text-brand-orange">Đang lưu...</span>}
-      </span>
-      <span className={['relative h-7 w-12 rounded-full transition', checked ? 'bg-brand-orange' : 'bg-surface-container-high'].join(' ')}>
-        <span className={['absolute top-1 h-5 w-5 rounded-full bg-white shadow transition', checked ? 'left-6' : 'left-1'].join(' ')} />
-      </span>
-    </button>
-  )
-}
-
-function OptionGroup({ label, options, value, onChange }: { label: string; options: Array<{ value: string; label: string }>; value: string; onChange: (value: string) => void }) {
-  return (
-    <div>
-      <p className="font-display text-sm font-bold text-on-surface">{label}</p>
-      <div className="mt-2 grid grid-cols-2 gap-2 rounded-2xl border border-outline-variant bg-surface-container-low p-2">
-        {options.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() => onChange(option.value)}
-            className={[
-              'rounded-xl px-4 py-3 font-display text-sm font-bold transition',
-              value === option.value ? 'bg-secondary text-on-secondary shadow-[var(--band-shadow-card)]' : 'text-on-surface-variant hover:bg-white',
-            ].join(' ')}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
-    </div>
   )
 }
 
