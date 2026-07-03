@@ -60,7 +60,7 @@ export default function StaffBookingsPage() {
     } catch (error) {
       setBookings([])
       setSelectedBooking(null)
-      setErrorMessage(error instanceof Error ? error.message : 'Khong the tai danh sach booking.')
+      setErrorMessage(error instanceof Error ? error.message : 'Không thể tải danh sách booking.')
     } finally {
       setIsLoading(false)
     }
@@ -97,28 +97,28 @@ export default function StaffBookingsPage() {
         setSelectedBooking(detail)
       }
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Khong the tai chi tiet booking.')
+      setErrorMessage(error instanceof Error ? error.message : 'Không thể tải chi tiết booking.')
     }
   }
 
   const performStatusUpdate = async (booking: AdminBooking, nextStatus: BookingStatus) => {
     const updated = await updateAdminBookingStatus(booking.bookingId, nextStatus)
     if (!updated) {
-      throw new Error('Khong tim thay booking can cap nhat.')
+      throw new Error('Không tìm thấy booking cần cập nhật.')
     }
 
-    setToastMessage(`Da cap nhat ${updated.bookingCode} sang ${BOOKING_STATUS_LABELS[nextStatus].toLowerCase()}.`)
+    setToastMessage(`Đã cập nhật ${updated.bookingCode} sang ${BOOKING_STATUS_LABELS[nextStatus].toLowerCase()}.`)
     await loadBookings()
     setSelectedBooking(updated)
   }
 
   const performCancel = async (booking: AdminBooking) => {
-    const updated = await cancelAdminBooking(booking.bookingId, 'Staff huy tren man hinh van hanh')
+    const updated = await cancelAdminBooking(booking.bookingId, 'Staff hủy trên màn hình vận hành')
     if (!updated) {
-      throw new Error('Khong tim thay booking can huy.')
+      throw new Error('Không tìm thấy booking cần hủy.')
     }
 
-    setToastMessage(`Da huy booking ${updated.bookingCode}.`)
+    setToastMessage(`Đã hủy booking ${updated.bookingCode}.`)
     await loadBookings()
     setSelectedBooking(updated)
   }
@@ -131,9 +131,9 @@ export default function StaffBookingsPage() {
 
     if (action.kind === 'cancel') {
       setConfirmAction({
-        title: 'Huy booking nay?',
-        description: `${booking.bookingCode} se chuyen sang trang thai da huy tren backend.`,
-        confirmLabel: 'Huy booking',
+        title: 'Hủy booking này?',
+        description: `${booking.bookingCode} sẽ chuyển sang trạng thái đã hủy trên backend.`,
+        confirmLabel: 'Hủy booking',
         variant: 'danger',
         run: async () => {
           await performCancel(booking)
@@ -163,15 +163,15 @@ export default function StaffBookingsPage() {
         <div className="space-y-6">
           <header className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="font-display text-sm font-bold uppercase tracking-wide text-brand-orange">Van hanh dat phong</p>
-              <h1 className="mt-2 font-display text-[32px] font-bold leading-10 text-on-surface">Quan ly booking</h1>
+              <p className="font-display text-sm font-bold uppercase tracking-wide text-brand-orange">Vận hành đặt phòng</p>
+              <h1 className="mt-2 font-display text-[32px] font-bold leading-10 text-on-surface">Quản lý booking</h1>
               <p className="mt-2 max-w-2xl text-base leading-6 text-on-surface-variant">
-                Man hinh staff nay da route vao backend booking management thay vi dung mock local state.
+                Màn hình staff này đã route vào backend booking management thay vì dùng mock local state.
               </p>
             </div>
             <button type="button" onClick={() => void loadBookings()} className="btn-secondary self-start">
               <IconRefresh />
-              Lam moi
+              Làm mới
             </button>
           </header>
 
@@ -183,30 +183,30 @@ export default function StaffBookingsPage() {
 
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard
-              label="Ket qua loc"
+              label="Kết quả lọc"
               value={isLoading ? '...' : stats.total}
-              helper="Tong booking theo bo loc hien tai"
+              helper="Tổng booking theo bộ lọc hiện tại"
               icon={<IconCalendar />}
               className="bg-secondary text-on-secondary"
             />
             <StatCard
-              label="Cho thanh toan"
+              label="Chờ thanh toán"
               value={isLoading ? '...' : stats.pending}
-              helper="Can staff theo doi thanh toan"
+              helper="Cần staff theo dõi thanh toán"
               icon={<IconClock />}
               className="bg-primary-container text-brand-orange"
             />
             <StatCard
-              label="Dang su dung"
+              label="Đang sử dụng"
               value={isLoading ? '...' : stats.checkedIn}
-              helper="Khach da check-in"
+              helper="Khách đã check-in"
               icon={<IconCheck />}
               className="bg-on-secondary-container text-[#001A0D]"
             />
             <StatCard
-              label="Lich hom nay"
+              label="Lịch hôm nay"
               value={isLoading ? '...' : stats.today}
-              helper="Booking co gio bat dau trong ngay"
+              helper="Booking có giờ bắt đầu trong ngày"
               icon={<IconList />}
               className="bg-tertiary-container text-on-tertiary-container"
             />
@@ -222,7 +222,7 @@ export default function StaffBookingsPage() {
                 value={filters.bookingStatus}
                 onChange={(value) => setFilters((current) => ({ ...current, bookingStatus: value as BookingStatus | 'ALL' }))}
               >
-                <option value="ALL">Tat ca trang thai booking</option>
+                <option value="ALL">Tất cả trạng thái booking</option>
                 {(['PENDING_PAYMENT', 'PAID', 'CHECKED_IN', 'COMPLETED', 'CANCELLED'] as BookingStatus[]).map((status) => (
                   <option key={status} value={status}>
                     {BOOKING_STATUS_LABELS[status]}
@@ -233,7 +233,7 @@ export default function StaffBookingsPage() {
                 value={filters.paymentStatus}
                 onChange={(value) => setFilters((current) => ({ ...current, paymentStatus: value as PaymentStatus | 'ALL' }))}
               >
-                <option value="ALL">Tat ca thanh toan</option>
+                <option value="ALL">Tất cả thanh toán</option>
                 {(['PAID', 'UNPAID', 'PENDING'] as PaymentStatus[]).map((status) => (
                   <option key={status} value={status}>
                     {PAYMENT_STATUS_LABELS[status]}
@@ -244,12 +244,12 @@ export default function StaffBookingsPage() {
                 value={filters.dateFilter}
                 onChange={(value) => setFilters((current) => ({ ...current, dateFilter: value as StaffDateFilter }))}
               >
-                <option value="ALL">Tat ca ngay</option>
-                <option value="TODAY">Hom nay</option>
-                <option value="UPCOMING">Sap toi</option>
+                <option value="ALL">Tất cả ngày</option>
+                <option value="TODAY">Hôm nay</option>
+                <option value="UPCOMING">Sắp tới</option>
               </SelectField>
               <button type="button" onClick={resetFilters} className="btn-secondary">
-                Dat lai
+                Đặt lại
               </button>
             </div>
           </section>
@@ -268,9 +268,9 @@ export default function StaffBookingsPage() {
             </section>
           ) : (
             <EmptyState
-              title="Khong tim thay booking"
-              description="Thu doi tu khoa hoac bo loc de xem ket qua khac."
-              actionLabel="Dat lai bo loc"
+              title="Không tìm thấy booking"
+              description="Thử đổi từ khóa hoặc bộ lọc để xem kết quả khác."
+              actionLabel="Đặt lại bộ lọc"
               onAction={resetFilters}
             />
           )}
@@ -314,13 +314,13 @@ function getAvailableActions(status: BookingStatus): StaffBookingAction[] {
     return [
       {
         kind: 'status',
-        label: 'Xac nhan da thanh toan',
-        title: 'Danh dau da thanh toan?',
+        label: 'Xác nhận đã thanh toán',
+        title: 'Đánh dấu đã thanh toán?',
         nextStatus: 'PAID',
-        description: (booking) => `${booking.bookingCode} se chuyen sang trang thai da thanh toan.`,
+        description: (booking) => `${booking.bookingCode} sẽ chuyển sang trạng thái đã thanh toán.`,
       },
-      { kind: 'cancel', label: 'Huy booking' },
-      { kind: 'detail', label: 'Xem chi tiet' },
+      { kind: 'cancel', label: 'Hủy booking' },
+      { kind: 'detail', label: 'Xem chi tiết' },
     ]
   }
 
@@ -331,10 +331,10 @@ function getAvailableActions(status: BookingStatus): StaffBookingAction[] {
         label: 'Check-in',
         title: 'Check-in booking?',
         nextStatus: 'CHECKED_IN',
-        description: (booking) => `${booking.customerName} se duoc ghi nhan dang su dung phong.`,
+        description: (booking) => `${booking.customerName} sẽ được ghi nhận đang sử dụng phòng.`,
       },
-      { kind: 'cancel', label: 'Huy booking' },
-      { kind: 'detail', label: 'Xem chi tiet' },
+      { kind: 'cancel', label: 'Hủy booking' },
+      { kind: 'detail', label: 'Xem chi tiết' },
     ]
   }
 
@@ -342,16 +342,16 @@ function getAvailableActions(status: BookingStatus): StaffBookingAction[] {
     return [
       {
         kind: 'status',
-        label: 'Hoan tat',
-        title: 'Ket thuc booking?',
+        label: 'Hoàn tất',
+        title: 'Kết thúc booking?',
         nextStatus: 'COMPLETED',
-        description: (booking) => `${booking.bookingCode} se chuyen sang trang thai hoan tat.`,
+        description: (booking) => `${booking.bookingCode} sẽ chuyển sang trạng thái hoàn tất.`,
       },
-      { kind: 'detail', label: 'Xem chi tiet' },
+      { kind: 'detail', label: 'Xem chi tiết' },
     ]
   }
 
-  return [{ kind: 'detail', label: 'Xem chi tiet' }]
+  return [{ kind: 'detail', label: 'Xem chi tiết' }]
 }
 
 function BookingCard({
@@ -376,7 +376,7 @@ function BookingCard({
           </div>
           <h2 className="mt-2 font-display text-2xl font-bold text-on-surface">{booking.customerName}</h2>
           <p className="mt-1 text-sm text-on-surface-variant">
-            {booking.customerPhone || 'Chua co so dien thoai'} · {booking.roomName} · {formatBookingWindow(booking.startTime, booking.endTime)}
+            {booking.customerPhone || 'Chưa có số điện thoại'} · {booking.roomName} · {formatBookingWindow(booking.startTime, booking.endTime)}
           </p>
           {booking.note && (
             <p className="mt-3 rounded-2xl border border-outline-variant bg-surface-container-low px-3 py-2 text-sm leading-6 text-on-surface-variant">
@@ -403,9 +403,9 @@ function BookingCard({
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <Metric label="Thanh toan" value={PAYMENT_STATUS_LABELS[booking.paymentStatus]} />
-        <Metric label="Tong tien" value={formatCurrency(booking.totalPrice)} />
-        <Metric label="Thoi luong" value={`${formatHours(booking.durationHours)} gio`} />
+        <Metric label="Thanh toán" value={PAYMENT_STATUS_LABELS[booking.paymentStatus]} />
+        <Metric label="Tổng tiền" value={formatCurrency(booking.totalPrice)} />
+        <Metric label="Thời lượng" value={`${formatHours(booking.durationHours)} giờ`} />
       </div>
     </article>
   )
@@ -426,7 +426,7 @@ function BookingDetailPanel({
     <>
       <button
         type="button"
-        aria-label="Dong chi tiet booking"
+        aria-label="Đóng chi tiết booking"
         onClick={onClose}
         className="fixed inset-0 z-[60] bg-[#042A16]/50 backdrop-blur-sm"
       />
@@ -450,23 +450,23 @@ function BookingDetailPanel({
         </header>
 
         <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
-          <PanelSection title="Thong tin lich dat">
+          <PanelSection title="Thông tin lịch đặt">
             <div className="grid gap-3 sm:grid-cols-2">
-              <Metric label="Khung gio" value={formatBookingWindow(booking.startTime, booking.endTime)} />
-              <Metric label="Tong tien" value={formatCurrency(booking.totalPrice)} />
-              <Metric label="Email" value={booking.customerEmail || 'Chua cap nhat'} />
-              <Metric label="So dien thoai" value={booking.customerPhone || 'Chua cap nhat'} />
+              <Metric label="Khung giờ" value={formatBookingWindow(booking.startTime, booking.endTime)} />
+              <Metric label="Tổng tiền" value={formatCurrency(booking.totalPrice)} />
+              <Metric label="Email" value={booking.customerEmail || 'Chưa cập nhật'} />
+              <Metric label="Số điện thoại" value={booking.customerPhone || 'Chưa cập nhật'} />
             </div>
           </PanelSection>
 
-          <PanelSection title="Ghi chu va thiet bi">
+          <PanelSection title="Ghi chú và thiết bị">
             <div className="space-y-3">
               <div className="rounded-2xl border border-outline-variant bg-surface-container-low p-3">
-                <p className="font-display text-[11px] font-bold uppercase tracking-wide text-on-surface-variant">Ghi chu</p>
-                <p className="mt-2 text-sm leading-6 text-on-surface">{booking.note || 'Khong co ghi chu.'}</p>
+                <p className="font-display text-[11px] font-bold uppercase tracking-wide text-on-surface-variant">Ghi chú</p>
+                <p className="mt-2 text-sm leading-6 text-on-surface">{booking.note || 'Không có ghi chú.'}</p>
               </div>
               <div className="rounded-2xl border border-outline-variant bg-surface-container-low p-3">
-                <p className="font-display text-[11px] font-bold uppercase tracking-wide text-on-surface-variant">Thiet bi</p>
+                <p className="font-display text-[11px] font-bold uppercase tracking-wide text-on-surface-variant">Thiết bị</p>
                 {booking.equipment.length > 0 ? (
                   <div className="mt-2 flex flex-wrap gap-2">
                     {booking.equipment.map((equipment) => (
@@ -476,7 +476,7 @@ function BookingDetailPanel({
                     ))}
                   </div>
                 ) : (
-                  <p className="mt-2 text-sm text-on-surface-variant">Khong co ghi chu thiet bi.</p>
+                  <p className="mt-2 text-sm text-on-surface-variant">Không có ghi chú thiết bị.</p>
                 )}
               </div>
             </div>
@@ -527,7 +527,7 @@ function SearchInput({ value, onChange }: { value: string; onChange: (value: str
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        placeholder="Tim ma booking, khach hang, so dien thoai..."
+        placeholder="Tìm mã booking, khách hàng, số điện thoại..."
         className="h-12 w-full rounded-2xl border border-outline-variant bg-surface-container-low pl-11 pr-4 text-sm text-on-surface outline-none transition placeholder:text-on-surface-variant/70 focus:border-brand-orange focus:bg-white"
       />
     </label>
@@ -592,7 +592,7 @@ function ConfirmDialog({
       await action.run()
       onDone()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Khong the cap nhat booking.')
+      setError(err instanceof Error ? err.message : 'Không thể cập nhật booking.')
       setIsSubmitting(false)
     }
   }
@@ -607,14 +607,14 @@ function ConfirmDialog({
         <p className="mt-2 text-sm leading-6 text-on-surface-variant">{action.description}</p>
         {error && <p className="mt-4 rounded-2xl border border-error/30 bg-error-container/30 px-4 py-3 text-xs text-error">{error}</p>}
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onCancel} disabled={isSubmitting} className="btn-secondary disabled:cursor-not-allowed disabled:opacity-70">Huy</button>
+          <button type="button" onClick={onCancel} disabled={isSubmitting} className="btn-secondary disabled:cursor-not-allowed disabled:opacity-70">Hủy</button>
           <button
             type="button"
             onClick={() => void handleConfirm()}
             disabled={isSubmitting}
             className={['inline-flex min-h-11 items-center justify-center rounded-[14px] px-5 font-display text-sm font-bold text-white shadow-[var(--band-shadow-card)] transition disabled:cursor-not-allowed disabled:opacity-70', action.variant === 'danger' ? 'bg-error hover:bg-[#A61F1F]' : 'bg-brand-orange hover:bg-brand-orangeHover'].join(' ')}
           >
-            {isSubmitting ? 'Dang xu ly...' : action.confirmLabel}
+            {isSubmitting ? 'Đang xử lý...' : action.confirmLabel}
           </button>
         </div>
       </div>

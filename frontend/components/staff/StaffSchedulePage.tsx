@@ -17,7 +17,7 @@ import {
 type ShiftStatus = 'EMPTY' | 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED'
 type AttendanceStatus = 'NOT_STARTED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'NO_SHIFT'
 type DayKey = 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT' | 'SUN'
-type ShiftName = 'Ca sang' | 'Ca chieu' | 'Ca toi'
+type ShiftName = 'Ca sáng' | 'Ca chiều' | 'Ca tối'
 type VerificationStatus = 'IDLE' | 'CHECKING' | 'VALID' | 'INVALID' | 'BLOCKED'
 type ConditionStatus = 'PASSED' | 'FAILED' | 'CHECKING'
 
@@ -73,7 +73,7 @@ type StatusMeta = {
 
 const STUDIO_LOCATION = {
   name: 'BandHub Studio',
-  address: '123 Au Co, Tan Binh',
+  address: '123 Âu Cơ, Tân Bình',
   lat: 21.0285,
   lng: 105.8542,
   radiusMeters: 100,
@@ -82,19 +82,19 @@ const STUDIO_LOCATION = {
 const CHECK_IN_EARLY_MINUTES = 30
 
 const SHIFT_ROWS: ShiftRow[] = [
-  { name: 'Ca sang', startTime: '08:00', endTime: '12:00' },
-  { name: 'Ca chieu', startTime: '13:30', endTime: '17:30' },
-  { name: 'Ca toi', startTime: '18:00', endTime: '22:00' },
+  { name: 'Ca sáng', startTime: '08:00', endTime: '12:00' },
+  { name: 'Ca chiều', startTime: '13:30', endTime: '17:30' },
+  { name: 'Ca tối', startTime: '18:00', endTime: '22:00' },
 ]
 
 const DAY_META: Record<DayKey, { label: string; longLabel: string }> = {
-  MON: { label: 'Th 2', longLabel: 'Thu 2' },
-  TUE: { label: 'Th 3', longLabel: 'Thu 3' },
-  WED: { label: 'Th 4', longLabel: 'Thu 4' },
-  THU: { label: 'Th 5', longLabel: 'Thu 5' },
-  FRI: { label: 'Th 6', longLabel: 'Thu 6' },
-  SAT: { label: 'Th 7', longLabel: 'Thu 7' },
-  SUN: { label: 'CN', longLabel: 'Chu nhat' },
+  MON: { label: 'Th 2', longLabel: 'Thứ 2' },
+  TUE: { label: 'Th 3', longLabel: 'Thứ 3' },
+  WED: { label: 'Th 4', longLabel: 'Thứ 4' },
+  THU: { label: 'Th 5', longLabel: 'Thứ 5' },
+  FRI: { label: 'Th 6', longLabel: 'Thứ 6' },
+  SAT: { label: 'Th 7', longLabel: 'Thứ 7' },
+  SUN: { label: 'CN', longLabel: 'Chủ nhật' },
 }
 
 export default function StaffSchedulePage() {
@@ -147,7 +147,7 @@ export default function StaffSchedulePage() {
     } catch (error) {
       setSchedule([])
       setCurrentAttendance(null)
-      setPageError(error instanceof Error ? error.message : 'Khong the tai lich lam viec.')
+      setPageError(error instanceof Error ? error.message : 'Không thể tải lịch làm việc.')
     } finally {
       setIsLoadingSchedule(false)
     }
@@ -197,11 +197,11 @@ export default function StaffSchedulePage() {
 
   const handleRefresh = async () => {
     await loadSchedule()
-    setToast('Da dong bo lai lich lam viec tu backend.')
+    setToast('Đã đồng bộ lại lịch làm việc từ backend.')
   }
 
   const handleRegisterShift = () => {
-    setToast('Backend chua co API dang ky ca lam viec. Tam thoi chi dong bo lich da phan cong.')
+    setToast('Backend chưa có API đăng ký ca làm việc. Tạm thời chỉ đồng bộ lịch đã phân công.')
   }
 
   const handleVerifyLocation = async () => {
@@ -211,7 +211,7 @@ export default function StaffSchedulePage() {
 
     if (!navigator.geolocation) {
       setLocationStatus('BLOCKED')
-      setAttendanceError('Khong the truy cap vi tri tren trinh duyet nay.')
+      setAttendanceError('Không thể truy cập vị trí trên trình duyệt này.')
       return
     }
 
@@ -231,10 +231,10 @@ export default function StaffSchedulePage() {
       }
 
       setLocationStatus('INVALID')
-      setAttendanceError('Ban chua o gan studio de diem danh.')
+      setAttendanceError('Bạn chưa ở gần studio để điểm danh.')
     } catch {
       setLocationStatus('BLOCKED')
-      setAttendanceError('Khong the truy cap vi tri. Vui long bat quyen vi tri va thu lai.')
+      setAttendanceError('Không thể truy cập vị trí. Vui lòng bật quyền vị trí và thử lại.')
     }
   }
 
@@ -242,17 +242,17 @@ export default function StaffSchedulePage() {
     setAttendanceError('')
 
     if (!currentShift) {
-      setAttendanceError('Khong co ca hien tai de check-in.')
+      setAttendanceError('Không có ca hiện tại để check-in.')
       return
     }
 
     if (!isWithinCheckInWindow(currentShift, now)) {
-      setAttendanceError(`Chi duoc check-in tu ${getCheckInStartTime(currentShift)} den ${currentShift.endTime}.`)
+      setAttendanceError(`Chỉ được check-in từ ${getCheckInStartTime(currentShift)} đến ${currentShift.endTime}.`)
       return
     }
 
     if (locationStatus !== 'VALID') {
-      setAttendanceError('Vui long xac minh vi tri gan studio truoc khi check-in.')
+      setAttendanceError('Vui lòng xác minh vị trí gần studio trước khi check-in.')
       return
     }
 
@@ -260,10 +260,10 @@ export default function StaffSchedulePage() {
     try {
       const attendance = await checkInCurrentShift()
       setCurrentAttendance(attendance)
-      setToast('Check-in thanh cong.')
+      setToast('Check-in thành công.')
       setAttendanceError('')
     } catch (error) {
-      setAttendanceError(error instanceof Error ? error.message : 'Khong the check-in ca lam.')
+      setAttendanceError(error instanceof Error ? error.message : 'Không thể check-in ca làm.')
     } finally {
       setIsAttendanceLoading(false)
     }
@@ -273,17 +273,17 @@ export default function StaffSchedulePage() {
     setAttendanceError('')
 
     if (!currentShift) {
-      setAttendanceError('Khong co ca hien tai de check-out.')
+      setAttendanceError('Không có ca hiện tại để check-out.')
       return
     }
 
     if (locationStatus !== 'VALID') {
-      setAttendanceError('Vui long xac minh vi tri gan studio truoc khi check-out.')
+      setAttendanceError('Vui lòng xác minh vị trí gần studio trước khi check-out.')
       return
     }
 
     if (!isAfterShiftEnd(currentShift, now)) {
-      setAttendanceError(`Chua den gio ket thuc ca. Ban co the check-out sau ${currentShift.endTime}.`)
+      setAttendanceError(`Chưa đến giờ kết thúc ca. Bạn có thể check-out sau ${currentShift.endTime}.`)
       return
     }
 
@@ -291,10 +291,10 @@ export default function StaffSchedulePage() {
     try {
       const attendance = await checkOutCurrentShift()
       setCurrentAttendance(attendance)
-      setToast('Check-out thanh cong.')
+      setToast('Check-out thành công.')
       setAttendanceError('')
     } catch (error) {
-      setAttendanceError(error instanceof Error ? error.message : 'Khong the check-out ca lam.')
+      setAttendanceError(error instanceof Error ? error.message : 'Không thể check-out ca làm.')
     } finally {
       setIsAttendanceLoading(false)
     }
@@ -329,7 +329,7 @@ export default function StaffSchedulePage() {
         return {
           ...current,
           isLoading: false,
-          error: error instanceof Error ? error.message : 'Khong the tai booking trong ca lam.',
+          error: error instanceof Error ? error.message : 'Không thể tải booking trong ca làm.',
         }
       })
     }
@@ -345,7 +345,7 @@ export default function StaffSchedulePage() {
                 Staff workspace
               </p>
               <h1 className="font-display text-3xl font-bold tracking-tight text-on-surface sm:text-4xl">
-                Lich lam viec
+                Lịch làm việc
               </h1>
             </div>
 
@@ -360,7 +360,7 @@ export default function StaffSchedulePage() {
                 }}
                 className="inline-flex min-h-12 items-center gap-2 rounded-full bg-[#FFF5F5] px-6 font-display text-sm font-bold text-[#B91C1C] transition hover:bg-[#FFE8E8]"
               >
-                Diem danh
+                Điểm danh
                 <IconCalendarCheck />
               </button>
               <button
@@ -368,7 +368,7 @@ export default function StaffSchedulePage() {
                 onClick={() => void handleRefresh()}
                 className="inline-flex min-h-12 items-center gap-2 rounded-full border border-outline-variant bg-white px-6 font-display text-sm font-bold text-on-surface shadow-[var(--band-shadow-card)] transition hover:border-brand-orange/40 hover:text-brand-orange"
               >
-                Lam moi
+                Làm mới
                 <IconRefresh />
               </button>
               <button
@@ -376,7 +376,7 @@ export default function StaffSchedulePage() {
                 onClick={handleRegisterShift}
                 className="inline-flex min-h-12 items-center gap-2 rounded-full bg-[#C91F2E] px-6 font-display text-sm font-bold text-white shadow-[0_12px_26px_rgba(201,31,46,0.22)] transition hover:bg-[#A91724]"
               >
-                Dang ky ca lam viec
+                Đăng ký ca làm việc
                 <IconCalendarPlus />
               </button>
             </div>
@@ -390,36 +390,36 @@ export default function StaffSchedulePage() {
 
           <div className="grid gap-4 lg:grid-cols-3">
             <SummaryCard
-              label="Ca trong tuan"
+              label="Ca trong tuần"
               value={shiftCells.length}
-              helper="Lay tu /api/staff/schedule/shifts"
+              helper="Lấy từ /api/staff/schedule/shifts"
             />
             <SummaryCard
-              label="Ca hien tai"
-              value={currentShift ? currentShift.shiftName : 'Khong co'}
+              label="Ca hiện tại"
+              value={currentShift ? currentShift.shiftName : 'Không có'}
               helper={
                 currentShift
                   ? `${formatDateForHeader(currentShift.date)} · ${currentShift.startTime} - ${currentShift.endTime}`
-                  : 'Khong co ca dang dien ra'
+                  : 'Không có ca đang diễn ra'
               }
             />
             <SummaryCard
-              label="Cham cong"
+              label="Chấm công"
               value={getAttendanceStatusMeta(attendanceStatus).label}
-              helper="Dong bo tu attendance API hien tai"
+              helper="Đồng bộ từ attendance API hiện tại"
             />
           </div>
 
           <div className="border border-outline-variant bg-white p-4 shadow-[var(--band-shadow-card)] sm:p-7">
             {isLoadingSchedule ? (
               <div className="rounded-xl border border-dashed border-outline-variant bg-surface-container-low px-4 py-10 text-center text-sm text-on-surface-variant">
-                Dang tai lich lam viec...
+                Đang tải lịch làm việc...
               </div>
             ) : shiftCells.length === 0 ? (
               <EmptyState
-                title="Chua co ca lam viec trong tuan nay"
-                description="Backend chua tra ve ca nao cho tai khoan staff hien tai."
-                actionLabel="Dong bo lai"
+                title="Chưa có ca làm việc trong tuần này"
+                description="Backend chưa trả về ca nào cho tài khoản staff hiện tại."
+                actionLabel="Đồng bộ lại"
                 onAction={() => void handleRefresh()}
               />
             ) : (
@@ -564,14 +564,14 @@ function AttendanceModal({
 
   return (
     <ModalFrame
-      title="Diem danh ca hien tai"
-      description="Xac minh vi tri va ghi nhan check-in/check-out cho ca dang dien ra."
+      title="Điểm danh ca hiện tại"
+      description="Xác minh vị trí và ghi nhận check-in/check-out cho ca đang diễn ra."
       onClose={onClose}
       size="lg"
     >
       {!shift ? (
         <div className="rounded-xl border border-error-container bg-error-container px-4 py-3 text-sm font-semibold text-on-error-container">
-          Khong co ca hien tai.
+          Không có ca hiện tại.
         </div>
       ) : (
         <div className="space-y-5">
@@ -593,13 +593,13 @@ function AttendanceModal({
           <section className="rounded-xl border border-outline-variant bg-white p-4 shadow-[0_8px_24px_rgba(26,28,30,0.04)]">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h3 className="font-display text-base font-bold text-on-surface">Xac minh vi tri</h3>
+                <h3 className="font-display text-base font-bold text-on-surface">Xác minh vị trí</h3>
                 <p className="mt-1 text-sm text-on-surface-variant">
-                  {STUDIO_LOCATION.name} · {STUDIO_LOCATION.address} · ban kinh {STUDIO_LOCATION.radiusMeters}m
+                  {STUDIO_LOCATION.name} · {STUDIO_LOCATION.address} · bán kính {STUDIO_LOCATION.radiusMeters}m
                 </p>
                 {locationDistance !== null && (
                   <p className="mt-1 text-sm font-semibold text-on-surface">
-                    Khoang cach hien tai: {formatDistance(locationDistance)}
+                    Khoảng cách hiện tại: {formatDistance(locationDistance)}
                   </p>
                 )}
               </div>
@@ -609,49 +609,49 @@ function AttendanceModal({
                 disabled={locationStatus === 'CHECKING' || isLoading}
                 className="btn-secondary shrink-0 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {locationStatus === 'CHECKING' ? 'Dang kiem tra vi tri...' : 'Kiem tra vi tri'}
+                {locationStatus === 'CHECKING' ? 'Đang kiểm tra vị trí...' : 'Kiểm tra vị trí'}
               </button>
             </div>
           </section>
 
           <section className="rounded-xl border border-outline-variant bg-white p-4 shadow-[0_8px_24px_rgba(26,28,30,0.04)]">
-            <h3 className="font-display text-base font-bold text-on-surface">Dieu kien diem danh</h3>
+            <h3 className="font-display text-base font-bold text-on-surface">Điều kiện điểm danh</h3>
             <div className="mt-4 grid gap-2">
-              <ConditionLine status="PASSED" label="Ca lam hop le tu backend" />
+              <ConditionLine status="PASSED" label="Ca làm hợp lệ từ backend" />
               <ConditionLine
                 status={withinCheckInWindow ? 'PASSED' : 'FAILED'}
-                label={`Dung khung gio check-in tu ${getCheckInStartTime(shift)} den ${shift.endTime}`}
+                label={`Đúng khung giờ check-in từ ${getCheckInStartTime(shift)} đến ${shift.endTime}`}
               />
-              <ConditionLine status={locationConditionStatus} label="Dang o gan studio" />
+              <ConditionLine status={locationConditionStatus} label="Đang ở gần studio" />
               <ConditionLine
                 status={afterShiftEnd ? 'PASSED' : 'FAILED'}
-                label={`Da den gio ket thuc ca ${shift.endTime}`}
+                label={`Đã đến giờ kết thúc ca ${shift.endTime}`}
               />
             </div>
           </section>
 
           <section className="grid gap-3 text-sm sm:grid-cols-2">
-            <InfoItem label="Gio vao" value={shift.checkInTime ?? 'Chua check-in'} />
-            <InfoItem label="Gio ra" value={shift.checkOutTime ?? 'Chua check-out'} />
+            <InfoItem label="Giờ vào" value={shift.checkInTime ?? 'Chưa check-in'} />
+            <InfoItem label="Giờ ra" value={shift.checkOutTime ?? 'Chưa check-out'} />
             <InfoItem
-              label="Tong thoi luong lam viec"
+              label="Tổng thời lượng làm việc"
               value={formatAttendanceDuration(attendance, shift.checkInTime, shift.checkOutTime, now)}
             />
-            <InfoItem label="Trang thai ca" value={statusMeta.label} />
+            <InfoItem label="Trạng thái ca" value={statusMeta.label} />
           </section>
 
           <section className="rounded-xl border border-outline-variant bg-white p-4 shadow-[0_8px_24px_rgba(26,28,30,0.04)]">
-            <h3 className="font-display text-base font-bold text-on-surface">Timeline ca lam</h3>
+            <h3 className="font-display text-base font-bold text-on-surface">Timeline ca làm</h3>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <TimelineStep label="Bat dau ca" value={shift.startTime} active />
-              <TimelineStep label="Check-in" value={shift.checkInTime ?? 'Chua co'} active={Boolean(shift.checkInTime)} />
-              <TimelineStep label="Ket thuc ca" value={shift.checkOutTime ?? shift.endTime} active={Boolean(shift.checkOutTime)} />
+              <TimelineStep label="Bắt đầu ca" value={shift.startTime} active />
+              <TimelineStep label="Check-in" value={shift.checkInTime ?? 'Chưa có'} active={Boolean(shift.checkInTime)} />
+              <TimelineStep label="Kết thúc ca" value={shift.checkOutTime ?? shift.endTime} active={Boolean(shift.checkOutTime)} />
             </div>
           </section>
 
           {status === 'CHECKED_IN' && !afterShiftEnd && (
             <div className="rounded-xl border border-[#FEF3C7] bg-[#FFFBEB] px-4 py-3 text-sm font-semibold text-[#92400E]">
-              Chua den gio ket thuc ca. Ban co the check-out sau {shift.endTime}.
+              Chưa đến giờ kết thúc ca. Bạn có thể check-out sau {shift.endTime}.
             </div>
           )}
           {error && (
@@ -662,7 +662,7 @@ function AttendanceModal({
 
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
             <button type="button" onClick={onClose} className="btn-secondary" disabled={isLoading}>
-              Huy
+              Hủy
             </button>
             {status === 'NOT_STARTED' && (
               <button
@@ -671,7 +671,7 @@ function AttendanceModal({
                 disabled={!canCheckIn}
                 className="btn-warm disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isLoading ? 'Dang check-in...' : 'Check-in'}
+                {isLoading ? 'Đang check-in...' : 'Check-in'}
               </button>
             )}
             {status === 'CHECKED_IN' && (
@@ -681,12 +681,12 @@ function AttendanceModal({
                 disabled={!canCheckOut}
                 className="btn-warm disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isLoading ? 'Dang check-out...' : 'Check-out'}
+                {isLoading ? 'Đang check-out...' : 'Check-out'}
               </button>
             )}
             {status === 'CHECKED_OUT' && (
               <button type="button" disabled className="btn-secondary opacity-70">
-                Da hoan tat ca
+                Đã hoàn tất ca
               </button>
             )}
           </div>
@@ -708,7 +708,7 @@ function ShiftDetailModal({
   const meta = getShiftStatusMeta(detail.cell.status)
 
   return (
-    <ModalFrame title="Chi tiet ca lam" onClose={onClose} size="lg">
+    <ModalFrame title="Chi tiết ca làm" onClose={onClose} size="lg">
       <div className="space-y-4">
         <div className="flex items-start justify-between gap-4 rounded-xl border border-outline-variant bg-surface-container-low p-4">
           <div>
@@ -723,30 +723,30 @@ function ShiftDetailModal({
         </div>
 
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
-          <InfoItem label="Ngay" value={formatDateForHeader(detail.cell.date)} />
+          <InfoItem label="Ngày" value={formatDateForHeader(detail.cell.date)} />
           <InfoItem label="Ca" value={detail.cell.shiftName} />
-          <InfoItem label="Thoi gian" value={`${detail.cell.startTime} - ${detail.cell.endTime}`} />
-          <InfoItem label="Trang thai" value={meta.label} />
-          <InfoItem label="Check-in" value={detail.cell.checkInTime ?? 'Chua co'} />
-          <InfoItem label="Check-out" value={detail.cell.checkOutTime ?? 'Chua co'} />
+          <InfoItem label="Thời gian" value={`${detail.cell.startTime} - ${detail.cell.endTime}`} />
+          <InfoItem label="Trạng thái" value={meta.label} />
+          <InfoItem label="Check-in" value={detail.cell.checkInTime ?? 'Chưa có'} />
+          <InfoItem label="Check-out" value={detail.cell.checkOutTime ?? 'Chưa có'} />
           <InfoItem
-            label="Tong thoi luong"
+            label="Tổng thời lượng"
             value={formatAttendanceDuration(null, detail.cell.checkInTime, detail.cell.checkOutTime, now)}
           />
-          <InfoItem label="Ghi chu" value={detail.cell.note} />
+          <InfoItem label="Ghi chú" value={detail.cell.note} />
         </dl>
 
         <section className="rounded-xl border border-outline-variant bg-white p-4 shadow-[0_8px_24px_rgba(26,28,30,0.04)]">
           <h3 className="font-display text-base font-bold text-on-surface">Booking trong ca</h3>
           {detail.isLoading ? (
-            <p className="mt-3 text-sm text-on-surface-variant">Dang tai booking trong ca...</p>
+            <p className="mt-3 text-sm text-on-surface-variant">Đang tải booking trong ca...</p>
           ) : detail.error ? (
             <p className="mt-3 rounded-xl border border-error-container bg-error-container px-4 py-3 text-sm font-semibold text-on-error-container">
               {detail.error}
             </p>
           ) : detail.bookings.length === 0 ? (
             <p className="mt-3 rounded-xl border border-dashed border-outline-variant bg-surface-container-low px-4 py-4 text-sm text-on-surface-variant">
-              Khong co booking nao trong khung gio nay.
+              Không có booking nào trong khung giờ này.
             </p>
           ) : (
             <div className="mt-4 space-y-3">
@@ -764,7 +764,7 @@ function ShiftDetailModal({
                     </span>
                   </div>
                   <p className="mt-3 text-sm text-on-surface-variant">
-                    Thiet bi: {booking.equipment.length > 0 ? booking.equipment.join(', ') : 'Khong co ghi chu thiet bi'}
+                    Thiết bị: {booking.equipment.length > 0 ? booking.equipment.join(', ') : 'Không có ghi chú thiết bị'}
                   </p>
                 </article>
               ))}
@@ -820,7 +820,7 @@ function ModalFrame({
             <h2 className="font-display text-2xl font-bold text-on-surface">{title}</h2>
             {description && <p className="mt-1 max-w-xl text-sm leading-6 text-on-surface-variant">{description}</p>}
           </div>
-          <button type="button" onClick={onClose} className="icon-button shrink-0" aria-label="Dong">
+          <button type="button" onClick={onClose} className="icon-button shrink-0" aria-label="Đóng">
             <IconClose />
           </button>
         </header>
@@ -841,9 +841,9 @@ function InfoItem({ label, value }: { label: string; value: string }) {
 
 function ConditionLine({ status, label }: { status: ConditionStatus; label: string }) {
   const meta = {
-    PASSED: { mark: 'OK', label: 'Dat', className: 'bg-secondary text-white', textClass: 'text-secondary' },
-    FAILED: { mark: '!', label: 'Chua dat', className: 'bg-surface-container-high text-on-surface-variant', textClass: 'text-on-surface-variant' },
-    CHECKING: { mark: '...', label: 'Dang kiem tra', className: 'bg-primary-container text-on-primary-container', textClass: 'text-on-primary-container' },
+    PASSED: { mark: 'OK', label: 'Đạt', className: 'bg-secondary text-white', textClass: 'text-secondary' },
+    FAILED: { mark: '!', label: 'Chưa đạt', className: 'bg-surface-container-high text-on-surface-variant', textClass: 'text-on-surface-variant' },
+    CHECKING: { mark: '...', label: 'Đang kiểm tra', className: 'bg-primary-container text-on-primary-container', textClass: 'text-on-primary-container' },
   }[status]
 
   return (
@@ -875,10 +875,10 @@ function TimelineStep({ label, value, active }: { label: string; value: string; 
 
 function getShiftStatusMeta(status: ShiftStatus): StatusMeta {
   const meta: Record<ShiftStatus, StatusMeta> = {
-    EMPTY: { label: 'Trong', className: 'bg-surface-container text-on-surface-variant' },
-    ASSIGNED: { label: 'Da phan cong', className: 'bg-[#E8F5EC] text-secondary' },
-    IN_PROGRESS: { label: 'Dang lam', className: 'bg-[#FEF3C7] text-[#92400E]' },
-    COMPLETED: { label: 'Hoan tat', className: 'bg-[#E8E4DC] text-on-surface-variant' },
+    EMPTY: { label: 'Trống', className: 'bg-surface-container text-on-surface-variant' },
+    ASSIGNED: { label: 'Đã phân công', className: 'bg-[#E8F5EC] text-secondary' },
+    IN_PROGRESS: { label: 'Đang làm', className: 'bg-[#FEF3C7] text-[#92400E]' },
+    COMPLETED: { label: 'Hoàn tất', className: 'bg-[#E8E4DC] text-on-surface-variant' },
   }
 
   return meta[status]
@@ -886,10 +886,10 @@ function getShiftStatusMeta(status: ShiftStatus): StatusMeta {
 
 function getAttendanceStatusMeta(status: AttendanceStatus): StatusMeta {
   const meta: Record<AttendanceStatus, StatusMeta> = {
-    NOT_STARTED: { label: 'Chua check-in', className: 'bg-primary-container text-on-primary-container' },
-    CHECKED_IN: { label: 'Da check-in', className: 'bg-[#FEF3C7] text-[#92400E]' },
-    CHECKED_OUT: { label: 'Da check-out', className: 'bg-[#E8E4DC] text-on-surface-variant' },
-    NO_SHIFT: { label: 'Khong co ca', className: 'bg-error-container text-on-error-container' },
+    NOT_STARTED: { label: 'Chưa check-in', className: 'bg-primary-container text-on-primary-container' },
+    CHECKED_IN: { label: 'Đã check-in', className: 'bg-[#FEF3C7] text-[#92400E]' },
+    CHECKED_OUT: { label: 'Đã check-out', className: 'bg-[#E8E4DC] text-on-surface-variant' },
+    NO_SHIFT: { label: 'Không có ca', className: 'bg-error-container text-on-error-container' },
   }
 
   return meta[status]
@@ -947,7 +947,7 @@ function mapShiftToCell(
         ? 'IN_PROGRESS'
         : 'COMPLETED'
       : 'ASSIGNED',
-    note: 'Dong bo tu lich backend. Mo chi tiet de xem booking trong ca.',
+    note: 'Đồng bộ từ lịch backend. Mở chi tiết để xem booking trong ca.',
     checkInTime: currentAttendance?.checkInTime ? formatTimeFromIso(currentAttendance.checkInTime) : undefined,
     checkOutTime: currentAttendance?.checkOutTime ? formatTimeFromIso(currentAttendance.checkOutTime) : undefined,
   }
@@ -996,7 +996,7 @@ function createEmptyCell(day: WeekDay, row: ShiftRow): StaffShiftCell {
     startTime: row.startTime,
     endTime: row.endTime,
     status: 'EMPTY',
-    note: 'Chua co ca duoc phan cong o khung gio nay.',
+    note: 'Chưa có ca được phân công ở khung giờ này.',
   }
 }
 
@@ -1014,9 +1014,9 @@ function inferShiftName(startTime: string, endTime: string): ShiftName {
   if (matchedRow) return matchedRow.name
 
   const startMinutes = parseTimeToMinutes(normalizedStart)
-  if (startMinutes < 12 * 60) return 'Ca sang'
-  if (startMinutes < 18 * 60) return 'Ca chieu'
-  return 'Ca toi'
+  if (startMinutes < 12 * 60) return 'Ca sáng'
+  if (startMinutes < 18 * 60) return 'Ca chiều'
+  return 'Ca tối'
 }
 
 function normalizeTime(value: string) {
@@ -1062,21 +1062,21 @@ function formatAttendanceDuration(
     const hours = numericDuration
     const wholeHours = Math.floor(hours)
     const minutes = Math.round((hours - wholeHours) * 60)
-    if (wholeHours <= 0) return `${minutes} phut`
-    if (minutes <= 0) return `${wholeHours} gio`
-    return `${wholeHours} gio ${minutes} phut`
+    if (wholeHours <= 0) return `${minutes} phút`
+    if (minutes <= 0) return `${wholeHours} giờ`
+    return `${wholeHours} giờ ${minutes} phút`
   }
 
-  if (!checkInTime) return 'Chua bat dau'
+  if (!checkInTime) return 'Chưa bắt đầu'
   const checkIn = createDateFromTime(checkInTime, now)
   const checkOut = checkOutTime ? createDateFromTime(checkOutTime, now) : now
   const diffMinutes = Math.max(0, Math.floor((checkOut.getTime() - checkIn.getTime()) / 60000))
   const hours = Math.floor(diffMinutes / 60)
   const minutes = diffMinutes % 60
 
-  if (hours <= 0) return `${minutes} phut`
-  if (minutes <= 0) return `${hours} gio`
-  return `${hours} gio ${minutes} phut`
+  if (hours <= 0) return `${minutes} phút`
+  if (minutes <= 0) return `${hours} giờ`
+  return `${hours} giờ ${minutes} phút`
 }
 
 function normalizeEquipmentNotes(notes?: string | null) {

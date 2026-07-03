@@ -59,7 +59,7 @@ export async function fetchStaffSchedule(fromDate: string, toDate: string): Prom
 
     return response.data.data ?? []
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the tai lich lam viec.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể tải lịch làm việc.'))
   }
 }
 
@@ -68,7 +68,7 @@ export async function fetchShiftBookings(shiftId: number): Promise<StaffShiftBoo
     const response = await api.get<ApiResponse<StaffShiftBooking[]>>(`/api/staff/schedule/shifts/${shiftId}/bookings`)
     return response.data.data ?? []
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the tai booking trong ca lam.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể tải booking trong ca làm.'))
   }
 }
 
@@ -77,7 +77,7 @@ export async function fetchCurrentAttendance(): Promise<StaffAttendanceRecord | 
     const response = await api.get<ApiResponse<StaffAttendanceRecord | null>>('/api/staff/attendance/current')
     return response.data.data ?? null
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the tai du lieu cham cong hien tai.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể tải dữ liệu chấm công hiện tại.'))
   }
 }
 
@@ -86,7 +86,7 @@ export async function checkInCurrentShift(): Promise<StaffAttendanceRecord> {
     const response = await api.post<ApiResponse<StaffAttendanceRecord>>('/api/staff/attendance/check-in')
     return response.data.data
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the check-in ca lam.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể check-in ca làm.'))
   }
 }
 
@@ -95,6 +95,6 @@ export async function checkOutCurrentShift(): Promise<StaffAttendanceRecord> {
     const response = await api.post<ApiResponse<StaffAttendanceRecord>>('/api/staff/attendance/check-out')
     return response.data.data
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the check-out ca lam.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể check-out ca làm.'))
   }
 }
