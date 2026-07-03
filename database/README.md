@@ -24,6 +24,7 @@ The current backend source clearly models these areas:
 - review and admin review response data
 - payment transaction data
 - customer issue report data
+- staff attendance data
 - revoked token data
 
 Core model/entity classes currently present in backend source:
@@ -41,6 +42,7 @@ Core model/entity classes currently present in backend source:
 - `ReviewAdminResponse`
 - `PaymentTransaction`
 - `CustomerIssueReport`
+- `staff_attendance` table through the attendance JDBC adapter
 - `RevokedToken`
 
 ## Existing Files
@@ -52,6 +54,7 @@ Core model/entity classes currently present in backend source:
 - `database/migrations/20260630_add_review_response_table.sql`
 - `database/migrations/20260701_add_coupon_usage_and_sepay.sql`
 - `database/migrations/20260701_add_customer_issue_report_and_counter_provider.sql`
+- `database/migrations/20260703_create_staff_attendance.sql`
 - `database/sample-data/seed_rooms_and_equipment.sql`
 - `database/sample-data/seed_bookings_and_reviews.sql`
 - `database/schema-target-en.dbml`
@@ -177,6 +180,30 @@ If the change is part of the Vietnamese-to-English rename:
 - `payment_provider` also includes `SEPAY` for the upcoming dedicated online checkout integration.
 - `coupon_usage` records the exact discount amount actually consumed by one paid booking and enforces one usage row per booking through `booking_id` uniqueness.
 - `customer_issue_report` stores customer-submitted support issues, optionally linked to one owned booking, and keeps a small explicit lifecycle (`OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`).
+- `staff_attendance` stores staff check-in/check-out timestamps linked to `staff` and optionally `shift`, with lifecycle statuses `WORKING`, `DONE`, and `MISSING_CHECKOUT`.
+
+## Staff Attendance Table
+
+`staff_attendance` is the source record for actual staff working time.
+
+- Purpose: record check-in and check-out events for payroll, work tracking, and reconciliation.
+- Main relationships:
+  - `staff_id -> staff.id`
+  - `shift_id -> shift.id`, nullable to keep the model open for future manual/admin records
+- Status meanings:
+  - `WORKING`: staff checked in and has not checked out yet
+  - `DONE`: staff checked out and `work_duration_hours` was calculated
+  - `MISSING_CHECKOUT`: end-of-day sweep found an unfinished working record
+- Uniqueness and concurrency:
+  - partial unique index `ux_staff_attendance_working_shift` prevents two `WORKING` rows for the same staff and shift.
+  - application logic also rejects duplicate check-in before inserting.
+- Lifecycle fields:
+  - `check_in_time` is required.
+  - `check_out_time` is written on checkout and must be after `check_in_time`.
+  - `work_duration_hours` is calculated in hours with two decimal places.
+  - `created_at` and `updated_at` support operational auditing.
+- Migration:
+  - `database/migrations/20260703_create_staff_attendance.sql`
 
 ## Coupon Usage Table
 

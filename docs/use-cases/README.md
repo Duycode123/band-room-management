@@ -30,6 +30,7 @@ The first pass in this repository focuses on flows that already exist in the bac
 - admin booking management
 - review moderation and admin response
 - equipment management
+- staff check-in/check-out
 
 ## Traceability
 
