@@ -1,13 +1,20 @@
 package backend.user.application.service;
 
+import backend.dto.response.NotificationSettingsResponse;
 import backend.dto.response.UserResponse;
 import backend.entity.Customer;
+import backend.entity.Role;
+import backend.entity.Staff;
 import backend.entity.User;
+import backend.entity.UserNotificationSettings;
 import backend.user.application.model.UserProfileUpdateResult;
 import backend.user.application.port.in.ChangeCurrentUserPasswordUseCase;
+import backend.user.application.port.in.GetCurrentUserNotificationSettingsUseCase;
 import backend.user.application.port.in.GetCurrentUserProfileUseCase;
+import backend.user.application.port.in.UpdateCurrentUserNotificationSettingsUseCase;
 import backend.user.application.port.in.UpdateCurrentUserProfileUseCase;
 import backend.user.application.port.in.command.ChangeCurrentUserPasswordCommand;
+import backend.user.application.port.in.command.UpdateCurrentUserNotificationSettingsCommand;
 import backend.user.application.port.in.command.UpdateCurrentUserProfileCommand;
 import backend.user.application.port.in.query.GetCurrentUserProfileQuery;
 import backend.user.application.port.out.UserProfileAccountPort;
@@ -24,7 +31,9 @@ import java.util.regex.Pattern;
 public class UserProfileUseCaseService implements
         GetCurrentUserProfileUseCase,
         UpdateCurrentUserProfileUseCase,
-        ChangeCurrentUserPasswordUseCase {
+        ChangeCurrentUserPasswordUseCase,
+        GetCurrentUserNotificationSettingsUseCase,
+        UpdateCurrentUserNotificationSettingsUseCase {
 
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
     private static final Pattern PHONE_PATTERN = Pattern.compile("^[0-9]{9,11}$");
@@ -36,7 +45,8 @@ public class UserProfileUseCaseService implements
     public UserResponse getProfile(GetCurrentUserProfileQuery query) {
         User user = getCurrentUser(query.currentUserEmail());
         Customer customer = userProfileAccountPort.loadCustomerByAccountEmail(user.getEmail()).orElse(null);
-        return toUserResponse(user, customer);
+        Staff staff = userProfileAccountPort.loadStaffByAccountEmail(user.getEmail()).orElse(null);
+        return toUserResponse(user, customer, staff);
     }
 
     @Override
@@ -60,6 +70,7 @@ public class UserProfileUseCaseService implements
         }
 
         Customer customer = userProfileAccountPort.loadCustomerByAccountEmail(user.getEmail()).orElse(null);
+        Staff staff = userProfileAccountPort.loadStaffByAccountEmail(user.getEmail()).orElse(null);
 
         user.setEmail(email);
         User savedUser = userProfileAccountPort.saveUser(user);
@@ -71,8 +82,15 @@ public class UserProfileUseCaseService implements
             customer = userProfileAccountPort.saveCustomer(customer);
         }
 
+        if (staff != null) {
+            staff.setFullName(fullName);
+            staff.setEmail(email);
+            staff.setPhone(phone);
+            staff = userProfileAccountPort.saveStaff(staff);
+        }
+
         return new UserProfileUpdateResult(
-                toUserResponse(savedUser, customer),
+                toUserResponse(savedUser, customer, staff),
                 userProfileSecurityPort.generateAccessToken(savedUser),
                 userProfileSecurityPort.generateRefreshToken(savedUser)
         );
@@ -89,10 +107,9 @@ public class UserProfileUseCaseService implements
                 command.newPassword(),
                 "Mat khau moi phai co it nhat 8 ky tu"
         );
-        String confirmPassword = normalizeRequired(
-                command.confirmPassword(),
-                "Mat khau xac nhan khong duoc trong"
-        );
+        String confirmPassword = command.confirmPassword() == null
+                ? newPassword
+                : normalizeRequired(command.confirmPassword(), "Mat khau xac nhan khong duoc trong");
 
         if (newPassword.length() < 8) {
             throw new IllegalArgumentException("Mat khau moi phai co it nhat 8 ky tu");
@@ -102,13 +119,40 @@ public class UserProfileUseCaseService implements
             throw new IllegalArgumentException("Mat khau xac nhan khong khop");
         }
 
+        if (newPassword.equals(currentPassword)) {
+            throw new IllegalArgumentException("Mat khau moi khong duoc trung voi mat khau hien tai");
+        }
+
         User user = getCurrentUser(command.currentUserEmail());
         if (!userProfileSecurityPort.matchesPassword(currentPassword, user.getPassword())) {
-            throw new IllegalArgumentException("M\u1eadt kh\u1ea9u hi\u1ec7n t\u1ea1i kh\u00f4ng \u0111\u00fang");
+            throw new IllegalArgumentException("M\u1eadt kh\u1ea9u hi\u1ec7n t\u1ea1i kh\u00f4ng \u0111\u00fang.");
         }
 
         user.setPassword(userProfileSecurityPort.encodePassword(newPassword));
         userProfileAccountPort.saveUser(user);
+    }
+
+    @Override
+    public NotificationSettingsResponse getNotificationSettings(GetCurrentUserProfileQuery query) {
+        User user = getCurrentUser(query.currentUserEmail());
+        UserNotificationSettings settings = userProfileAccountPort.loadNotificationSettingsByAccountEmail(user.getEmail())
+                .orElseGet(() -> defaultNotificationSettings(user));
+        return toNotificationSettingsResponse(settings);
+    }
+
+    @Override
+    @Transactional
+    public NotificationSettingsResponse updateNotificationSettings(UpdateCurrentUserNotificationSettingsCommand command) {
+        User user = getCurrentUser(command.currentUserEmail());
+        UserNotificationSettings settings = getOrCreateNotificationSettings(user);
+
+        settings.setNewBooking(requireBoolean(command.newBooking(), "newBooking khong duoc de trong"));
+        settings.setBookingReminder(requireBoolean(command.bookingReminder(), "bookingReminder khong duoc de trong"));
+        settings.setShiftReminder(requireBoolean(command.shiftReminder(), "shiftReminder khong duoc de trong"));
+        settings.setRoomIssue(requireBoolean(command.roomIssue(), "roomIssue khong duoc de trong"));
+        settings.setEquipmentIssue(requireBoolean(command.equipmentIssue(), "equipmentIssue khong duoc de trong"));
+
+        return toNotificationSettingsResponse(userProfileAccountPort.saveNotificationSettings(settings));
     }
 
     private User getCurrentUser(String currentUserEmail) {
@@ -117,22 +161,69 @@ public class UserProfileUseCaseService implements
                 .orElseThrow(() -> new IllegalArgumentException("Khong tim thay tai khoan hien tai"));
     }
 
-    private UserResponse toUserResponse(User user, Customer customer) {
+    private UserResponse toUserResponse(User user, Customer customer, Staff staff) {
         String email = user.getEmail();
-        String fullName = customer != null ? customer.getFullName() : null;
+        String fullName = null;
+        String phone = "";
+
+        if (user.getRole() == Role.STAFF && staff != null) {
+            fullName = staff.getFullName();
+            phone = normalizeOptional(staff.getPhone());
+        } else if (customer != null) {
+            fullName = customer.getFullName();
+            phone = normalizeOptional(customer.getPhone());
+        }
 
         if (fullName == null || fullName.isBlank()) {
-            fullName = email != null && email.contains("@") ? email.substring(0, email.indexOf("@")) : "Khach hang";
+            fullName = email != null && email.contains("@") ? email.substring(0, email.indexOf("@")) : email;
+        }
+
+        if (fullName == null || fullName.isBlank()) {
+            fullName = "Nguoi dung";
         }
 
         return UserResponse.builder()
                 .id(user.getId())
                 .fullName(fullName)
                 .email(email)
-                .phone(customer != null ? customer.getPhone() : "")
+                .phone(phone)
                 .avatarUrl(null)
                 .role(user.getRole().name())
                 .build();
+    }
+
+    private UserNotificationSettings getOrCreateNotificationSettings(User user) {
+        return userProfileAccountPort.loadNotificationSettingsByAccountEmail(user.getEmail())
+                .orElseGet(() -> defaultNotificationSettings(user));
+    }
+
+    private UserNotificationSettings defaultNotificationSettings(User user) {
+        return UserNotificationSettings.builder()
+                .account(user)
+                .newBooking(true)
+                .bookingReminder(true)
+                .shiftReminder(true)
+                .roomIssue(true)
+                .equipmentIssue(true)
+                .build();
+    }
+
+    private NotificationSettingsResponse toNotificationSettingsResponse(UserNotificationSettings settings) {
+        return NotificationSettingsResponse.builder()
+                .newBooking(settings.isNewBooking())
+                .bookingReminder(settings.isBookingReminder())
+                .shiftReminder(settings.isShiftReminder())
+                .roomIssue(settings.isRoomIssue())
+                .equipmentIssue(settings.isEquipmentIssue())
+                .build();
+    }
+
+    private boolean requireBoolean(Boolean value, String message) {
+        if (value == null) {
+            throw new IllegalArgumentException(message);
+        }
+
+        return value;
     }
 
     private String normalizeRequired(String value, String message) {

@@ -1,65 +1,55 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import AuthGuard from '@/components/AuthGuard'
 import { StaffPageShell, Toast } from './StaffShared'
 import { useAuth } from '@/contexts/AuthContext'
-import {
-  changeCustomerPassword,
-  fetchCurrentUser,
-  updateCustomerProfile,
-  type CustomerProfile,
-} from '@/lib/customer-profile-service'
 import { clearStaffAuthCaches, getDisplayName, getInitials, getProfileValue, getRoleLabel } from '@/lib/staff-profile'
-import { type UserRole } from '@/lib/auth'
+import {
+  applyUiPreferences,
+  changePassword,
+  defaultStaffUiPreferences,
+  getCurrentUser,
+  getNotificationSettings,
+  loadUiPreferences,
+  saveUiPreferences,
+  updateMyProfile,
+  updateNotificationSettings,
+  type StaffNotificationSettings,
+  type StaffProfile,
+  type StaffUiPreferences,
+} from '@/lib/staff-settings-service'
 
 type SettingsTab = 'PROFILE' | 'NOTIFICATIONS' | 'SECURITY' | 'APPEARANCE'
-
-type StaffProfile = {
-  fullName: string
-  email: string
-  phone: string
-  role: UserRole
-  branchName: string
-  avatarUrl?: string
-}
-
-type StaffNotificationSettings = {
-  newBooking: boolean
-  bookingReminder: boolean
-  shiftReminder: boolean
-  roomIssue: boolean
-  equipmentIssue: boolean
-}
-
-type AppearanceSettings = {
-  density: 'COMFORTABLE' | 'COMPACT'
-  viewMode: 'CARD' | 'TABLE'
-  reducedMotion: boolean
-}
+type ToastState = { type: 'success' | 'error'; text: string }
 
 const tabs: Array<{ id: SettingsTab; label: string }> = [
-  { id: 'PROFILE', label: 'Ho so' },
-  { id: 'NOTIFICATIONS', label: 'Thong bao' },
-  { id: 'SECURITY', label: 'Bao mat' },
-  { id: 'APPEARANCE', label: 'Giao dien' },
+  { id: 'PROFILE', label: 'Hồ sơ' },
+  { id: 'NOTIFICATIONS', label: 'Thông báo' },
+  { id: 'SECURITY', label: 'Bảo mật' },
+  { id: 'APPEARANCE', label: 'Giao diện' },
 ]
 
-const defaultProfile: StaffProfile = {
-  fullName: 'Chua cap nhat',
-  email: 'Chua cap nhat',
-  phone: 'Chua cap nhat',
+const emptyProfile: StaffProfile = {
+  fullName: '',
+  email: '',
+  phone: '',
   role: 'STAFF',
-  branchName: 'BandHub Studio - Ha Dong',
+}
+
+const emptyPasswordForm = {
+  currentPassword: '',
+  newPassword: '',
+  confirmPassword: '',
 }
 
 export default function StaffSettingsPage() {
   const router = useRouter()
   const { user, login, logout } = useAuth()
   const [activeTab, setActiveTab] = useState<SettingsTab>('PROFILE')
-  const [profile, setProfile] = useState<StaffProfile>(defaultProfile)
-  const [profileErrors, setProfileErrors] = useState<Partial<Record<'fullName' | 'email' | 'phone', string>>>({})
+  const [profile, setProfile] = useState<StaffProfile>(emptyProfile)
+  const [profileErrors, setProfileErrors] = useState<Partial<Record<keyof StaffProfile, string>>>({})
   const [notificationSettings, setNotificationSettings] = useState<StaffNotificationSettings>({
     newBooking: true,
     bookingReminder: true,
@@ -67,132 +57,152 @@ export default function StaffSettingsPage() {
     roomIssue: true,
     equipmentIssue: true,
   })
-  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
+  const [passwordForm, setPasswordForm] = useState(emptyPasswordForm)
   const [passwordErrors, setPasswordErrors] = useState<Partial<Record<keyof typeof passwordForm, string>>>({})
-  const [appearance, setAppearance] = useState<AppearanceSettings>({
-    density: 'COMFORTABLE',
-    viewMode: 'CARD',
-    reducedMotion: false,
-  })
-  const [toast, setToast] = useState<string | null>(null)
+  const [appearance, setAppearance] = useState<StaffUiPreferences>(defaultStaffUiPreferences)
+  const [toast, setToast] = useState<ToastState | null>(null)
+  const [pageError, setPageError] = useState('')
+  const [isProfileLoading, setIsProfileLoading] = useState(true)
+  const [isProfileSaving, setIsProfileSaving] = useState(false)
+  const [isNotificationLoading, setIsNotificationLoading] = useState(true)
+  const [savingNotificationKey, setSavingNotificationKey] = useState<keyof StaffNotificationSettings | null>(null)
+  const [isPasswordSaving, setIsPasswordSaving] = useState(false)
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
-  const [isLoadingProfile, setIsLoadingProfile] = useState(true)
-  const [isSavingProfile, setIsSavingProfile] = useState(false)
-  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false)
+
+  const cardPadding = appearance.displayDensity === 'compact' ? 'p-4 sm:p-5' : 'p-5 sm:p-6'
+  const profileInitials = useMemo(() => getInitials(profile.fullName || profile.email || getDisplayName(user)), [profile.email, profile.fullName, user])
 
   useEffect(() => {
-    if (!user) {
-      setProfile(defaultProfile)
-      setIsLoadingProfile(false)
-      return
-    }
+    const preferences = loadUiPreferences()
+    setAppearance(preferences)
+    applyUiPreferences(preferences)
+  }, [])
 
-    let mounted = true
+  useEffect(() => {
+    if (!user) return
 
-    const hydrateProfile = (source: Partial<CustomerProfile & typeof user>) => {
-      if (!mounted) return
-
-      setProfile({
-        fullName: getProfileValue(source.fullName || source.name || getDisplayName(source)),
-        email: getProfileValue(source.email),
-        phone: getProfileValue(source.phone),
-        role: source.role || user.role,
-        branchName: defaultProfile.branchName,
-        avatarUrl: source.avatarUrl,
-      })
-    }
-
-    hydrateProfile(user)
-    setIsLoadingProfile(true)
-
-    void fetchCurrentUser(user)
+    setIsProfileLoading(true)
+    setPageError('')
+    void getCurrentUser(user)
       .then((currentUser) => {
-        hydrateProfile({ ...user, ...currentUser, role: currentUser.role || user.role })
+        setProfile(currentUser)
+        login({
+          ...user,
+          ...currentUser,
+          name: currentUser.fullName,
+          role: currentUser.role || user.role,
+        })
       })
-      .finally(() => {
-        if (mounted) {
-          setIsLoadingProfile(false)
-        }
-      })
+      .catch((error) => setPageError(error instanceof Error ? error.message : 'Không thể tải hồ sơ nhân viên.'))
+      .finally(() => setIsProfileLoading(false))
+  }, [user?.id, user?.email])
 
-    return () => {
-      mounted = false
-    }
-  }, [user])
+  useEffect(() => {
+    setIsNotificationLoading(true)
+    void getNotificationSettings()
+      .then(setNotificationSettings)
+      .catch((error) => showToast('error', error instanceof Error ? error.message : 'Không thể tải tùy chọn thông báo.'))
+      .finally(() => setIsNotificationLoading(false))
+  }, [])
 
   useEffect(() => {
     if (!toast) return
-    const timer = window.setTimeout(() => setToast(null), 2600)
+    const timer = window.setTimeout(() => setToast(null), 2800)
     return () => window.clearTimeout(timer)
   }, [toast])
 
-  const updateProfileField = <Key extends keyof StaffProfile>(key: Key, value: StaffProfile[Key]) => {
+  const showToast = (type: ToastState['type'], text: string) => {
+    setToast({ type, text })
+  }
+
+  const updateProfile = <Key extends keyof StaffProfile>(key: Key, value: StaffProfile[Key]) => {
     setProfile((current) => ({ ...current, [key]: value }))
-    if (key === 'fullName' || key === 'email' || key === 'phone') {
-      setProfileErrors((current) => ({ ...current, [key]: undefined }))
-    }
+    setProfileErrors((current) => ({ ...current, [key]: undefined }))
   }
 
   const saveProfile = async () => {
-    const errors: Partial<Record<'fullName' | 'email' | 'phone', string>> = {}
-    const normalizedFullName = profile.fullName.trim()
-    const normalizedEmail = profile.email.trim()
-    const normalizedPhone = profile.phone === 'Chua cap nhat' ? '' : profile.phone.trim()
+    const errors = validateProfile(profile)
+    setProfileErrors(errors)
 
-    if (!normalizedFullName || normalizedFullName === 'Chua cap nhat') {
-      errors.fullName = 'Ho ten khong duoc de trong.'
-    }
+    if (Object.keys(errors).length > 0) return
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-      errors.email = 'Email chua dung dinh dang.'
-    }
-
-    if (normalizedPhone && !/^[0-9]{9,11}$/.test(normalizedPhone)) {
-      errors.phone = 'So dien thoai phai co 9-11 chu so.'
-    }
-
-    if (Object.keys(errors).length > 0) {
-      setProfileErrors(errors)
-      return
-    }
-
-    setIsSavingProfile(true)
+    setIsProfileSaving(true)
     try {
-      const updatedProfile = await updateCustomerProfile({
-        fullName: normalizedFullName,
-        email: normalizedEmail,
-        phone: normalizedPhone,
+      const updatedProfile = await updateMyProfile({
+        fullName: profile.fullName.trim(),
+        email: profile.email.trim(),
+        phone: profile.phone.trim(),
       })
 
-      setProfile((current) => ({
-        ...current,
-        fullName: updatedProfile.fullName,
-        email: updatedProfile.email,
-        phone: updatedProfile.phone || 'Chua cap nhat',
-        role: updatedProfile.role || current.role,
-        avatarUrl: updatedProfile.avatarUrl,
-      }))
-      setProfileErrors({})
-
+      setProfile(updatedProfile)
       if (user) {
         login({
           ...user,
-          id: updatedProfile.id ? String(updatedProfile.id) : user.id,
-          fullName: updatedProfile.fullName,
+          ...updatedProfile,
           name: updatedProfile.fullName,
-          email: updatedProfile.email,
-          phone: updatedProfile.phone || undefined,
-          avatarUrl: updatedProfile.avatarUrl,
+          role: updatedProfile.role || user.role,
         })
       }
-
-      setToast('Da cap nhat ho so tu backend.')
+      showToast('success', 'Đã lưu thay đổi hồ sơ.')
     } catch (error) {
-      setToast(error instanceof Error ? error.message : 'Khong the cap nhat ho so.')
+      showToast('error', error instanceof Error ? error.message : 'Không thể lưu hồ sơ nhân viên.')
     } finally {
-      setIsSavingProfile(false)
+      setIsProfileSaving(false)
     }
+  }
+
+  const updatePasswordField = (key: keyof typeof passwordForm, value: string) => {
+    setPasswordForm((current) => ({ ...current, [key]: value }))
+    setPasswordErrors((current) => ({ ...current, [key]: undefined }))
+  }
+
+  const updatePassword = async () => {
+    const errors = validatePasswordForm(passwordForm)
+    setPasswordErrors(errors)
+
+    if (Object.keys(errors).length > 0) return
+
+    setIsPasswordSaving(true)
+    try {
+      await changePassword(passwordForm)
+      setPasswordForm(emptyPasswordForm)
+      showToast('success', 'Đổi mật khẩu thành công. Vui lòng đăng nhập lại.')
+      await logout()
+      clearStaffAuthCaches()
+      router.replace('/login')
+    } catch (error) {
+      showToast('error', error instanceof Error ? error.message : 'Không thể cập nhật mật khẩu.')
+    } finally {
+      setIsPasswordSaving(false)
+    }
+  }
+
+  const toggleNotification = async (key: keyof StaffNotificationSettings) => {
+    if (savingNotificationKey) return
+
+    const previousSettings = notificationSettings
+    const nextSettings = { ...previousSettings, [key]: !previousSettings[key] }
+    setNotificationSettings(nextSettings)
+    setSavingNotificationKey(key)
+
+    try {
+      const savedSettings = await updateNotificationSettings(nextSettings)
+      setNotificationSettings(savedSettings)
+      showToast('success', 'Đã lưu tùy chọn thông báo.')
+    } catch (error) {
+      setNotificationSettings(previousSettings)
+      showToast('error', error instanceof Error ? error.message : 'Không thể lưu tùy chọn thông báo.')
+    } finally {
+      setSavingNotificationKey(null)
+    }
+  }
+
+  const updateAppearance = <Key extends keyof StaffUiPreferences>(key: Key, value: StaffUiPreferences[Key]) => {
+    const nextPreferences = { ...appearance, [key]: value }
+    setAppearance(nextPreferences)
+    saveUiPreferences(nextPreferences)
+    showToast('success', 'Đã lưu tùy chọn giao diện.')
   }
 
   const handleLogout = async () => {
@@ -207,50 +217,19 @@ export default function StaffSettingsPage() {
     }
   }
 
-  const updatePassword = async () => {
-    const errors: Partial<Record<keyof typeof passwordForm, string>> = {}
-    if (!passwordForm.currentPassword) errors.currentPassword = 'Vui long nhap mat khau hien tai.'
-    if (passwordForm.newPassword.length < 8) errors.newPassword = 'Mat khau moi can toi thieu 8 ky tu.'
-    if (passwordForm.confirmPassword !== passwordForm.newPassword) errors.confirmPassword = 'Mat khau xac nhan chua khop.'
-
-    if (Object.keys(errors).length > 0) {
-      setPasswordErrors(errors)
-      return
-    }
-
-    setIsUpdatingPassword(true)
-    try {
-      await changeCustomerPassword(passwordForm)
-      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
-      setPasswordErrors({})
-      setToast('Da cap nhat mat khau tu backend.')
-    } catch (error) {
-      setToast(error instanceof Error ? error.message : 'Khong the cap nhat mat khau.')
-    } finally {
-      setIsUpdatingPassword(false)
-    }
-  }
-
-  const toggleNotification = (key: keyof StaffNotificationSettings) => {
-    setNotificationSettings((current) => ({ ...current, [key]: !current[key] }))
-    setToast('Da cap nhat tuy chon thong bao local.')
-  }
-
-  const updateAppearance = <Key extends keyof AppearanceSettings>(key: Key, value: AppearanceSettings[Key]) => {
-    setAppearance((current) => ({ ...current, [key]: value }))
-    setToast('Da cap nhat tuy chon giao dien local.')
-  }
-
   return (
     <AuthGuard allowedRoles={['STAFF']}>
       <StaffPageShell>
+        <div className="staff-settings-density-scope contents">
         <header>
-          <p className="font-display text-sm font-bold uppercase tracking-wide text-brand-orange">Khong gian lam viec</p>
-          <h1 className="mt-2 font-display text-[32px] font-bold leading-10 text-on-surface">Cai dat</h1>
+          <p className="font-display text-sm font-bold uppercase tracking-wide text-brand-orange">Không gian làm việc</p>
+          <h1 className="mt-2 font-display text-[32px] font-bold leading-10 text-on-surface">Cài đặt</h1>
           <p className="mt-2 max-w-2xl text-base leading-6 text-on-surface-variant">
-            Quan ly thong tin tai khoan staff va cac tuy chon lam viec.
+            Quản lý hồ sơ, bảo mật, thông báo và cách hiển thị workspace nhân viên.
           </p>
         </header>
+
+        {pageError && <MessageBox type="error" message={pageError} />}
 
         <section className="rounded-3xl border border-outline-variant bg-white p-3 shadow-[var(--band-shadow-card)]">
           <div className="flex gap-2 overflow-x-auto [scrollbar-width:none]">
@@ -271,196 +250,160 @@ export default function StaffSettingsPage() {
         </section>
 
         {activeTab === 'PROFILE' && (
-          <SettingsCard
-            title="Ho so nhan vien"
-            description="Tab nay da map doc/ghi thuc te voi /api/users/me. Chi nhanh van dang la thong tin hien thi co dinh."
-          >
-            <div className="flex flex-col gap-5 lg:flex-row">
-              <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-3xl bg-primary-container font-display text-3xl font-bold text-on-primary-container">
-                {profile.avatarUrl ? <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" /> : getInitials(profile.fullName || profile.email)}
-              </div>
-              <div className="grid flex-1 gap-4 sm:grid-cols-2">
-                <Field label="Ho ten / Ten dang nhap" error={profileErrors.fullName}>
-                  <input
-                    value={profile.fullName}
-                    disabled={isLoadingProfile}
-                    onChange={(event) => updateProfileField('fullName', event.target.value)}
-                    className="input-field disabled:cursor-wait disabled:opacity-70"
-                  />
-                </Field>
-                <Field label="Email" error={profileErrors.email}>
-                  <input
-                    value={profile.email}
-                    disabled={isLoadingProfile}
-                    onChange={(event) => updateProfileField('email', event.target.value)}
-                    className="input-field disabled:cursor-wait disabled:opacity-70"
-                  />
-                </Field>
-                <Field label="So dien thoai" error={profileErrors.phone}>
-                  <input
-                    value={profile.phone}
-                    disabled={isLoadingProfile}
-                    onChange={(event) => updateProfileField('phone', event.target.value)}
-                    className="input-field disabled:cursor-wait disabled:opacity-70"
-                  />
-                </Field>
-                <Field label="Vai tro">
-                  <input value={getRoleLabel(profile.role)} disabled className="input-field cursor-not-allowed opacity-75" />
-                </Field>
-                <div className="sm:col-span-2">
-                  <Field label="Chi nhanh lam viec">
-                    <input value={profile.branchName} disabled className="input-field cursor-not-allowed opacity-75" />
-                  </Field>
+          <SettingsCard title="Hồ sơ nhân viên" description="Thông tin này lấy từ tài khoản đang đăng nhập và được lưu về hệ thống." paddingClassName={cardPadding}>
+            {isProfileLoading ? (
+              <LoadingState message="Đang tải hồ sơ..." />
+            ) : (
+              <>
+                <div className="flex flex-col gap-5 lg:flex-row">
+                  <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-3xl bg-primary-container font-display text-3xl font-bold text-on-primary-container">
+                    {profile.avatarUrl ? <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" /> : profileInitials}
+                  </div>
+                  <div className="grid flex-1 gap-4 sm:grid-cols-2">
+                    <Field label="Tên hiển thị" error={profileErrors.fullName}>
+                      <input value={profile.fullName} onChange={(event) => updateProfile('fullName', event.target.value)} className="input-field" disabled={isProfileSaving} />
+                    </Field>
+                    <Field label="Email" error={profileErrors.email}>
+                      <input type="email" value={profile.email} onChange={(event) => updateProfile('email', event.target.value)} className="input-field" disabled={isProfileSaving} />
+                    </Field>
+                    <Field label="Số điện thoại" error={profileErrors.phone}>
+                      <input value={profile.phone} onChange={(event) => updateProfile('phone', event.target.value)} className="input-field" disabled={isProfileSaving} />
+                    </Field>
+                    <Field label="Vai trò">
+                      <input value={getRoleLabel(profile.role)} disabled className="input-field cursor-not-allowed opacity-75" />
+                    </Field>
+                  </div>
                 </div>
-              </div>
-            </div>
-            <div className="mt-6 flex justify-end">
-              <button
-                type="button"
-                onClick={() => void saveProfile()}
-                disabled={isLoadingProfile || isSavingProfile}
-                className="btn-warm disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {isSavingProfile ? 'Dang luu...' : 'Luu thay doi'}
-              </button>
-            </div>
+                <div className="mt-6 flex justify-end">
+                  <button type="button" onClick={saveProfile} className="btn-warm" disabled={isProfileSaving}>
+                    {isProfileSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                  </button>
+                </div>
+              </>
+            )}
           </SettingsCard>
         )}
 
         {activeTab === 'NOTIFICATIONS' && (
-          <SettingsCard
-            title="Thong bao"
-            description="Tab nay van dang luu local o frontend vi backend chua co endpoint preference rieng cho staff."
-          >
-            <div className="grid gap-3">
-              <SettingsToggle label="Nhan thong bao booking moi" checked={notificationSettings.newBooking} onChange={() => toggleNotification('newBooking')} />
-              <SettingsToggle label="Nhac khach sap den" checked={notificationSettings.bookingReminder} onChange={() => toggleNotification('bookingReminder')} />
-              <SettingsToggle label="Nhac ca lam" checked={notificationSettings.shiftReminder} onChange={() => toggleNotification('shiftReminder')} />
-              <SettingsToggle label="Thong bao su co phong" checked={notificationSettings.roomIssue} onChange={() => toggleNotification('roomIssue')} />
-              <SettingsToggle label="Thong bao thiet bi loi" checked={notificationSettings.equipmentIssue} onChange={() => toggleNotification('equipmentIssue')} />
-            </div>
+          <SettingsCard title="Thông báo" description="Các lựa chọn này được lưu theo tài khoản nhân viên và vẫn giữ sau khi đăng nhập lại." paddingClassName={cardPadding}>
+            {isNotificationLoading ? (
+              <LoadingState message="Đang tải tùy chọn thông báo..." />
+            ) : (
+              <div className="grid gap-3">
+                <SettingsToggle label="Nhận thông báo booking mới" checked={notificationSettings.newBooking} isSaving={savingNotificationKey === 'newBooking'} disabled={Boolean(savingNotificationKey)} onChange={() => toggleNotification('newBooking')} />
+                <SettingsToggle label="Nhắc khách sắp đến" checked={notificationSettings.bookingReminder} isSaving={savingNotificationKey === 'bookingReminder'} disabled={Boolean(savingNotificationKey)} onChange={() => toggleNotification('bookingReminder')} />
+                <SettingsToggle label="Nhắc ca làm" checked={notificationSettings.shiftReminder} isSaving={savingNotificationKey === 'shiftReminder'} disabled={Boolean(savingNotificationKey)} onChange={() => toggleNotification('shiftReminder')} />
+                <SettingsToggle label="Thông báo sự cố phòng" checked={notificationSettings.roomIssue} isSaving={savingNotificationKey === 'roomIssue'} disabled={Boolean(savingNotificationKey)} onChange={() => toggleNotification('roomIssue')} />
+                <SettingsToggle label="Thông báo thiết bị lỗi" checked={notificationSettings.equipmentIssue} isSaving={savingNotificationKey === 'equipmentIssue'} disabled={Boolean(savingNotificationKey)} onChange={() => toggleNotification('equipmentIssue')} />
+              </div>
+            )}
           </SettingsCard>
         )}
 
         {activeTab === 'SECURITY' && (
-          <SettingsCard
-            title="Bao mat"
-            description="Tab nay da map toi /api/users/me/password va se bao loi backend neu mat khau khong hop le."
-          >
+          <SettingsCard title="Bảo mật" description="Đổi mật khẩu thật cho tài khoản hiện tại. Sau khi đổi thành công bạn sẽ cần đăng nhập lại." paddingClassName={cardPadding}>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Mat khau hien tai" error={passwordErrors.currentPassword}>
-                <input
-                  type="password"
-                  value={passwordForm.currentPassword}
-                  onChange={(event) => {
-                    setPasswordForm((current) => ({ ...current, currentPassword: event.target.value }))
-                    setPasswordErrors((current) => ({ ...current, currentPassword: undefined }))
-                  }}
-                  className="input-field"
-                />
+              <Field label="Mật khẩu hiện tại" error={passwordErrors.currentPassword}>
+                <input type="password" value={passwordForm.currentPassword} onChange={(event) => updatePasswordField('currentPassword', event.target.value)} className="input-field" disabled={isPasswordSaving} />
               </Field>
-              <Field label="Mat khau moi" error={passwordErrors.newPassword}>
-                <input
-                  type="password"
-                  value={passwordForm.newPassword}
-                  onChange={(event) => {
-                    setPasswordForm((current) => ({ ...current, newPassword: event.target.value }))
-                    setPasswordErrors((current) => ({ ...current, newPassword: undefined }))
-                  }}
-                  className="input-field"
-                />
+              <Field label="Mật khẩu mới" error={passwordErrors.newPassword}>
+                <input type="password" value={passwordForm.newPassword} onChange={(event) => updatePasswordField('newPassword', event.target.value)} className="input-field" disabled={isPasswordSaving} />
               </Field>
-              <Field label="Xac nhan mat khau moi" error={passwordErrors.confirmPassword}>
-                <input
-                  type="password"
-                  value={passwordForm.confirmPassword}
-                  onChange={(event) => {
-                    setPasswordForm((current) => ({ ...current, confirmPassword: event.target.value }))
-                    setPasswordErrors((current) => ({ ...current, confirmPassword: undefined }))
-                  }}
-                  className="input-field"
-                />
+              <Field label="Xác nhận mật khẩu mới" error={passwordErrors.confirmPassword}>
+                <input type="password" value={passwordForm.confirmPassword} onChange={(event) => updatePasswordField('confirmPassword', event.target.value)} className="input-field" disabled={isPasswordSaving} />
               </Field>
             </div>
             <div className="mt-6 flex justify-end">
-              <button
-                type="button"
-                onClick={() => void updatePassword()}
-                disabled={isUpdatingPassword}
-                className="btn-warm disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {isUpdatingPassword ? 'Dang cap nhat...' : 'Cap nhat mat khau'}
+              <button type="button" onClick={updatePassword} className="btn-warm" disabled={isPasswordSaving}>
+                {isPasswordSaving ? 'Đang cập nhật...' : 'Cập nhật mật khẩu'}
               </button>
             </div>
           </SettingsCard>
         )}
 
         {activeTab === 'APPEARANCE' && (
-          <SettingsCard
-            title="Giao dien"
-            description="Tab nay van dang local-only, chua co endpoint backend cho preference workspace."
-          >
+          <SettingsCard title="Giao diện" description="Tùy chọn hiển thị được lưu trên trình duyệt bằng localStorage và tự áp dụng lại khi reload." paddingClassName={cardPadding}>
             <div className="grid gap-4 lg:grid-cols-2">
               <OptionGroup
-                label="Che do hien thi"
+                label="Mật độ hiển thị"
                 options={[
-                  { value: 'COMFORTABLE', label: 'Thoai mai' },
-                  { value: 'COMPACT', label: 'Gon' },
+                  { value: 'comfortable', label: 'Thoải mái' },
+                  { value: 'compact', label: 'Gọn' },
                 ]}
-                value={appearance.density}
-                onChange={(value) => updateAppearance('density', value as AppearanceSettings['density'])}
+                value={appearance.displayDensity}
+                onChange={(value) => updateAppearance('displayDensity', value as StaffUiPreferences['displayDensity'])}
               />
               <OptionGroup
-                label="Uu tien hien thi"
+                label="Ưu tiên hiển thị"
                 options={[
-                  { value: 'CARD', label: 'Card' },
-                  { value: 'TABLE', label: 'Bang' },
+                  { value: 'card', label: 'Card' },
+                  { value: 'table', label: 'Bảng' },
                 ]}
-                value={appearance.viewMode}
-                onChange={(value) => updateAppearance('viewMode', value as AppearanceSettings['viewMode'])}
+                value={appearance.preferredView}
+                onChange={(value) => updateAppearance('preferredView', value as StaffUiPreferences['preferredView'])}
               />
               <div className="lg:col-span-2">
-                <SettingsToggle label="Giam hieu ung chuyen dong" checked={appearance.reducedMotion} onChange={() => updateAppearance('reducedMotion', !appearance.reducedMotion)} />
+                <SettingsToggle label="Giảm hiệu ứng chuyển động" checked={appearance.reduceMotion} onChange={() => updateAppearance('reduceMotion', !appearance.reduceMotion)} />
               </div>
             </div>
           </SettingsCard>
         )}
 
-        <SettingsCard title="Phien dang nhap" description="Dang xuat khoi tai khoan nhan vien tren thiet bi nay.">
+        <SettingsCard title="Phiên đăng nhập" description="Đăng xuất khỏi tài khoản nhân viên trên thiết bị này." paddingClassName={cardPadding}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="font-display text-base font-bold text-on-surface">{getDisplayName(user)}</p>
-              <p className="mt-1 text-sm text-on-surface-variant">{user?.email || 'Chua cap nhat'}</p>
+              <p className="font-display text-base font-bold text-on-surface">{getDisplayName({ ...user, fullName: profile.fullName || user?.fullName })}</p>
+              <p className="mt-1 text-sm text-on-surface-variant">{profile.email || user?.email || 'Chưa cập nhật'}</p>
             </div>
             <button
               type="button"
               onClick={() => setIsLogoutConfirmOpen(true)}
               className="inline-flex min-h-11 items-center justify-center rounded-[14px] border border-error-container bg-error-container px-5 font-display text-sm font-bold text-on-error-container transition hover:border-error hover:bg-[#FFE1E1]"
             >
-              Dang xuat
+              Đăng xuất
             </button>
           </div>
         </SettingsCard>
 
-        {toast && <Toast message={toast} />}
+        {toast && <Toast message={toast.text} />}
         {isLogoutConfirmOpen && (
           <ConfirmDialog
-            title="Dang xuat tai khoan?"
-            description="Ban se can dang nhap lai de tiep tuc su dung trang nhan vien."
-            confirmLabel={isLoggingOut ? 'Dang dang xuat...' : 'Dang xuat'}
+            title="Đăng xuất tài khoản?"
+            description="Bạn sẽ cần đăng nhập lại để tiếp tục sử dụng trang nhân viên."
+            confirmLabel={isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'}
             onCancel={() => setIsLogoutConfirmOpen(false)}
             onConfirm={handleLogout}
             disabled={isLoggingOut}
           />
         )}
+        </div>
       </StaffPageShell>
     </AuthGuard>
   )
 }
 
-function SettingsCard({ title, description, children }: { title: string; description: string; children: ReactNode }) {
+function validateProfile(profile: StaffProfile) {
+  const errors: Partial<Record<keyof StaffProfile, string>> = {}
+  if (!profile.fullName.trim()) errors.fullName = 'Vui lòng nhập tên hiển thị.'
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email)) errors.email = 'Email chưa đúng định dạng.'
+  if (profile.phone.trim() && !/^[0-9]{9,11}$/.test(profile.phone.trim())) errors.phone = 'Số điện thoại phải có 9-11 chữ số.'
+  return errors
+}
+
+function validatePasswordForm(form: typeof emptyPasswordForm) {
+  const errors: Partial<Record<keyof typeof emptyPasswordForm, string>> = {}
+  if (!form.currentPassword) errors.currentPassword = 'Vui lòng nhập mật khẩu hiện tại.'
+  if (!form.newPassword) errors.newPassword = 'Vui lòng nhập mật khẩu mới.'
+  if (form.newPassword && form.newPassword.length < 8) errors.newPassword = 'Mật khẩu mới cần tối thiểu 8 ký tự.'
+  if (!form.confirmPassword) errors.confirmPassword = 'Vui lòng xác nhận mật khẩu mới.'
+  if (form.confirmPassword && form.confirmPassword !== form.newPassword) errors.confirmPassword = 'Mật khẩu xác nhận chưa khớp.'
+  if (form.currentPassword && form.newPassword && form.currentPassword === form.newPassword) errors.newPassword = 'Mật khẩu mới không được giống mật khẩu hiện tại.'
+  return errors
+}
+
+function SettingsCard({ title, description, children, paddingClassName }: { title: string; description: string; children: React.ReactNode; paddingClassName: string }) {
   return (
-    <section className="rounded-3xl border border-outline-variant bg-white p-5 shadow-[var(--band-shadow-card)] sm:p-6">
+    <section className={['rounded-3xl border border-outline-variant bg-white shadow-[var(--band-shadow-card)]', paddingClassName].join(' ')}>
       <h2 className="font-display text-2xl font-bold text-on-surface">{title}</h2>
       <p className="mt-2 text-sm leading-6 text-on-surface-variant">{description}</p>
       <div className="mt-6">{children}</div>
@@ -468,7 +411,7 @@ function SettingsCard({ title, description, children }: { title: string; descrip
   )
 }
 
-function Field({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
+function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return (
     <label className="block">
       <span className="font-display text-sm font-bold text-on-surface">{label}</span>
@@ -478,10 +421,13 @@ function Field({ label, error, children }: { label: string; error?: string; chil
   )
 }
 
-function SettingsToggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {
+function SettingsToggle({ label, checked, disabled, isSaving, onChange }: { label: string; checked: boolean; disabled?: boolean; isSaving?: boolean; onChange: () => void }) {
   return (
-    <button type="button" onClick={onChange} className="flex items-center justify-between gap-4 rounded-2xl border border-outline-variant bg-surface-container-low p-4 text-left transition hover:bg-white">
-      <span className="font-display text-sm font-bold text-on-surface">{label}</span>
+    <button type="button" onClick={onChange} disabled={disabled} className="flex items-center justify-between gap-4 rounded-2xl border border-outline-variant bg-surface-container-low p-4 text-left transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-70">
+      <span>
+        <span className="block font-display text-sm font-bold text-on-surface">{label}</span>
+        {isSaving && <span className="mt-1 block text-xs font-semibold text-brand-orange">Đang lưu...</span>}
+      </span>
       <span className={['relative h-7 w-12 rounded-full transition', checked ? 'bg-brand-orange' : 'bg-surface-container-high'].join(' ')}>
         <span className={['absolute top-1 h-5 w-5 rounded-full bg-white shadow transition', checked ? 'left-6' : 'left-1'].join(' ')} />
       </span>
@@ -512,6 +458,19 @@ function OptionGroup({ label, options, value, onChange }: { label: string; optio
   )
 }
 
+function LoadingState({ message }: { message: string }) {
+  return <div className="rounded-2xl border border-dashed border-outline-variant bg-surface-container-low px-4 py-5 text-sm font-semibold text-on-surface-variant">{message}</div>
+}
+
+function MessageBox({ type, message }: { type: ToastState['type']; message: string }) {
+  const isError = type === 'error'
+  return (
+    <div className={['rounded-2xl border px-4 py-3 text-sm font-semibold', isError ? 'border-error-container bg-error-container text-on-error-container' : 'border-[#CDE9D6] bg-[#E8F5EC] text-secondary'].join(' ')}>
+      {message}
+    </div>
+  )
+}
+
 function ConfirmDialog({
   title,
   description,
@@ -528,8 +487,8 @@ function ConfirmDialog({
   onConfirm: () => void
 }) {
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#042A16]/50 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-3xl border border-outline-variant bg-white p-6 shadow-[var(--band-shadow-elevated)]">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#042A16]/50 p-4 backdrop-blur-sm" onClick={onCancel}>
+      <div className="w-full max-w-md rounded-3xl border border-outline-variant bg-white p-6 shadow-[var(--band-shadow-elevated)]" onClick={(event) => event.stopPropagation()}>
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-error-container text-error">
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden="true">
             <path d="M12 8v5M12 17h.01M10.2 4.7 2.8 18a2 2 0 0 0 1.8 3h14.8a2 2 0 0 0 1.8-3L13.8 4.7a2 2 0 0 0-3.6 0Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -539,7 +498,7 @@ function ConfirmDialog({
         <p className="mt-2 text-sm leading-6 text-on-surface-variant">{description}</p>
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <button type="button" onClick={onCancel} disabled={disabled} className="btn-secondary disabled:cursor-not-allowed disabled:opacity-70">
-            Huy
+            Hủy
           </button>
           <button
             type="button"

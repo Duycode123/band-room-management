@@ -90,8 +90,8 @@ export function StaffSidebar() {
       </aside>
 
       {isLogoutConfirmOpen && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#1A1C1E]/45 p-4">
-          <section className="w-full max-w-md rounded-xl border border-outline-variant bg-white p-6 shadow-[var(--band-shadow-elevated)]">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#1A1C1E]/45 p-4" onClick={() => setIsLogoutConfirmOpen(false)}>
+          <section className="w-full max-w-md rounded-xl border border-outline-variant bg-white p-6 shadow-[var(--band-shadow-elevated)]" onClick={(event) => event.stopPropagation()}>
             <h2 className="font-display text-xl font-bold text-on-surface">Đăng xuất tài khoản?</h2>
             <p className="mt-2 text-sm leading-6 text-on-surface-variant">
               Bạn sẽ cần đăng nhập lại để tiếp tục sử dụng trang nhân viên.
