@@ -26,6 +26,7 @@ The current backend source clearly models these areas:
 - customer issue report data
 - user notification settings data
 - staff attendance data
+- facility condition report data
 - revoked token data
 
 Core model/entity classes currently present in backend source:
@@ -43,10 +44,9 @@ Core model/entity classes currently present in backend source:
 - `ReviewAdminResponse`
 - `PaymentTransaction`
 - `CustomerIssueReport`
-  <<<<<<< HEAD
-- # `UserNotificationSettings`
+- `UserNotificationSettings`
 - `staff_attendance` table through the attendance JDBC adapter
-  > > > > > > > bdc29b22267bb81da8229276eb68a20aba3fa341
+- `facility_condition_report` table through the facility condition JDBC adapter
 - `RevokedToken`
 
 ## Existing Files
@@ -58,13 +58,12 @@ Core model/entity classes currently present in backend source:
 - `database/migrations/20260630_add_review_response_table.sql`
 - `database/migrations/20260701_add_coupon_usage_and_sepay.sql`
 - `database/migrations/20260701_add_customer_issue_report_and_counter_provider.sql`
-  <<<<<<< HEAD
-- # `database/migrations/20260703_create_user_notification_settings.sql`
 - `database/migrations/20260701_create_app_notifications.sql`
+- `database/migrations/20260702_add_facility_condition_report.sql`
 - `database/migrations/20260702_optimize_reporting_indexes.sql`
 - `database/migrations/20260703_create_staff_attendance.sql`
+- `database/migrations/20260703_create_user_notification_settings.sql`
 - `database/migrations/20260703_add_email_verification_to_account.sql`
-  > > > > > > > bdc29b22267bb81da8229276eb68a20aba3fa341
 - `database/sample-data/seed_rooms_and_equipment.sql`
 - `database/sample-data/seed_bookings_and_reviews.sql`
 - `database/schema-target-en.dbml`
@@ -190,8 +189,8 @@ If the change is part of the Vietnamese-to-English rename:
 - `payment_provider` also includes `SEPAY` for the upcoming dedicated online checkout integration.
 - `coupon_usage` records the exact discount amount actually consumed by one paid booking and enforces one usage row per booking through `booking_id` uniqueness.
 - `customer_issue_report` stores customer-submitted support issues, optionally linked to one owned booking, and keeps a small explicit lifecycle (`OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`).
-  <<<<<<< HEAD
 - `user_notification_settings` stores per-account notification preferences for operational events such as booking updates, shift reminders, room issues, and equipment issues.
+- `facility_condition_report` stores staff-recorded room/equipment condition history and marks broken reports as maintenance suggestions.
 
 ## User Notification Settings Table
 
@@ -210,7 +209,7 @@ If the change is part of the Vietnamese-to-English rename:
   - `room_issue`
   - `equipment_issue`
 - Migration:
-  - # `database/migrations/20260703_create_user_notification_settings.sql`
+  - `database/migrations/20260703_create_user_notification_settings.sql`
 - Revenue reporting still accepts arbitrary `timestamp` ranges, so any daily pre-aggregation must remain an optimization layer and not silently replace the exact `booking.start_time` source for partial-day windows.
 - A standalone `booking(room_id)` index is intentionally not added because the existing `idx_booking_room_start_end` index already exposes `room_id` as its left-most access path; duplicating it would add write overhead without improving the current report predicates.
 - `account.email_verified` controls whether a customer can sign in after registration. New customer accounts remain unverified until the email verification token is confirmed.
@@ -267,7 +266,29 @@ The current admin revenue report still queries raw `booking` rows because the HT
   - `created_at` and `updated_at` support operational auditing.
 - Migration:
   - `database/migrations/20260703_create_staff_attendance.sql`
-    > > > > > > > bdc29b22267bb81da8229276eb68a20aba3fa341
+
+## Facility Condition Report Table
+
+`facility_condition_report` is the audit log for staff facility checks.
+
+- Purpose: record who inspected a room or equipment item, when it was inspected, what condition was found, and whether admin maintenance follow-up is suggested.
+- Main relationships:
+  - `staff_id -> staff.id`
+  - `room_id -> room.id`
+  - `equipment_id -> equipment.id`, nullable for room-only reports
+- Condition meanings:
+  - `GOOD`: usable / clean
+  - `NEED_CLEANING`: room or asset needs cleaning
+  - `NEED_CHECK`: room or asset should be checked before normal use
+  - `BROKEN`: damaged or unusable; requires a non-empty note
+- Lifecycle fields:
+  - `note` is limited to 500 characters and required for `BROKEN`.
+  - `image_url` stores an optional supporting image URL.
+  - `maintenance_suggested` is true when staff reports a broken asset/room or moves a room to maintenance.
+  - `room_status_after_update` records the room status written by the staff action.
+  - `created_at` records the audit timestamp.
+- Migration:
+  - `database/migrations/20260702_add_facility_condition_report.sql`
 
 ## Coupon Usage Table
 

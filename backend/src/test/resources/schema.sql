@@ -1,5 +1,6 @@
 CREATE TYPE IF NOT EXISTS role AS ENUM ('CUSTOMER', 'STAFF', 'ADMIN');
-CREATE TYPE IF NOT EXISTS room_status AS ENUM ('AVAILABLE', 'IN_USE', 'MAINTENANCE');
+CREATE TYPE IF NOT EXISTS room_status AS ENUM ('AVAILABLE', 'IN_USE', 'MAINTENANCE', 'NEED_CLEANING');
+CREATE TYPE IF NOT EXISTS facility_condition AS ENUM ('GOOD', 'NEED_CLEANING', 'NEED_CHECK', 'BROKEN');
 CREATE TYPE IF NOT EXISTS equipment_type AS ENUM ('AMP', 'MIXER', 'MIC', 'DRUM', 'GUITAR', 'KEYBOARD', 'OTHER');
 CREATE TYPE IF NOT EXISTS equipment_status AS ENUM ('GOOD', 'BROKEN', 'MAINTENANCE');
 CREATE TYPE IF NOT EXISTS booking_status AS ENUM (
@@ -72,4 +73,17 @@ CREATE TABLE IF NOT EXISTS staff_attendance (
     status attendance_status NOT NULL DEFAULT 'WORKING',
     created_at TIMESTAMP NOT NULL DEFAULT now(),
     updated_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS facility_condition_report (
+    id UUID PRIMARY KEY,
+    staff_id INT NOT NULL REFERENCES staff(id),
+    room_id INT NOT NULL,
+    equipment_id INT,
+    condition facility_condition NOT NULL,
+    note VARCHAR(500),
+    image_url VARCHAR(500),
+    maintenance_suggested BOOLEAN NOT NULL DEFAULT false,
+    room_status_after_update room_status,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
 );
