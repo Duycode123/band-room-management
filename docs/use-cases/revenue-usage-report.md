@@ -52,10 +52,12 @@ Allow an administrator to review revenue and room usage frequency over time so t
 - The use case lives under `backend.report`.
 - The web adapter is `AdminReportController`.
 - Persistence uses a PostgreSQL aggregation query through `JdbcTemplate`.
+- `database/migrations/20260702_optimize_reporting_indexes.sql` adds supporting report indexes and a daily materialized view (`report_daily_booking_summary`) for day-aligned analytics.
 - The endpoint is covered by the existing `/api/admin/**` security rule and requires an admin role.
 
 ## Known Gaps
 
 - The current report groups bookings by booking start time.
+- The current endpoint still reads raw `booking` rows instead of the daily materialized view so arbitrary timestamp ranges remain exact.
 - The current report does not split a single booking across multiple time buckets.
 - The current report does not compare against previous periods.
