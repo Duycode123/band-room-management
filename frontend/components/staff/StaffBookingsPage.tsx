@@ -534,8 +534,8 @@ function BookingDetailPanel({
   const actions = getAvailableBookingActions(booking.status)
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-[#042A16]/45 backdrop-blur-sm">
-      <aside className="h-full w-full overflow-y-auto border-l border-outline-variant bg-white p-5 shadow-[var(--band-shadow-elevated)] sm:max-w-2xl sm:p-6">
+    <div className="fixed inset-0 z-50 flex justify-end bg-[#042A16]/45 backdrop-blur-sm" onClick={onClose}>
+      <aside className="h-full w-full overflow-y-auto border-l border-outline-variant bg-white p-5 shadow-[var(--band-shadow-elevated)] sm:max-w-2xl sm:p-6" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="font-display text-sm font-bold uppercase tracking-wide text-brand-orange">{booking.code}</p>
@@ -666,8 +666,8 @@ function MenuButton({ children, danger, onClick }: { children: ReactNode; danger
 
 function ConfirmDialog({ action, onCancel }: { action: ConfirmAction; onCancel: () => void }) {
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#042A16]/50 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-3xl border border-outline-variant bg-white p-6 shadow-[var(--band-shadow-elevated)]">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#042A16]/50 p-4 backdrop-blur-sm" onClick={onCancel}>
+      <div className="w-full max-w-md rounded-3xl border border-outline-variant bg-white p-6 shadow-[var(--band-shadow-elevated)]" onClick={(event) => event.stopPropagation()}>
         <div className={['flex h-12 w-12 items-center justify-center rounded-2xl', action.variant === 'danger' ? 'bg-error-container text-error' : 'bg-primary-container text-brand-orange'].join(' ')}>
           <IconAlert />
         </div>

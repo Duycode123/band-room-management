@@ -1,6 +1,7 @@
 package backend.exception;
 
 import backend.common.ApiResponse;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.AuthenticationException;
@@ -26,7 +27,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(
                 ApiResponse.<Map<String, String>>builder()
                         .success(false)
-                        .message("Dữ liệu không hợp lệ")
+                        .message("Du lieu khong hop le")
                         .data(errors)
                         .build()
         );
@@ -47,7 +48,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
                 ApiResponse.<String>builder()
                         .success(false)
-                        .message("Email hoặc mật khẩu không chính xác")
+                        .message("Email hoac mat khau khong chinh xac")
                         .build()
         );
     }
@@ -107,12 +108,23 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(DataAccessException.class)
+    public ResponseEntity<ApiResponse<String>> handleDataAccessException(DataAccessException ex) {
+        return ResponseEntity.internalServerError().body(
+                ApiResponse.<String>builder()
+                        .success(false)
+                        .message("Khong the luu cai dat. Vui long thu lai.")
+                        .data(null)
+                        .build()
+        );
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<String>> handleException(Exception ex) {
         return ResponseEntity.internalServerError().body(
                 ApiResponse.<String>builder()
                         .success(false)
-                        .message("Lỗi máy chủ: " + ex.getMessage())
+                        .message("Loi may chu. Vui long thu lai.")
                         .data(null)
                         .build()
         );

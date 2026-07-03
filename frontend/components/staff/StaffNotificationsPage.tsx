@@ -278,8 +278,8 @@ function NotificationCard({
 
 function NotificationDetail({ notification, onClose }: { notification: StaffNotification; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-[#042A16]/45 backdrop-blur-sm">
-      <aside className="h-full w-full overflow-y-auto border-l border-outline-variant bg-white p-5 shadow-[var(--band-shadow-elevated)] sm:max-w-xl sm:p-6">
+    <div className="fixed inset-0 z-50 flex justify-end bg-[#042A16]/45 backdrop-blur-sm" onClick={onClose}>
+      <aside className="h-full w-full overflow-y-auto border-l border-outline-variant bg-white p-5 shadow-[var(--band-shadow-elevated)] sm:max-w-xl sm:p-6" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="font-display text-sm font-bold uppercase tracking-wide text-brand-orange">Chi tiết thông báo</p>

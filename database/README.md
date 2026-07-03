@@ -24,6 +24,7 @@ The current backend source clearly models these areas:
 - review and admin review response data
 - payment transaction data
 - customer issue report data
+- user notification settings data
 - revoked token data
 
 Core model/entity classes currently present in backend source:
@@ -41,6 +42,7 @@ Core model/entity classes currently present in backend source:
 - `ReviewAdminResponse`
 - `PaymentTransaction`
 - `CustomerIssueReport`
+- `UserNotificationSettings`
 - `RevokedToken`
 
 ## Existing Files
@@ -52,6 +54,7 @@ Core model/entity classes currently present in backend source:
 - `database/migrations/20260630_add_review_response_table.sql`
 - `database/migrations/20260701_add_coupon_usage_and_sepay.sql`
 - `database/migrations/20260701_add_customer_issue_report_and_counter_provider.sql`
+- `database/migrations/20260703_create_user_notification_settings.sql`
 - `database/sample-data/seed_rooms_and_equipment.sql`
 - `database/sample-data/seed_bookings_and_reviews.sql`
 - `database/schema-target-en.dbml`
@@ -177,6 +180,26 @@ If the change is part of the Vietnamese-to-English rename:
 - `payment_provider` also includes `SEPAY` for the upcoming dedicated online checkout integration.
 - `coupon_usage` records the exact discount amount actually consumed by one paid booking and enforces one usage row per booking through `booking_id` uniqueness.
 - `customer_issue_report` stores customer-submitted support issues, optionally linked to one owned booking, and keeps a small explicit lifecycle (`OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`).
+- `user_notification_settings` stores per-account notification preferences for operational events such as booking updates, shift reminders, room issues, and equipment issues.
+
+## User Notification Settings Table
+
+`user_notification_settings` persists staff/customer notification preferences per account.
+
+- Purpose: keep notification toggles stable across logout, login, and page reloads.
+- Main relationship:
+  - `account_id -> account.id`
+- Uniqueness and concurrency:
+  - `account_id` is unique, so each account has at most one settings row.
+  - Missing settings are treated as all enabled and created on first read/update by the backend.
+- Preference fields:
+  - `new_booking`
+  - `booking_reminder`
+  - `shift_reminder`
+  - `room_issue`
+  - `equipment_issue`
+- Migration:
+  - `database/migrations/20260703_create_user_notification_settings.sql`
 
 ## Coupon Usage Table
 
