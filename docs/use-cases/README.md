@@ -31,6 +31,7 @@ The first pass in this repository focuses on flows that already exist in the bac
 - review moderation and admin response
 - equipment management
 - staff check-in/check-out
+- staff room/equipment condition reporting
 
 ## Traceability
 

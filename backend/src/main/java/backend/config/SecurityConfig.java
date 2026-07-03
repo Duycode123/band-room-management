@@ -96,6 +96,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/coupons/validate").permitAll()
                         .requestMatchers("/api/auth/session", "/api/v1/auth/session").authenticated()
                         .requestMatchers("/api/staff/attendance/**").hasRole("STAFF")
+                        .requestMatchers("/api/staff/facility/**").hasRole("STAFF")
                         .requestMatchers("/api/admin/equipment/**").hasAnyRole("ADMIN", "STAFF")
                         .requestMatchers("/api/admin/bookings/**").hasAnyRole("ADMIN", "STAFF")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")

@@ -10,6 +10,14 @@ Enum room_status {
   AVAILABLE
   IN_USE
   MAINTENANCE
+  NEED_CLEANING
+}
+
+Enum facility_condition {
+  GOOD
+  NEED_CLEANING
+  NEED_CHECK
+  BROKEN
 }
 
 Enum booking_status {
@@ -252,5 +260,25 @@ Table staff_attendance {
   indexes {
     (staff_id, check_in_time)
     (status)
+  }
+}
+
+Table facility_condition_report {
+  id                       uuid               [pk]
+  staff_id                 int                [not null, ref: > staff.id]
+  room_id                  int                [not null, ref: > room.id]
+  equipment_id             int                [ref: > equipment.id]
+  condition                facility_condition [not null]
+  note                     varchar(500)
+  image_url                varchar(500)
+  maintenance_suggested    boolean            [not null, default: false]
+  room_status_after_update room_status
+  created_at               timestamp          [not null, default: `now()`]
+
+  indexes {
+    (room_id, created_at)
+    (equipment_id, created_at)
+    (staff_id, created_at)
+    (maintenance_suggested, created_at)
   }
 }
