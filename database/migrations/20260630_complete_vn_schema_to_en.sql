@@ -1,3 +1,4 @@
+
 BEGIN;
 
 -- Complete the Vietnamese-to-English rename for legacy enum types and values.
