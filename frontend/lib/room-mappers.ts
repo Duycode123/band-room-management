@@ -76,9 +76,20 @@ function getImageUrl(imageUrl: string | null | undefined, allowRemote = false) {
 
   if (!value) return fallbackImage
   if (value.startsWith('/')) return value
-  if (allowRemote && /^https?:\/\//i.test(value)) return value
+  if (allowRemote && /^https?:\/\//i.test(value)) return getOptimizedCloudinaryUrl(value)
 
   return fallbackImage
+}
+
+function getOptimizedCloudinaryUrl(imageUrl: string) {
+  if (!/^https:\/\/res\.cloudinary\.com\//i.test(imageUrl)) {
+    return imageUrl
+  }
+  if (imageUrl.includes('/image/upload/f_auto,q_auto/')) {
+    return imageUrl
+  }
+
+  return imageUrl.replace('/image/upload/', '/image/upload/f_auto,q_auto/')
 }
 
 function getRoomTypeName(room: BackendRoom, category: RoomCategory) {
@@ -98,7 +109,7 @@ function getRoomPrice(room: BackendRoom, category: RoomCategory) {
 }
 
 function getAvailability(status: BackendRoomStatus | null | undefined, index: number) {
-  if (status === 'BAO_TRI') {
+  if (status === 'MAINTENANCE') {
     return {
       availabilityStatus: 'FULL_TODAY' as RoomAvailabilityStatus,
       remainingSlots: 0,
@@ -110,7 +121,7 @@ function getAvailability(status: BackendRoomStatus | null | undefined, index: nu
     }
   }
 
-  if (status === 'DANG_DUNG') {
+  if (status === 'IN_USE') {
     return {
       availabilityStatus: 'ALMOST_FULL' as RoomAvailabilityStatus,
       remainingSlots: 1,
@@ -137,11 +148,11 @@ function getAvailability(status: BackendRoomStatus | null | undefined, index: nu
 }
 
 function getStatusNote(status: BackendRoomStatus | null | undefined) {
-  if (status === 'BAO_TRI') {
+  if (status === 'MAINTENANCE') {
     return 'Phòng đang được bảo trì. Bạn vẫn có thể chọn ngày khác hoặc liên hệ nhân viên để được hỗ trợ.'
   }
 
-  if (status === 'DANG_DUNG') {
+  if (status === 'IN_USE') {
     return 'Phòng gần kín lịch hôm nay. Nên đặt sớm để giữ khung giờ phù hợp.'
   }
 
@@ -158,15 +169,15 @@ export function inferRoomCategoryFromTypeName(typeName?: string | null): RoomCat
 }
 
 export function mapBackendStatusToAdminStatus(status?: BackendRoomStatus | null): RoomStatus {
-  if (status === 'DANG_DUNG') return 'occupied'
-  if (status === 'BAO_TRI') return 'maintenance'
+  if (status === 'IN_USE') return 'occupied'
+  if (status === 'MAINTENANCE') return 'maintenance'
   return 'active'
 }
 
 export function mapAdminStatusToBackendStatus(status?: RoomStatus | null): BackendRoomStatus {
-  if (status === 'occupied') return 'DANG_DUNG'
-  if (status === 'maintenance' || status === 'inactive') return 'BAO_TRI'
-  return 'TRONG'
+  if (status === 'occupied') return 'IN_USE'
+  if (status === 'maintenance' || status === 'inactive') return 'MAINTENANCE'
+  return 'AVAILABLE'
 }
 
 export function mapRoomTypeToAdminOption(roomType: BackendRoomType): AdminRoomTypeOption {
@@ -201,6 +212,7 @@ export function mapBackendRoomToAdminRoom(room: BackendRoom, index = 0): AdminRo
     pricePerHour: getRoomPrice(room, category),
     status,
     image: getImageUrl(room.imageUrl, true),
+    imageUrl: room.imageUrl?.trim() || '',
     equipmentCount: equipments.length,
     equipments,
     todaySchedule: availability.todaySchedule,
@@ -233,7 +245,7 @@ export function mapBackendRoomToBookingRoom(room: BackendRoom, index = 0): Booki
     reviews: 0,
     capacity: `Tối đa ${capacity} người`,
     location: room.floor ? `Tầng ${room.floor}, Band Room Studio` : 'Band Room Studio',
-    image: getImageUrl(room.imageUrl),
+    image: getImageUrl(room.imageUrl, true),
     imageClassName: '',
     pricePerHour: getRoomPrice(room, category),
     equipments: equipments.slice(0, 3),

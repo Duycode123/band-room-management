@@ -66,6 +66,19 @@ public class JdbcAttendanceAdapter implements AttendanceActorPort, StaffShiftPor
     }
 
     @Override
+    public boolean existsAttendanceForShift(Integer staffId, Integer shiftId) {
+        String sql = """
+                SELECT COUNT(*)
+                FROM staff_attendance
+                WHERE staff_id = ?
+                  AND shift_id = ?
+                """;
+
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, staffId, shiftId);
+        return count != null && count > 0;
+    }
+
+    @Override
     public boolean existsWorkingAttendance(Integer staffId, Integer shiftId) {
         String sql = """
                 SELECT COUNT(*)
@@ -91,6 +104,20 @@ public class JdbcAttendanceAdapter implements AttendanceActorPort, StaffShiftPor
                 """;
 
         return jdbcTemplate.query(sql, this::mapAttendanceRecord, staffId).stream().findFirst();
+    }
+
+    @Override
+    public Optional<AttendanceRecord> loadLatestAttendanceForShift(Integer staffId, Integer shiftId) {
+        String sql = """
+                SELECT id, staff_id, shift_id, check_in_time, check_out_time, work_duration_hours, status
+                FROM staff_attendance
+                WHERE staff_id = ?
+                  AND shift_id = ?
+                ORDER BY check_in_time DESC
+                LIMIT 1
+                """;
+
+        return jdbcTemplate.query(sql, this::mapAttendanceRecord, staffId, shiftId).stream().findFirst();
     }
 
     @Override

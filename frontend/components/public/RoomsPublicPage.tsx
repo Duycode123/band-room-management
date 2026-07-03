@@ -2,14 +2,14 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { formatCurrency } from '@/components/booking/booking-data'
 import BandRoomFooter from '@/components/layout/BandRoomFooter'
 import BandRoomHeader from '@/components/layout/BandRoomHeader'
+import { fetchPublicBookingRoomCatalog } from '@/lib/booking-room-service'
 import {
   filterRooms,
   getAvailabilityLabel,
-  getRooms,
   publicRoomCategories,
   type Room,
   type RoomAvailabilityStatus,
@@ -50,8 +50,29 @@ const defaultFilters: RoomFilters = {
 
 export default function RoomsPublicPage() {
   const [filters, setFilters] = useState<RoomFilters>(defaultFilters)
-  const rooms = useMemo(() => getRooms(), [])
+  const [rooms, setRooms] = useState<Room[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [catalogSource, setCatalogSource] = useState<'backend' | 'fallback'>('backend')
   const filteredRooms = useMemo(() => filterRooms(rooms, filters), [rooms, filters])
+
+  useEffect(() => {
+    let isMounted = true
+
+    void fetchPublicBookingRoomCatalog()
+      .then(({ rooms: catalogRooms, source }) => {
+        if (!isMounted) return
+        setRooms(catalogRooms)
+        setCatalogSource(source)
+      })
+      .finally(() => {
+        if (!isMounted) return
+        setIsLoading(false)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const updateFilter = <Key extends keyof RoomFilters>(key: Key, value: RoomFilters[Key]) => {
     setFilters((current) => ({ ...current, [key]: value }))
@@ -83,15 +104,15 @@ export default function RoomsPublicPage() {
             <p className="font-display text-sm font-bold text-white">Lịch phòng hôm nay</p>
             <div className="mt-4 grid grid-cols-3 gap-3 text-center">
               <Metric
-                value={String(rooms.filter((room) => room.availabilityStatus === 'AVAILABLE').length)}
+                value={isLoading ? '--' : String(rooms.filter((room) => room.availabilityStatus === 'AVAILABLE').length)}
                 label="Còn trống"
               />
               <Metric
-                value={String(rooms.filter((room) => room.availabilityStatus === 'ALMOST_FULL').length)}
+                value={isLoading ? '--' : String(rooms.filter((room) => room.availabilityStatus === 'ALMOST_FULL').length)}
                 label="Sắp kín"
               />
               <Metric
-                value={String(rooms.filter((room) => room.availabilityStatus === 'FULL_TODAY').length)}
+                value={isLoading ? '--' : String(rooms.filter((room) => room.availabilityStatus === 'FULL_TODAY').length)}
                 label="Kín lịch"
               />
             </div>
@@ -148,7 +169,11 @@ export default function RoomsPublicPage() {
           <div>
             <p className="font-display text-xl font-bold text-on-surface">{filteredRooms.length} phòng phù hợp</p>
             <p className="mt-1 text-sm text-on-surface-variant">
-              Search/filter đang chạy bằng local state, sẵn sàng thay bằng API.
+              {isLoading
+                ? 'Đang đồng bộ danh sách phòng từ backend...'
+                : catalogSource === 'backend'
+                  ? 'Danh sách phòng đang được lấy từ backend.'
+                  : 'Không lấy được backend, đang hiển thị dữ liệu fallback.'}
             </p>
           </div>
           <button type="button" onClick={() => setFilters(defaultFilters)} className="btn-secondary">
@@ -156,7 +181,14 @@ export default function RoomsPublicPage() {
           </button>
         </div>
 
-        {filteredRooms.length > 0 ? (
+        {isLoading ? (
+          <div className="mt-8 rounded-3xl border border-outline-variant bg-white px-6 py-16 text-center shadow-[var(--shadow-card)]">
+            <p className="font-display text-2xl font-bold text-on-surface">Đang tải danh sách phòng</p>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-on-surface-variant">
+              Hệ thống đang lấy dữ liệu phòng tập mới nhất từ backend.
+            </p>
+          </div>
+        ) : filteredRooms.length > 0 ? (
           <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {filteredRooms.map((room) => (
               <RoomCard key={room.id} room={room} />

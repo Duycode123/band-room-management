@@ -62,6 +62,7 @@ Core model/entity classes currently present in backend source:
 - # `database/migrations/20260703_create_user_notification_settings.sql`
 - `database/migrations/20260701_create_app_notifications.sql`
 - `database/migrations/20260702_optimize_reporting_indexes.sql`
+- `database/migrations/20260703_add_room_image_and_capacity.sql`
 - `database/migrations/20260703_create_staff_attendance.sql`
 - `database/migrations/20260703_add_email_verification_to_account.sql`
   > > > > > > > bdc29b22267bb81da8229276eb68a20aba3fa341
@@ -188,6 +189,7 @@ If the change is part of the Vietnamese-to-English rename:
 - Enum-backed statuses deserve explicit documentation because they affect filters, transitions, and reporting.
 - `payment_provider` now includes `COUNTER` for pay-at-counter checkout sessions alongside online providers such as `VNPAY`.
 - `payment_provider` also includes `SEPAY` for the upcoming dedicated online checkout integration.
+- `room.max_people` stores the maximum number of people a specific room can hold; `room.image_url` stores the persisted room image URL returned by Cloudinary or another HTTP(S) asset host.
 - `coupon_usage` records the exact discount amount actually consumed by one paid booking and enforces one usage row per booking through `booking_id` uniqueness.
 - `customer_issue_report` stores customer-submitted support issues, optionally linked to one owned booking, and keeps a small explicit lifecycle (`OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`).
   <<<<<<< HEAD

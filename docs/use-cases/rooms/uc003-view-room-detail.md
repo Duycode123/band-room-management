@@ -35,6 +35,8 @@ Allow a customer to inspect a single room in enough detail to decide whether to 
 - The room detail must be identified by backend-owned room ID.
 - Not-found behavior must be explicit and stable.
 - Detail payload should expose booking-relevant fields only through response DTOs.
+- Room detail may include a persisted Cloudinary-backed `imageUrl`.
+- Room detail includes `maxPeople` when the room has a stored capacity.
 
 ## Data Touched
 
@@ -45,11 +47,11 @@ Allow a customer to inspect a single room in enough detail to decide whether to 
 
 - Backend detail endpoint exists and returns `RoomResponse`.
 - The backlog mentions gallery and richer detail presentation, which are mostly frontend concerns.
-- The current source does not yet document image asset handling in the backend use case.
+- Single-image room asset handling is now backed by `room.image_url`; richer galleries are not implemented.
 
 ## Known Gaps / Follow-up
 
-- Define the canonical detail payload for equipment, images, and richer metadata.
+- Define the canonical detail payload for equipment, image galleries, and richer metadata.
 - Clarify whether hidden/inactive rooms should return `404` or a visible status.
 
 ## Hexagonal Refactor Notes

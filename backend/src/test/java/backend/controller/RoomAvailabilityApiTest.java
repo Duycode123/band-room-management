@@ -5,8 +5,11 @@ import backend.booking.application.port.in.query.GetRoomAvailabilityQuery;
 import backend.dto.response.RoomAvailabilityResponse;
 import backend.dto.response.TimeSlotResponse;
 import backend.room.application.port.in.CreateRoomUseCase;
+import backend.room.application.port.in.DeleteRoomUseCase;
 import backend.room.application.port.in.GetRoomDetailUseCase;
 import backend.room.application.port.in.ListRoomsUseCase;
+import backend.room.application.port.in.UpdateRoomStatusUseCase;
+import backend.room.application.port.in.UpdateRoomUseCase;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -40,6 +43,15 @@ class RoomAvailabilityApiTest {
     private CreateRoomUseCase createRoomUseCase;
 
     @Mock
+    private UpdateRoomUseCase updateRoomUseCase;
+
+    @Mock
+    private UpdateRoomStatusUseCase updateRoomStatusUseCase;
+
+    @Mock
+    private DeleteRoomUseCase deleteRoomUseCase;
+
+    @Mock
     private GetRoomAvailabilityUseCase getRoomAvailabilityUseCase;
 
     private MockMvc mockMvc;
@@ -56,6 +68,9 @@ class RoomAvailabilityApiTest {
                         listRoomsUseCase,
                         getRoomDetailUseCase,
                         createRoomUseCase,
+                        updateRoomUseCase,
+                        updateRoomStatusUseCase,
+                        deleteRoomUseCase,
                         getRoomAvailabilityUseCase
                 ))
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))

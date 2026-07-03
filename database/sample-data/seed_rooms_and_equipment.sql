@@ -66,35 +66,37 @@ WHERE NOT EXISTS (
 );
 
 -- Upsert sample rooms.
-WITH sample_rooms(name, tier_name, status) AS (
+WITH sample_rooms(name, tier_name, status, max_people) AS (
     VALUES
-        ('Practice Pod A', 'Standard Practice', 'AVAILABLE'),
-        ('Practice Pod B', 'Standard Practice', 'AVAILABLE'),
-        ('Studio A - Phong Do', 'Band Rehearsal', 'AVAILABLE'),
-        ('Studio B - Phong Xanh', 'Band Rehearsal', 'IN_USE'),
-        ('The Vault - Thu am', 'Recording & Mixing', 'AVAILABLE'),
-        ('Amber Live Room', 'Premium Studio', 'MAINTENANCE')
+        ('Practice Pod A', 'Standard Practice', 'AVAILABLE', 2),
+        ('Practice Pod B', 'Standard Practice', 'AVAILABLE', 4),
+        ('Studio A - Phong Do', 'Band Rehearsal', 'AVAILABLE', 8),
+        ('Studio B - Phong Xanh', 'Band Rehearsal', 'IN_USE', 8),
+        ('The Vault - Thu am', 'Recording & Mixing', 'AVAILABLE', 4),
+        ('Amber Live Room', 'Premium Studio', 'MAINTENANCE', 12)
 )
 UPDATE room r
 SET room_tier_id = rt.id,
-    status = sample_rooms.status::room_status
+    status = sample_rooms.status::room_status,
+    max_people = sample_rooms.max_people
 FROM sample_rooms
 JOIN room_tier rt ON rt.name = sample_rooms.tier_name
 WHERE r.name = sample_rooms.name;
 
-WITH sample_rooms(name, tier_name, status) AS (
+WITH sample_rooms(name, tier_name, status, max_people) AS (
     VALUES
-        ('Practice Pod A', 'Standard Practice', 'AVAILABLE'),
-        ('Practice Pod B', 'Standard Practice', 'AVAILABLE'),
-        ('Studio A - Phong Do', 'Band Rehearsal', 'AVAILABLE'),
-        ('Studio B - Phong Xanh', 'Band Rehearsal', 'IN_USE'),
-        ('The Vault - Thu am', 'Recording & Mixing', 'AVAILABLE'),
-        ('Amber Live Room', 'Premium Studio', 'MAINTENANCE')
+        ('Practice Pod A', 'Standard Practice', 'AVAILABLE', 2),
+        ('Practice Pod B', 'Standard Practice', 'AVAILABLE', 4),
+        ('Studio A - Phong Do', 'Band Rehearsal', 'AVAILABLE', 8),
+        ('Studio B - Phong Xanh', 'Band Rehearsal', 'IN_USE', 8),
+        ('The Vault - Thu am', 'Recording & Mixing', 'AVAILABLE', 4),
+        ('Amber Live Room', 'Premium Studio', 'MAINTENANCE', 12)
 )
-INSERT INTO room (name, room_tier_id, status)
+INSERT INTO room (name, room_tier_id, status, max_people)
 SELECT sample_rooms.name,
        rt.id,
-       sample_rooms.status::room_status
+       sample_rooms.status::room_status,
+       sample_rooms.max_people
 FROM sample_rooms
 JOIN room_tier rt ON rt.name = sample_rooms.tier_name
 WHERE NOT EXISTS (

@@ -14,6 +14,7 @@ export type AdminRoom = {
   pricePerHour: number
   status: RoomStatus
   image: string
+  imageUrl?: string
   equipmentCount: number
   equipments: string[]
   todaySchedule: string

@@ -113,7 +113,9 @@ Table room {
   id              int         [pk, increment]
   name            varchar     [not null]
   room_tier_id    int         [not null, ref: > room_tier.id]
+  max_people      int         [not null, note: 'Maximum people this room can hold']
   status          room_status [not null, default: 'AVAILABLE']
+  image_url       varchar     [note: 'Cloudinary or externally hosted room image URL']
 }
 
 Table equipment {

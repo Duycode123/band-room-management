@@ -3,8 +3,10 @@ package backend.attendance.application.service;
 import backend.attendance.application.model.AttendanceActor;
 import backend.attendance.application.port.in.CheckInShiftUseCase;
 import backend.attendance.application.port.in.CheckOutShiftUseCase;
+import backend.attendance.application.port.in.GetCurrentShiftAttendanceUseCase;
 import backend.attendance.application.port.in.command.CheckInShiftCommand;
 import backend.attendance.application.port.in.command.CheckOutShiftCommand;
+import backend.attendance.application.port.in.query.GetCurrentShiftAttendanceQuery;
 import backend.attendance.application.port.out.AttendanceActorPort;
 import backend.attendance.application.port.out.AttendanceRecordPort;
 import backend.attendance.application.port.out.StaffShiftPort;
@@ -24,17 +26,26 @@ import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class AttendanceUseCaseService implements CheckInShiftUseCase, CheckOutShiftUseCase {
+public class AttendanceUseCaseService implements CheckInShiftUseCase, CheckOutShiftUseCase, GetCurrentShiftAttendanceUseCase {
 
     private final AttendanceActorPort attendanceActorPort;
     private final StaffShiftPort staffShiftPort;
     private final AttendanceRecordPort attendanceRecordPort;
     private final Clock clock;
+
+    @Override
+    public Optional<AttendanceRecord> getCurrentAttendance(GetCurrentShiftAttendanceQuery query) {
+        AttendanceActor actor = loadStaffActor(query.currentUserEmail());
+        LocalDateTime now = LocalDateTime.now(clock);
+        return staffShiftPort.loadCurrentShift(actor.staffId(), now)
+                .flatMap(shift -> attendanceRecordPort.loadLatestAttendanceForShift(actor.staffId(), shift.id()));
+    }
 
     @Override
     @Transactional
@@ -46,6 +57,10 @@ public class AttendanceUseCaseService implements CheckInShiftUseCase, CheckOutSh
 
         if (attendanceRecordPort.existsWorkingAttendance(actor.staffId(), currentShift.id())) {
             throw new IllegalStateException("Ban da check-in ca nay");
+        }
+
+        if (attendanceRecordPort.existsAttendanceForShift(actor.staffId(), currentShift.id())) {
+            throw new IllegalStateException("Ca nay da duoc cham cong");
         }
 
         AttendanceRecord attendanceRecord = AttendanceRecord.builder()
