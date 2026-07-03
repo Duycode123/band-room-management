@@ -73,11 +73,15 @@ Enum equipment_status {
 }
 
 Table account {
-  id              int       [pk, increment]
-  email           varchar   [unique, not null]
-  password_hash   varchar   [not null]
-  role            role      [not null]
-  created_at      timestamp [default: `now()`]
+  id                              int       [pk, increment]
+  email                           varchar   [unique, not null]
+  password_hash                   varchar   [not null]
+  role                            role      [not null]
+  email_verified                  boolean   [not null, default: false]
+  email_verification_token_hash   varchar   [unique, note: 'SHA-256 hash of active email verification token']
+  email_verification_expires_at   timestamp
+  email_verification_sent_at      timestamp
+  created_at                      timestamp [default: `now()`]
 }
 
 Table customer {

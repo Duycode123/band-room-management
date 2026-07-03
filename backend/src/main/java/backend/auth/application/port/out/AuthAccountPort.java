@@ -12,6 +12,8 @@ public interface AuthAccountPort {
 
     Optional<User> loadUserByResetToken(String resetToken);
 
+    Optional<User> loadUserByEmailVerificationTokenHash(String emailVerificationTokenHash);
+
     User saveUser(User user);
 
     boolean existsCustomerByPhone(String phone);

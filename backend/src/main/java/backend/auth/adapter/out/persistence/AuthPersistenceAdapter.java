@@ -33,6 +33,11 @@ public class AuthPersistenceAdapter implements AuthAccountPort {
     }
 
     @Override
+    public Optional<User> loadUserByEmailVerificationTokenHash(String emailVerificationTokenHash) {
+        return userRepository.findByEmailVerificationTokenHash(emailVerificationTokenHash);
+    }
+
+    @Override
     public User saveUser(User user) {
         return userRepository.save(user);
     }

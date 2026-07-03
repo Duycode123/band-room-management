@@ -36,6 +36,10 @@ CREATE TABLE IF NOT EXISTS account (
     email VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     role role NOT NULL,
+    email_verified BOOLEAN NOT NULL DEFAULT false,
+    email_verification_token_hash VARCHAR(64) UNIQUE,
+    email_verification_expires_at TIMESTAMP,
+    email_verification_sent_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT now()
 );
 

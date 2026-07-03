@@ -45,6 +45,19 @@ public class User implements UserDetails {
     @Column(name = "reset_token_expires_at")
     private LocalDateTime resetTokenExpiresAt;
 
+    @Column(name = "email_verified", nullable = false)
+    @Builder.Default
+    private boolean emailVerified = false;
+
+    @Column(name = "email_verification_token_hash", unique = true)
+    private String emailVerificationTokenHash;
+
+    @Column(name = "email_verification_expires_at")
+    private LocalDateTime emailVerificationExpiresAt;
+
+    @Column(name = "email_verification_sent_at")
+    private LocalDateTime emailVerificationSentAt;
+
     @OneToOne(mappedBy = "account", fetch = FetchType.LAZY)
     private Customer customerProfile;
 

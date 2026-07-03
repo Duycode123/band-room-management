@@ -24,6 +24,7 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [requiresEmailVerification, setRequiresEmailVerification] = useState(false)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
@@ -33,6 +34,7 @@ export default function LoginPage() {
     e.preventDefault()
     setIsLoading(true)
     setError('')
+    setRequiresEmailVerification(false)
 
     try {
       const sessionUser = await loginSession(formData.identifier.trim(), formData.password)
@@ -54,6 +56,7 @@ export default function LoginPage() {
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } }
       setError(axiosErr.response?.data?.message || 'Đăng nhập thất bại, vui lòng kiểm tra lại tài khoản.')
+      setRequiresEmailVerification(Boolean(axiosErr.response?.data?.message?.toLowerCase().includes('xac thuc email')))
     } finally {
       setIsLoading(false)
     }
@@ -77,6 +80,15 @@ export default function LoginPage() {
         </Suspense>
 
         {error && <AuthError message={error} />}
+        {requiresEmailVerification && (
+          <button
+            type="button"
+            onClick={() => router.push(`/verify-email?email=${encodeURIComponent(formData.identifier.trim())}`)}
+            className="mb-4 w-full cursor-pointer rounded-lg border border-brand-orange px-4 py-2.5 font-display text-sm font-semibold text-brand-orange transition-colors hover:bg-brand-orange/5"
+          >
+            Gui lai email xac thuc
+          </button>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <AuthField
