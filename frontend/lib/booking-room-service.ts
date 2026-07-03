@@ -5,13 +5,29 @@ import {
 } from '@/lib/room-mappers'
 import { fetchRoom, fetchRooms } from '@/lib/rooms-api'
 
-export async function fetchPublicBookingRooms(): Promise<BookingRoom[]> {
+export type PublicBookingRoomCatalog = {
+  rooms: BookingRoom[]
+  source: 'backend' | 'fallback'
+}
+
+export async function fetchPublicBookingRoomCatalog(): Promise<PublicBookingRoomCatalog> {
   try {
     const rooms = await fetchRooms()
-    return rooms.map((room, index) => mapBackendRoomToBookingRoom(room, index))
+    return {
+      rooms: rooms.map((room, index) => mapBackendRoomToBookingRoom(room, index)),
+      source: 'backend',
+    }
   } catch {
-    return bookingRooms
+    return {
+      rooms: bookingRooms,
+      source: 'fallback',
+    }
   }
+}
+
+export async function fetchPublicBookingRooms(): Promise<BookingRoom[]> {
+  const { rooms } = await fetchPublicBookingRoomCatalog()
+  return rooms
 }
 
 export async function resolveBookingRoom(roomId: string | null, catalog: BookingRoom[] = bookingRooms) {

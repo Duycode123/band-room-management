@@ -11,6 +11,8 @@ import java.util.Optional;
 
 public interface EquipmentRepository extends JpaRepository<EquipmentJpaEntity, Integer> {
 
+    boolean existsByRoom_Id(Integer roomId);
+
     @Query("""
             select e
             from EquipmentJpaEntity e

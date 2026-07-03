@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState, type FormEvent } from 'react'
-import { validateRoomForm } from '@/lib/admin/rooms/adminRoomApi'
+import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
+import { uploadAdminRoomImage, validateRoomForm } from '@/lib/admin/rooms/adminRoomApi'
 import type { AdminRoomTypeOption, RoomFormData, RoomFormErrors } from '@/lib/admin/rooms/types'
 import {
   roomCategoryLabels,
@@ -22,6 +22,8 @@ type RoomFormModalProps = {
 const inputClass =
   'h-11 w-full rounded-xl border border-outline bg-surface-container-lowest px-3 text-sm text-on-surface outline-none transition-all focus:border-brand-orange focus:bg-white focus:ring-2 focus:ring-brand-orange/15'
 
+const readonlyClass = `${inputClass} cursor-not-allowed opacity-70`
+
 const labelClass =
   'mb-1.5 block font-display text-[10px] font-semibold uppercase tracking-[0.12em] text-on-surface-variant'
 
@@ -37,6 +39,7 @@ export default function RoomFormModal({
   const [errors, setErrors] = useState<RoomFormErrors>({})
   const [serverError, setServerError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -55,6 +58,7 @@ export default function RoomFormModal({
     setErrors({})
     setServerError('')
     setIsSaving(false)
+    setIsUploadingImage(false)
   }, [open, initialData, roomTypes])
 
   if (!open) return null
@@ -92,9 +96,42 @@ export default function RoomFormModal({
       await onSubmit(form)
       onClose()
     } catch (error) {
-      setServerError(error instanceof Error ? error.message : 'Không thể lưu phòng tập.')
+      setServerError(error instanceof Error ? error.message : 'Khong the luu phong tap.')
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleImageChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      setErrors((current) => ({ ...current, image: 'File tai len phai la anh.' }))
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setErrors((current) => ({ ...current, image: 'Anh phong khong duoc vuot qua 5MB.' }))
+      return
+    }
+
+    setIsUploadingImage(true)
+    setServerError('')
+    setErrors((current) => ({ ...current, image: undefined }))
+
+    try {
+      const result = await uploadAdminRoomImage(file)
+      set({ image: result.secureUrl })
+    } catch (error) {
+      setErrors((current) => ({
+        ...current,
+        image: error instanceof Error ? error.message : 'Khong the tai anh phong len Cloudinary.',
+      }))
+    } finally {
+      setIsUploadingImage(false)
     }
   }
 
@@ -102,7 +139,7 @@ export default function RoomFormModal({
     <>
       <button
         type="button"
-        aria-label="Đóng form phòng tập"
+        aria-label="Dong form phong tap"
         onClick={onClose}
         className="fixed inset-0 z-50 bg-inverse-surface/50 backdrop-blur-sm"
       />
@@ -116,22 +153,28 @@ export default function RoomFormModal({
         >
           <header className="relative overflow-hidden border-b border-outline-variant bg-gradient-to-r from-brand-greenDark to-brand-greenLight px-6 py-5 text-white">
             <p className="font-display text-[10px] font-medium uppercase tracking-[0.15em] text-brand-orange">
-              {mode === 'create' ? 'Thêm phòng' : 'Chỉnh sửa phòng'}
+              {mode === 'create' ? 'Them phong' : 'Chinh sua phong'}
             </p>
             <h2 id="room-form-title" className="font-display text-xl font-bold">
-              {mode === 'create' ? 'Thêm phòng tập mới' : 'Cập nhật phòng tập'}
+              {mode === 'create' ? 'Them phong tap moi' : 'Cap nhat phong tap'}
             </h2>
             <p className="mt-1 text-xs text-inverse-on-surface/80">
-              Quản lý thông tin vận hành, giá thuê và thiết bị trong từng phòng.
+              Dong bo du lieu phong voi backend thay vi chi sua mock o frontend.
             </p>
           </header>
 
           <form onSubmit={(event) => void handleSubmit(event)} className="flex flex-1 flex-col overflow-hidden">
             <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
+              <div className="rounded-2xl border border-brand-orange/20 bg-primary-container/30 px-4 py-3 text-xs leading-6 text-on-surface-variant">
+                Backend hien luu <strong>ten phong</strong>, <strong>hang phong</strong>, <strong>suc chua</strong>,
+                <strong> trang thai</strong> va <strong>link anh Cloudinary</strong>.
+                Ma phong duoc sinh theo ID backend, gia theo gio van di theo hang phong.
+              </div>
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
                   <span className={labelClass}>
-                    Tên phòng <span className="text-error">*</span>
+                    Ten phong <span className="text-error">*</span>
                   </span>
                   <input
                     type="text"
@@ -145,24 +188,23 @@ export default function RoomFormModal({
                 </label>
 
                 <label className="block">
-                  <span className={labelClass}>
-                    Mã phòng <span className="text-error">*</span>
-                  </span>
+                  <span className={labelClass}>Ma phong</span>
                   <input
                     type="text"
                     value={form.code}
-                    onChange={(event) => set({ code: event.target.value })}
-                    className={inputClass}
-                    placeholder="VD: STD-A1"
+                    readOnly
+                    disabled
+                    className={readonlyClass}
+                    placeholder="Se sinh tu dong sau khi tao"
                   />
-                  {errors.code && <p className="mt-1 text-xs text-error">{errors.code}</p>}
+                  <p className="mt-1 text-[11px] text-on-surface-variant">Field nay chi de hien thi.</p>
                 </label>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
                   <span className={labelClass}>
-                    Hạng phòng <span className="text-error">*</span>
+                    Hang phong <span className="text-error">*</span>
                   </span>
                   <select
                     value={roomTypes.length > 0 ? String(form.roomTypeId ?? '') : form.category}
@@ -193,7 +235,7 @@ export default function RoomFormModal({
 
                 <label className="block">
                   <span className={labelClass}>
-                    Trạng thái <span className="text-error">*</span>
+                    Trang thai <span className="text-error">*</span>
                   </span>
                   <select
                     value={form.status}
@@ -212,77 +254,93 @@ export default function RoomFormModal({
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
-                  <span className={labelClass}>
-                    Sức chứa <span className="text-error">*</span>
-                  </span>
+                  <span className={labelClass}>Suc chua</span>
                   <input
                     type="number"
                     min={1}
-                    max={50}
-                    step={1}
+                    max={100}
                     value={form.capacity}
-                    onChange={(event) => set({ capacity: parseInt(event.target.value, 10) || 0 })}
+                    onChange={(event) => set({ capacity: Number(event.target.value) })}
                     className={inputClass}
                   />
+                  <p className="mt-1 text-[11px] text-on-surface-variant">Luu truc tiep vao truong max_people cua phong.</p>
                   {errors.capacity && <p className="mt-1 text-xs text-error">{errors.capacity}</p>}
                 </label>
 
                 <label className="block">
-                  <span className={labelClass}>
-                    Giá/giờ (VND) <span className="text-error">*</span>
-                  </span>
-                  <input
-                    type="number"
-                    min={0}
-                    step={1000}
-                    value={form.pricePerHour}
-                    onChange={(event) => set({ pricePerHour: parseFloat(event.target.value) || 0 })}
-                    className={inputClass}
-                  />
-                  {errors.pricePerHour && (
-                    <p className="mt-1 text-xs text-error">{errors.pricePerHour}</p>
-                  )}
+                  <span className={labelClass}>Gia/gio (VND)</span>
+                  <input type="number" value={form.pricePerHour} readOnly disabled className={readonlyClass} />
+                  <p className="mt-1 text-[11px] text-on-surface-variant">Dong bo tu hang phong backend.</p>
                 </label>
               </div>
 
               <label className="block">
-                <span className={labelClass}>Thiết bị trong phòng</span>
+                <span className={labelClass}>Thiet bi trong phong</span>
                 <textarea
                   value={form.equipments}
-                  onChange={(event) => set({ equipments: event.target.value })}
+                  readOnly
+                  disabled
                   rows={4}
-                  className="w-full rounded-xl border border-outline bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface outline-none transition-all focus:border-brand-orange focus:bg-white focus:ring-2 focus:ring-brand-orange/15"
-                  placeholder="Nhập mỗi thiết bị một dòng hoặc cách nhau bằng dấu phẩy"
+                  className="w-full cursor-not-allowed rounded-xl border border-outline bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface opacity-70 outline-none transition-all"
+                  placeholder="Canh nay chua luu qua backend"
                 />
+                <p className="mt-1 text-[11px] text-on-surface-variant">Chi de tham chieu hien thi.</p>
               </label>
 
               <label className="block">
-                <span className={labelClass}>Mô tả</span>
+                <span className={labelClass}>Mo ta</span>
                 <textarea
                   value={form.description}
-                  onChange={(event) => set({ description: event.target.value })}
+                  readOnly
+                  disabled
                   rows={3}
                   maxLength={500}
-                  className="w-full rounded-xl border border-outline bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface outline-none transition-all focus:border-brand-orange focus:bg-white focus:ring-2 focus:ring-brand-orange/15"
-                  placeholder="Mô tả ngắn về phòng tập..."
+                  className="w-full cursor-not-allowed rounded-xl border border-outline bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface opacity-70 outline-none transition-all"
+                  placeholder="Backend chua luu mo ta phong trong flow nay"
                 />
-                <p className="mt-1 text-right text-[10px] text-on-surface-variant">
-                  {form.description.length}/500
-                </p>
+                <p className="mt-1 text-right text-[10px] text-on-surface-variant">{form.description.length}/500</p>
+                <p className="mt-1 text-[11px] text-on-surface-variant">Chi de tham chieu hien thi.</p>
                 {errors.description && <p className="mt-1 text-xs text-error">{errors.description}</p>}
               </label>
 
-              <label className="block">
-                <span className={labelClass}>URL hình ảnh</span>
-                <input
-                  type="text"
-                  value={form.image}
-                  onChange={(event) => set({ image: event.target.value })}
-                  className={inputClass}
-                  placeholder="https://... hoặc /images/..."
-                />
-                {errors.image && <p className="mt-1 text-xs text-error">{errors.image}</p>}
-              </label>
+              <div className="grid gap-4 sm:grid-cols-[180px_1fr]">
+                <div className="overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-low">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={form.image || '/images/band-room-hero.png'}
+                    alt=""
+                    className="h-36 w-full object-cover"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <label className="block">
+                    <span className={labelClass}>Anh phong</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(event) => void handleImageChange(event)}
+                      disabled={isUploadingImage || isSaving}
+                      className="block w-full text-sm text-on-surface-variant file:mr-3 file:rounded-xl file:border-0 file:bg-brand-orange file:px-4 file:py-2.5 file:font-display file:text-sm file:font-medium file:text-white hover:file:bg-brand-orangeHover disabled:opacity-60"
+                    />
+                    <p className="mt-1 text-[11px] text-on-surface-variant">
+                      {isUploadingImage ? 'Dang tai anh len Cloudinary...' : 'Toi da 5MB. Link tra ve se duoc luu cung phong.'}
+                    </p>
+                  </label>
+
+                  <label className="block">
+                    <span className={labelClass}>URL hinh anh</span>
+                    <input
+                      type="text"
+                      value={form.image}
+                      onChange={(event) => set({ image: event.target.value })}
+                      className={inputClass}
+                      placeholder="https://res.cloudinary.com/..."
+                    />
+                  </label>
+                  {errors.image && <p className="text-xs text-error">{errors.image}</p>}
+                </div>
+              </div>
 
               {serverError && (
                 <p className="rounded-xl border border-error/30 bg-error-container/30 px-3 py-2.5 text-xs text-error">
@@ -298,14 +356,14 @@ export default function RoomFormModal({
                 disabled={isSaving}
                 className="rounded-xl border border-outline px-5 py-2.5 font-display text-sm font-medium text-on-surface-variant hover:bg-white disabled:opacity-50"
               >
-                Hủy
+                Huy
               </button>
               <button
                 type="submit"
-                disabled={isSaving}
+                disabled={isSaving || isUploadingImage}
                 className="rounded-xl bg-brand-orange px-5 py-2.5 font-display text-sm font-medium text-white shadow-md shadow-brand-orange/20 hover:bg-brand-orangeHover disabled:opacity-50"
               >
-                {isSaving ? 'Đang lưu...' : 'Lưu phòng'}
+                {isUploadingImage ? 'Dang tai anh...' : isSaving ? 'Dang luu...' : 'Luu phong'}
               </button>
             </footer>
           </form>

@@ -1,9 +1,11 @@
 package backend.room.adapter.out.persistence;
 
+import backend.equipment.adapter.out.persistence.EquipmentRepository;
 import backend.entity.Room;
 import backend.entity.RoomStatus;
 import backend.entity.RoomType;
 import backend.entity.User;
+import backend.repository.BookingRepository;
 import backend.repository.RoomRepository;
 import backend.repository.RoomTypeRepository;
 import backend.repository.UserRepository;
@@ -26,6 +28,8 @@ public class RoomPersistenceAdapter implements
     private final RoomRepository roomRepository;
     private final RoomTypeRepository roomTypeRepository;
     private final UserRepository userRepository;
+    private final BookingRepository bookingRepository;
+    private final EquipmentRepository equipmentRepository;
 
     @Override
     public List<Room> loadRooms(Integer roomTypeId, RoomStatus status) {
@@ -48,8 +52,23 @@ public class RoomPersistenceAdapter implements
     }
 
     @Override
+    public Optional<Room> loadRoomForUpdate(Integer roomId) {
+        return roomRepository.findByIdForUpdate(roomId);
+    }
+
+    @Override
     public boolean existsRoomName(String roomName) {
         return roomRepository.existsByRoomName(roomName);
+    }
+
+    @Override
+    public boolean existsBookingForRoom(Integer roomId) {
+        return bookingRepository.existsByRoom_Id(roomId);
+    }
+
+    @Override
+    public boolean existsEquipmentForRoom(Integer roomId) {
+        return equipmentRepository.existsByRoom_Id(roomId);
     }
 
     @Override
@@ -65,6 +84,11 @@ public class RoomPersistenceAdapter implements
     @Override
     public Room saveRoom(Room room) {
         return roomRepository.save(room);
+    }
+
+    @Override
+    public void deleteRoom(Room room) {
+        roomRepository.delete(room);
     }
 
     @Override

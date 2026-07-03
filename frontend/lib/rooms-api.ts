@@ -1,6 +1,6 @@
 import api from '@/lib/api'
 
-export type BackendRoomStatus = 'TRONG' | 'DANG_DUNG' | 'BAO_TRI'
+export type BackendRoomStatus = 'AVAILABLE' | 'IN_USE' | 'MAINTENANCE'
 
 export type BackendRoomType = {
   id: number
@@ -30,7 +30,22 @@ type ApiResponse<T> = {
 export type CreateBackendRoomPayload = {
   roomName: string
   roomTypeId: number
+  maxPeople: number
+  imageUrl?: string | null
   status?: BackendRoomStatus
+}
+
+export type UpdateBackendRoomPayload = {
+  roomName: string
+  roomTypeId: number
+  maxPeople: number
+  imageUrl?: string | null
+  status: BackendRoomStatus
+}
+
+export type RoomImageUploadResult = {
+  publicId: string
+  secureUrl: string
 }
 
 function readApiData<T>(payload: T | ApiResponse<T>): T {
@@ -71,6 +86,36 @@ export async function fetchRoomTypes() {
 export async function createRoom(payload: CreateBackendRoomPayload) {
   const response = await api.post<ApiResponse<BackendRoom> | BackendRoom>('/api/rooms', payload)
   return readApiData(response.data)
+}
+
+export async function updateRoom(roomId: string | number, payload: UpdateBackendRoomPayload) {
+  const response = await api.put<ApiResponse<BackendRoom> | BackendRoom>(`/api/rooms/${roomId}`, payload)
+  return readApiData(response.data)
+}
+
+export async function uploadRoomImage(file: File) {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const response = await api.post<ApiResponse<RoomImageUploadResult> | RoomImageUploadResult>(
+    '/api/admin/room-images',
+    formData,
+  )
+
+  return readApiData(response.data)
+}
+
+export async function updateRoomOperationalStatus(roomId: string | number, status: BackendRoomStatus) {
+  const response = await api.patch<ApiResponse<BackendRoom> | BackendRoom>(
+    `/api/rooms/${roomId}/status`,
+    null,
+    { params: { status } },
+  )
+  return readApiData(response.data)
+}
+
+export async function deleteRoom(roomId: string | number) {
+  await api.delete(`/api/rooms/${roomId}`)
 }
 
 export function getRoomApiErrorMessage(error: unknown, fallback = 'Không thể kết nối API phòng.') {

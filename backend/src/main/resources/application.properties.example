@@ -28,6 +28,13 @@ server.port=8080
 app.cookie.secure=false
 app.frontend.base-url=${APP_FRONTEND_BASE_URL:http://localhost:3000}
 
+# ===== Cloudinary =====
+# Keep the API secret server-side only. The frontend uploads images through the backend.
+cloudinary.cloud-name=${CLOUDINARY_CLOUD_NAME:your_cloud_name}
+cloudinary.api-key=${CLOUDINARY_API_KEY:your_api_key}
+cloudinary.api-secret=${CLOUDINARY_API_SECRET:your_api_secret}
+cloudinary.folder=${CLOUDINARY_FOLDER:band-room-management/rooms}
+
 # ===== VNPay =====
 # Keep credentials in environment variables for local development and production.
 payment.vnpay.tmn-code=${VNPAY_TMN_CODE:}

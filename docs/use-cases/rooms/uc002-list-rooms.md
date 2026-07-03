@@ -35,6 +35,7 @@ Allow a customer to browse available rooms and narrow the list to rooms that mat
 ## Business Rules
 
 - Only rooms that belong to the active dataset should be shown.
+- Room cards can display persisted `imageUrl` and `maxPeople` values from the backend response.
 - Listing logic should not expose internal persistence details.
 - Filtering rules should stay consistent with room status semantics.
 
@@ -47,6 +48,7 @@ Allow a customer to browse available rooms and narrow the list to rooms that mat
 
 - Current backend supports `roomTypeId` and `status` query parameters.
 - Response is returned as `ApiResponse<List<RoomResponse>>`.
+- Room summary payload includes stored image URL and maximum people capacity when available.
 - There is no backend pagination yet.
 - There is no backend search by room name or address yet.
 

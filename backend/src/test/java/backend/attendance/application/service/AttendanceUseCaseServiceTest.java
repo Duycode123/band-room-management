@@ -3,6 +3,7 @@ package backend.attendance.application.service;
 import backend.attendance.application.model.AttendanceActor;
 import backend.attendance.application.port.in.command.CheckInShiftCommand;
 import backend.attendance.application.port.in.command.CheckOutShiftCommand;
+import backend.attendance.application.port.in.query.GetCurrentShiftAttendanceQuery;
 import backend.attendance.application.port.out.AttendanceActorPort;
 import backend.attendance.application.port.out.AttendanceRecordPort;
 import backend.attendance.application.port.out.StaffShiftPort;
@@ -28,6 +29,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -68,6 +70,7 @@ class AttendanceUseCaseServiceTest {
                 .thenReturn(Optional.of(new AttendanceActor(7, 3, Role.STAFF)));
         when(staffShiftPort.loadCurrentShift(3, NOW)).thenReturn(Optional.of(currentShift()));
         when(attendanceRecordPort.existsWorkingAttendance(3, 12)).thenReturn(false);
+        when(attendanceRecordPort.existsAttendanceForShift(3, 12)).thenReturn(false);
         when(attendanceRecordPort.save(any(AttendanceRecord.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         AttendanceRecord attendanceRecord = attendanceUseCaseService.checkIn(
@@ -90,6 +93,21 @@ class AttendanceUseCaseServiceTest {
                 .thenReturn(Optional.of(new AttendanceActor(7, 3, Role.STAFF)));
         when(staffShiftPort.loadCurrentShift(3, NOW)).thenReturn(Optional.of(currentShift()));
         when(attendanceRecordPort.existsWorkingAttendance(3, 12)).thenReturn(true);
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> attendanceUseCaseService.checkIn(new CheckInShiftCommand("staff@example.com"))
+        );
+        verify(attendanceRecordPort, never()).save(any());
+    }
+
+    @Test
+    void checkInRejectsShiftThatAlreadyHasCompletedAttendance() {
+        when(attendanceActorPort.loadActorByEmail("staff@example.com"))
+                .thenReturn(Optional.of(new AttendanceActor(7, 3, Role.STAFF)));
+        when(staffShiftPort.loadCurrentShift(3, NOW)).thenReturn(Optional.of(currentShift()));
+        when(attendanceRecordPort.existsWorkingAttendance(3, 12)).thenReturn(false);
+        when(attendanceRecordPort.existsAttendanceForShift(3, 12)).thenReturn(true);
 
         assertThrows(
                 IllegalStateException.class,
@@ -122,6 +140,29 @@ class AttendanceUseCaseServiceTest {
         assertEquals(NOW, attendanceRecord.checkOutTime());
         assertEquals(new BigDecimal("1.50"), attendanceRecord.workDurationHours());
         assertEquals(AttendanceStatus.DONE, attendanceRecord.status());
+    }
+
+    @Test
+    void getCurrentAttendanceReturnsLatestRecordForCurrentShift() {
+        AttendanceRecord attendanceRecord = AttendanceRecord.builder()
+                .id(UUID.randomUUID())
+                .staffId(3)
+                .shiftId(12)
+                .checkInTime(NOW.minusMinutes(30))
+                .status(AttendanceStatus.WORKING)
+                .build();
+
+        when(attendanceActorPort.loadActorByEmail("staff@example.com"))
+                .thenReturn(Optional.of(new AttendanceActor(7, 3, Role.STAFF)));
+        when(staffShiftPort.loadCurrentShift(3, NOW)).thenReturn(Optional.of(currentShift()));
+        when(attendanceRecordPort.loadLatestAttendanceForShift(3, 12)).thenReturn(Optional.of(attendanceRecord));
+
+        Optional<AttendanceRecord> result = attendanceUseCaseService.getCurrentAttendance(
+                new GetCurrentShiftAttendanceQuery("staff@example.com")
+        );
+
+        assertTrue(result.isPresent());
+        assertEquals(attendanceRecord, result.get());
     }
 
     @Test

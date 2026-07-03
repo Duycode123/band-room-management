@@ -30,7 +30,7 @@ public class Room {
     @Transient
     private Integer floor;
 
-    @Transient
+    @Column(name = "max_people", nullable = false)
     private Integer maxPeople;
 
     @Enumerated(EnumType.STRING)
@@ -41,7 +41,7 @@ public class Room {
     @Transient
     private String description;
 
-    @Transient
+    @Column(name = "image_url", length = 500)
     private String imageUrl;
 
     @Transient

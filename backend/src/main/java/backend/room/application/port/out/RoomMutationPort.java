@@ -4,4 +4,6 @@ import backend.entity.Room;
 
 public interface RoomMutationPort {
     Room saveRoom(Room room);
+
+    void deleteRoom(Room room);
 }
