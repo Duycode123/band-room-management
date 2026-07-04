@@ -4,7 +4,6 @@ import Image from 'next/image'
 import { useEffect, useMemo, useState } from 'react'
 import BookingQuickModal from '@/components/booking/BookingQuickModal'
 import { formatCurrency } from '@/components/booking/booking-data'
-import BookingQuickModal from '@/components/booking/BookingQuickModal'
 import {
   readQuickBookingDraft,
   shouldReopenQuickBooking,
@@ -332,17 +331,10 @@ function RoomCard({ room, onBook }: { room: Room; onBook: (room: Room) => void }
         </div>
 
         <div className="mt-6 flex items-center justify-between border-t border-outline-variant pt-5">
-          <p className="text-sm text-on-surface-variant">{room.nextAvailableSlot ?? 'Chọn ngày phù hợp'}</p>
-          <button
-            type="button"
-            onClick={() => onBook(room)}
-            className={isFull ? 'btn-secondary' : 'btn-warm'}
-          >
-            {isFull ? 'Chọn ngày khác' : 'Đặt ngay'}
           <p className="text-sm text-on-surface-variant">{bookingHint}</p>
           <button
             type="button"
-            onClick={onBook}
+            onClick={() => onBook(room)}
             className={canBookNow ? 'btn-warm' : 'btn-secondary'}
           >
             {canBookNow ? 'Đặt phòng' : 'Chọn ngày khác'}

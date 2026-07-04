@@ -17,15 +17,44 @@ export type UpdateStaffProfilePayload = {
   phone: string
 }
 
+export type StaffNotificationSettings = {
+  newBooking: boolean
+  bookingReminder: boolean
+  shiftReminder: boolean
+  roomIssue: boolean
+  equipmentIssue: boolean
+}
+
 export type ChangeStaffPasswordPayload = {
   currentPassword: string
   newPassword: string
   confirmPassword: string
 }
 
+export type StaffUiPreferences = {
+  displayDensity: 'comfortable' | 'compact'
+  preferredView: 'card' | 'table'
+  reduceMotion: boolean
+}
+
 type ApiErrorResponse = {
   message?: string
   data?: unknown
+}
+
+const UI_PREFERENCES_KEY = 'staff-ui-preferences'
+const defaultNotificationSettings: StaffNotificationSettings = {
+  newBooking: true,
+  bookingReminder: true,
+  shiftReminder: true,
+  roomIssue: true,
+  equipmentIssue: true,
+}
+
+export const defaultStaffUiPreferences: StaffUiPreferences = {
+  displayDensity: 'comfortable',
+  preferredView: 'card',
+  reduceMotion: false,
 }
 
 function containsRawServerError(message: string) {
@@ -131,4 +160,37 @@ export async function changePassword(payload: ChangeStaffPasswordPayload) {
 
 export async function logout() {
   await logoutSession()
+}
+
+export function loadUiPreferences(): StaffUiPreferences {
+  if (typeof window === 'undefined') return defaultStaffUiPreferences
+
+  try {
+    const rawPreferences = window.localStorage.getItem(UI_PREFERENCES_KEY)
+    if (!rawPreferences) return defaultStaffUiPreferences
+
+    const preferences = JSON.parse(rawPreferences) as Partial<StaffUiPreferences>
+    return {
+      displayDensity: preferences.displayDensity === 'compact' ? 'compact' : 'comfortable',
+      preferredView: preferences.preferredView === 'table' ? 'table' : 'card',
+      reduceMotion: Boolean(preferences.reduceMotion),
+    }
+  } catch {
+    return defaultStaffUiPreferences
+  }
+}
+
+export function saveUiPreferences(preferences: StaffUiPreferences) {
+  if (typeof window === 'undefined') return
+
+  // TODO: Move staff UI preferences to a backend user-preferences API when that module exists.
+  window.localStorage.setItem(UI_PREFERENCES_KEY, JSON.stringify(preferences))
+  applyUiPreferences(preferences)
+}
+
+export function applyUiPreferences(preferences: StaffUiPreferences) {
+  if (typeof document === 'undefined') return
+
+  document.documentElement.classList.toggle('staff-density-compact', preferences.displayDensity === 'compact')
+  document.documentElement.classList.toggle('staff-reduced-motion', preferences.reduceMotion)
 }
