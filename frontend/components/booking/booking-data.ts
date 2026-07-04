@@ -159,7 +159,7 @@ export function mapPracticeRoomToBookingRoom(
       ? 'AVAILABLE'
       : 'FULL_TODAY'
   const nextAvailableSlot = availabilitySummary?.nextAvailableTime
-    ? `Hom nay, ${availabilitySummary.nextAvailableTime}`
+    ? `Hôm nay, ${availabilitySummary.nextAvailableTime}`
     : undefined
   const remainingSlots = availabilitySummary?.isAvailable ? 3 : 0
 

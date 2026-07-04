@@ -2,6 +2,7 @@
 
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
+import HomepageModalShell, { ModalCloseButton } from '@/components/booking/HomepageModalShell'
 import {
   formatCurrency,
   formatRelativeTime,
@@ -111,19 +112,6 @@ export default function RoomDetailModal({ room, open, onClose, onBook }: RoomDet
   const [isLoadingReviews, setIsLoadingReviews] = useState(false)
 
   useEffect(() => {
-    if (!open) return
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose()
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onClose, open])
-
-  useEffect(() => {
     if (!open || !room) return
 
     let active = true
@@ -165,17 +153,14 @@ export default function RoomDetailModal({ room, open, onClose, onBook }: RoomDet
   ]
 
   return (
-    <div
-      className="fixed inset-0 z-[78] flex items-center justify-center bg-black/55 px-4 py-6"
-      onClick={onClose}
-      aria-modal="true"
-      role="dialog"
-      aria-labelledby="room-detail-title"
+    <HomepageModalShell
+      open={open}
+      onClose={onClose}
+      labelledBy="room-detail-title"
+      closeLabel="Đóng chi tiết phòng"
+      maxWidthClassName="max-w-[1040px]"
+      bodyClassName="bg-[#F5F2EC] p-0"
     >
-      <div
-        className="max-h-[calc(100vh-48px)] w-full max-w-[880px] overflow-y-auto rounded-[24px] border border-[#E8E4DC] bg-[#F5F2EC] shadow-[0_24px_80px_rgba(26,28,30,0.28)]"
-        onClick={(event) => event.stopPropagation()}
-      >
         <div className="relative aspect-[16/9] min-h-[220px] overflow-hidden rounded-t-[24px] bg-[#042A16] sm:aspect-[21/9]">
           {room.image ? (
             <Image
@@ -194,14 +179,11 @@ export default function RoomDetailModal({ room, open, onClose, onBook }: RoomDet
             </div>
           )}
           <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(4,42,22,0.86),rgba(4,42,22,0.2)_55%,rgba(4,42,22,0.1))]" />
-          <button
-            type="button"
+          <ModalCloseButton
             onClick={onClose}
-            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/95 text-xl leading-none text-[#1A1C1E] shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition hover:bg-[#FFE8D6]"
-            aria-label="Đóng chi tiết phòng"
-          >
-            X
-          </button>
+            className="absolute right-4 top-4 rounded-full border-white/20 bg-white/95 text-[#1A1C1E] shadow-[0_12px_30px_rgba(0,0,0,0.18)] hover:bg-[#FFE8D6]"
+            label="Đóng chi tiết phòng"
+          />
           <div className="absolute inset-x-0 bottom-0 p-5 sm:p-7">
             <div className="mb-3 flex flex-wrap gap-2">
               <span className="rounded-full bg-[#FFE8D6] px-3 py-1 font-display text-xs font-bold uppercase text-[#042A16]">
@@ -348,7 +330,6 @@ export default function RoomDetailModal({ room, open, onClose, onBook }: RoomDet
             </div>
           </aside>
         </div>
-      </div>
-    </div>
+    </HomepageModalShell>
   )
 }

@@ -19,6 +19,10 @@ import {
   pendingBookingToSearchParams,
 } from '@/lib/pending-booking'
 import {
+  getQuickBookingRestoreHref,
+  readQuickBookingDraft,
+} from '@/components/booking/quick-booking-draft'
+import {
   createPaymentSession,
   type PaymentMethod,
   type PaymentOption,
@@ -37,6 +41,13 @@ export default function CheckoutPageClient() {
   const [paymentOption, setPaymentOption] = useState<PaymentOption>(getInitialPaymentOption(searchParams.get('paymentOption')))
   const [isPaying, setIsPaying] = useState(false)
   const [paymentError, setPaymentError] = useState('')
+  const [missingCheckoutReturnHref, setMissingCheckoutReturnHref] = useState('/')
+
+  useEffect(() => {
+    const draft = readQuickBookingDraft()
+
+    setMissingCheckoutReturnHref(draft ? getQuickBookingRestoreHref(draft.sourceRoute) : '/')
+  }, [])
 
   useEffect(() => {
     let mounted = true

@@ -4,6 +4,11 @@ import Image from 'next/image'
 import { useEffect, useMemo, useState } from 'react'
 import BookingQuickModal from '@/components/booking/BookingQuickModal'
 import { formatCurrency } from '@/components/booking/booking-data'
+import BookingQuickModal from '@/components/booking/BookingQuickModal'
+import {
+  readQuickBookingDraft,
+  shouldReopenQuickBooking,
+} from '@/components/booking/quick-booking-draft'
 import BandRoomFooter from '@/components/layout/BandRoomFooter'
 import BandRoomHeader from '@/components/layout/BandRoomHeader'
 import { fetchPublicBookingRoomCatalog } from '@/lib/booking-room-service'
@@ -48,12 +53,23 @@ const defaultFilters: RoomFilters = {
   price: 'all',
 }
 
+const roomsQuickBookingReturnPath = '/rooms?reopenQuickBooking=1'
+
+type QuickBookingState = {
+  room: Room
+  initialDate?: string
+  initialStartTime?: string
+  initialDuration?: number
+  initialNote?: string
+}
+
 export default function RoomsPublicPage() {
   const [filters, setFilters] = useState<RoomFilters>(defaultFilters)
   const [rooms, setRooms] = useState<Room[]>([])
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [catalogSource, setCatalogSource] = useState<'backend' | 'fallback'>('backend')
+  const [quickBooking, setQuickBooking] = useState<QuickBookingState | null>(null)
   const filteredRooms = useMemo(() => filterRooms(rooms, filters), [rooms, filters])
 
   useEffect(() => {
@@ -74,6 +90,35 @@ export default function RoomsPublicPage() {
       isMounted = false
     }
   }, [])
+
+  useEffect(() => {
+    if (!shouldReopenQuickBooking(window.location.search)) return
+
+    const draft = readQuickBookingDraft()
+    if (!draft) {
+      window.history.replaceState(window.history.state, '', '/rooms')
+      return
+    }
+
+    try {
+      const draftRoom = draft.selectedRoom ?? draft.room
+      const restoredRoom = rooms.find((room) => room.id === draftRoom?.id) ?? draftRoom
+
+      if (restoredRoom) {
+        setQuickBooking({
+          room: restoredRoom,
+          initialDate: draft.selectedDate ?? draft.initialDate,
+          initialStartTime: draft.selectedStartTime ?? draft.initialStartTime,
+          initialDuration: draft.selectedDuration ?? draft.initialDuration,
+          initialNote: draft.customerNote ?? draft.initialNote,
+        })
+      }
+    } catch {
+      window.sessionStorage.removeItem('bandroom.homepage.quickBookingDraft')
+    } finally {
+      window.history.replaceState(window.history.state, '', '/rooms')
+    }
+  }, [rooms])
 
   const updateFilter = <Key extends keyof RoomFilters>(key: Key, value: RoomFilters[Key]) => {
     setFilters((current) => ({ ...current, [key]: value }))
@@ -220,10 +265,17 @@ export default function RoomsPublicPage() {
 function RoomCard({ room, onBook }: { room: Room; onBook: (room: Room) => void }) {
   const availabilityStatus = room.availabilityStatus ?? 'AVAILABLE'
   const imageSrc = room.image ?? '/images/band-room-hero.png'
-  const isFull = availabilityStatus === 'FULL_TODAY'
+  const canBookNow = availabilityStatus !== 'FULL_TODAY'
+  const bookingBadge = canBookNow ? 'Có thể đặt ngay' : 'Chọn ngày khác'
+  const bookingHint = canBookNow ? room.nextAvailableSlot ?? 'Có khung giờ phù hợp' : 'Không có khung giờ hiện tại'
 
   return (
-    <article className="group overflow-hidden rounded-3xl border border-outline-variant bg-white shadow-[var(--shadow-card)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_48px_rgba(26,28,30,0.12)]">
+    <article
+      className={[
+        'group overflow-hidden rounded-3xl border bg-white shadow-[var(--shadow-card)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_48px_rgba(26,28,30,0.12)]',
+        canBookNow ? 'border-[#FF7518]/25' : 'border-outline-variant bg-surface-container-low opacity-75',
+      ].join(' ')}
+    >
       <div className="relative aspect-[16/10] overflow-hidden bg-surface-container">
         <Image
           src={imageSrc}
@@ -240,6 +292,16 @@ function RoomCard({ room, onBook }: { room: Room; onBook: (room: Room) => void }
           ].join(' ')}
         >
           {getAvailabilityLabel(availabilityStatus)}
+        </span>
+        <span
+          className={[
+            'absolute bottom-4 left-4 rounded-full border px-3 py-1 font-display text-xs font-bold',
+            canBookNow
+              ? 'border-[#FF7518]/40 bg-[#FFE8D6] text-[#6B3200]'
+              : 'border-white/20 bg-white/90 text-on-surface-variant',
+          ].join(' ')}
+        >
+          {bookingBadge}
         </span>
         {typeof room.rating === 'number' && (
           <span className="absolute right-4 top-4 rounded-full bg-white/95 px-3 py-1 font-display text-xs font-bold text-on-surface">
@@ -277,6 +339,13 @@ function RoomCard({ room, onBook }: { room: Room; onBook: (room: Room) => void }
             className={isFull ? 'btn-secondary' : 'btn-warm'}
           >
             {isFull ? 'Chọn ngày khác' : 'Đặt ngay'}
+          <p className="text-sm text-on-surface-variant">{bookingHint}</p>
+          <button
+            type="button"
+            onClick={onBook}
+            className={canBookNow ? 'btn-warm' : 'btn-secondary'}
+          >
+            {canBookNow ? 'Đặt phòng' : 'Chọn ngày khác'}
           </button>
         </div>
       </div>

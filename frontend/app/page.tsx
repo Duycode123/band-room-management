@@ -3,9 +3,13 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import BookingRoomCard from '@/components/booking/BookingRoomCard'
 import BookingQuickModal from '@/components/booking/BookingQuickModal'
+import {
+  readQuickBookingDraft,
+  shouldReopenQuickBooking,
+} from '@/components/booking/quick-booking-draft'
 import RoomDetailModal from '@/components/booking/RoomDetailModal'
 import AccountMenu from '@/components/layout/AccountMenu'
 import {
@@ -162,6 +166,7 @@ type QuickBookingState = {
   initialDate?: string
   initialStartTime?: string
   initialDuration?: number
+  initialNote?: string
 }
 
 function getRoomTierFilterId(room: BookingRoom) {
@@ -232,6 +237,7 @@ function getAvailabilityDotClassName(tone: AvailabilityTone) {
 
 export default function HomePage() {
   const router = useRouter()
+  const hasRestoredQuickBookingRef = useRef(false)
   const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth()
   const {
     availabilityStatus,
@@ -322,6 +328,40 @@ export default function HomePage() {
 
     setActiveRoomFilter('all')
   }, [activeRoomFilter, roomTierFilters])
+
+  useEffect(() => {
+    if (hasRestoredQuickBookingRef.current) return
+
+    if (!shouldReopenQuickBooking(window.location.search)) return
+
+    hasRestoredQuickBookingRef.current = true
+
+    const draft = readQuickBookingDraft()
+    if (!draft) {
+      window.history.replaceState(window.history.state, '', '/')
+      return
+    }
+
+    try {
+      const draftRoom = draft.selectedRoom ?? draft.room
+      const restoredRoom = rooms.find((room) => room.id === draftRoom?.id) ?? draftRoom
+
+      if (restoredRoom) {
+        setQuickBooking({
+          room: restoredRoom,
+          initialDate: draft.selectedDate ?? draft.initialDate,
+          initialStartTime: draft.selectedStartTime ?? draft.initialStartTime,
+          initialDuration: draft.selectedDuration ?? draft.initialDuration,
+          initialNote: draft.customerNote ?? draft.initialNote,
+        })
+      }
+    } catch {
+      window.sessionStorage.removeItem('bandroom.homepage.quickBookingDraft')
+    } finally {
+      window.history.replaceState(window.history.state, '', '/')
+    }
+  }, [rooms])
+
   const roomCatalogStats = [
     [String(roomCategories.filter((category) => rooms.some((room) => room.category === category.id)).length), 'Hạng phòng'],
     [String(rooms.length), 'Phòng tập'],
@@ -924,6 +964,8 @@ export default function HomePage() {
           initialDate={quickBooking.initialDate}
           initialStartTime={quickBooking.initialStartTime}
           initialDuration={quickBooking.initialDuration}
+          initialNote={quickBooking.initialNote}
+          sourceRoute="/"
           onClose={() => setQuickBooking(null)}
         />
       )}

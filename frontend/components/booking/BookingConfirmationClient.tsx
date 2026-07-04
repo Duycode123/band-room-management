@@ -22,6 +22,11 @@ import {
   type PaymentMethod,
   type PaymentMethodId,
 } from '@/components/booking/booking-data'
+import {
+  getQuickBookingRestoreHref,
+  readQuickBookingDraft,
+  saveQuickBookingDraft,
+} from '@/components/booking/quick-booking-draft'
 import { useAuth } from '@/contexts/AuthContext'
 import { resolveBookingRoom } from '@/lib/booking-room-service'
 import { createBooking, mapPaymentMethodToBackend } from '@/lib/booking/bookingApi'
@@ -132,6 +137,34 @@ export default function BookingConfirmationClient() {
         note,
         method: paymentMethod,
       })
+
+      if (isHomepageQuickBooking) {
+        const draft = readQuickBookingDraft()
+        const sourceRoute = draft?.sourceRoute ?? (quickBookingReturnHref.startsWith('/rooms') ? '/rooms' : '/')
+        const customerNote = note === EMPTY_NOTE_TEXT ? '' : note
+
+        saveQuickBookingDraft({
+          sourceRoute,
+          selectedRoom: displayRoom,
+          room: displayRoom,
+          selectedDate: date,
+          selectedSlot: {
+            startTime,
+            endTime,
+          },
+          selectedStartTime: startTime,
+          selectedEndTime: endTime,
+          selectedDuration: duration,
+          customerNote,
+          totalPrice: roomSubtotal,
+          timestamp: Date.now(),
+          initialDate: date,
+          initialStartTime: startTime,
+          initialDuration: duration,
+          initialNote: customerNote,
+          returnPath: getQuickBookingRestoreHref(sourceRoute),
+        })
+      }
 
       const params = new URLSearchParams({
         bookingId: booking.bookingCode || String(booking.bookingId),
@@ -263,7 +296,6 @@ export default function BookingConfirmationClient() {
             <div className="my-4 h-px bg-[#E8E4DC]" />
 
             <PaymentRow label="Tiền phòng" value={formatCurrency(roomSubtotal)} />
-            <PaymentRow label="Dịch vụ thuê thêm" value="Chưa áp dụng" />
 
             <div className="my-5 rounded-2xl bg-[#FAF8F4] p-4">
               <div className="flex items-center justify-between gap-4">
@@ -307,10 +339,10 @@ export default function BookingConfirmationClient() {
             </button>
 
             <Link
-              href={selectionHref}
+              href={quickBookingReturnHref}
               className="mt-3 flex h-12 w-full items-center justify-center rounded-2xl border border-[#C9C2B6] bg-transparent font-display font-semibold text-[#1A1C1E] transition hover:bg-[#FAF8F4]"
             >
-              Quay lại chọn phòng
+              {isHomepageQuickBooking ? 'Quay lại đặt phòng' : 'Quay lại chọn phòng'}
             </Link>
           </aside>
         </div>
@@ -452,7 +484,7 @@ function getApiBookingRoom(searchParams: { get(name: string): string | null }): 
     badge: undefined,
     rating: undefined,
     reviews: undefined,
-    capacity: formatCapacityLabel(searchParams.get('roomCapacity'), 'Chua ro suc chua'),
+    capacity: formatCapacityLabel(searchParams.get('roomCapacity'), 'Chưa rõ sức chứa'),
     location: searchParams.get('roomLocation')?.trim() || 'Band Room Studio',
     image: safeImage,
     imageClassName: 'object-center',
