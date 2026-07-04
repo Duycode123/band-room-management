@@ -22,6 +22,7 @@ public class AdminReviewController {
     @GetMapping
     public ResponseEntity<ApiResponse<PagedResponse<ReviewResponse>>> getReviews(
             @RequestParam(required = false) Integer roomId,
+            @RequestParam(required = false) Integer staffId,
             @RequestParam(required = false) Boolean approved,
             @RequestParam(required = false) Integer rating,
             @RequestParam(required = false) String keyword,
@@ -30,6 +31,7 @@ public class AdminReviewController {
     ) {
         PagedResponse<ReviewResponse> data = reviewService.getReviewsForAdmin(
                 roomId,
+                staffId,
                 approved,
                 rating,
                 keyword,

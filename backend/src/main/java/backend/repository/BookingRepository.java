@@ -21,6 +21,8 @@ public interface BookingRepository extends JpaRepository<Booking, Integer>, JpaS
 
     boolean existsByRoom_Id(Integer roomId);
 
+    boolean existsByDiscountCode_Id(Integer discountCodeId);
+
     Optional<Booking> findByIdAndCustomer_Account_Email(Integer bookingId, String email);
 
     List<Booking> findTop10ByStatusNotOrderByCreatedAtDesc(BookingStatus status);

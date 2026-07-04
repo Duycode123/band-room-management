@@ -60,5 +60,4 @@ Allow the system to validate a coupon code and calculate the discount before a c
 
 ## Known gaps
 
-- Coupon create/update/delete APIs for admin management are not implemented in this use case.
 - Usage limit, per-user limit, and active/inactive status are not implemented yet.
