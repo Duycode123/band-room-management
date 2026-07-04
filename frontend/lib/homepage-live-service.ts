@@ -88,7 +88,7 @@ function createAvailabilityStatus(availableCount: number, hours: StudioBusinessH
   if (!isStudioOpenNow(hours.openTime, hours.closeTime, now)) {
     return {
       status: 'CLOSED',
-      label: `Da dong cua · Mo lai luc ${hours.openTime} ngay mai`,
+      label: `Đã đóng cửa · Mở lại lúc ${hours.openTime} ngày mai`,
       count: availableCount,
       tone: 'muted',
     }
@@ -97,7 +97,7 @@ function createAvailabilityStatus(availableCount: number, hours: StudioBusinessH
   if (minutesUntilClose <= 60) {
     return {
       status: 'CLOSING_SOON',
-      label: `Sap dong cua · Con ${minutesUntilClose} phut nhan lich hom nay`,
+      label: `Sắp đóng cửa · Còn ${minutesUntilClose} phút nhận lịch hôm nay`,
       count: availableCount,
       tone: 'warning',
     }
@@ -106,7 +106,7 @@ function createAvailabilityStatus(availableCount: number, hours: StudioBusinessH
   if (availableCount === 0) {
     return {
       status: 'FULLY_BOOKED',
-      label: 'Dang mo · Hom nay da kin lich',
+      label: 'Đang mở · Hôm nay đã kín lịch',
       count: 0,
       tone: 'warning',
     }
@@ -115,7 +115,7 @@ function createAvailabilityStatus(availableCount: number, hours: StudioBusinessH
   if (availableCount <= 2) {
     return {
       status: 'LOW_AVAILABILITY',
-      label: `Dang mo · Chi con ${availableCount} phong trong hom nay`,
+      label: `Đang mở · Chỉ còn ${availableCount} phòng trống hôm nay`,
       count: availableCount,
       tone: 'warning',
     }
@@ -123,7 +123,7 @@ function createAvailabilityStatus(availableCount: number, hours: StudioBusinessH
 
   return {
     status: 'OPEN',
-    label: `Dang mo · ${availableCount} phong con trong hom nay`,
+    label: `Đang mở · ${availableCount} phòng còn trống hôm nay`,
     count: availableCount,
     tone: 'success',
   }
@@ -132,7 +132,7 @@ function createAvailabilityStatus(availableCount: number, hours: StudioBusinessH
 export function maskCustomerName(customerName: string) {
   const normalizedName = customerName.trim()
 
-  if (!normalizedName) return 'Mot khach hang'
+  if (!normalizedName) return 'Một khách hàng'
   if (normalizedName.toLowerCase().startsWith('the ')) return normalizedName
 
   const parts = normalizedName.split(/\s+/)
@@ -145,17 +145,17 @@ export function formatRelativeTime(createdAt: string, now = new Date()) {
   const createdDate = new Date(createdAt)
   const diffInMinutes = Math.max(0, Math.round((now.getTime() - createdDate.getTime()) / 60000))
 
-  if (diffInMinutes < 1) return 'vua xong'
-  if (diffInMinutes < 60) return `${diffInMinutes} phut truoc`
+  if (diffInMinutes < 1) return 'vừa xong'
+  if (diffInMinutes < 60) return `${diffInMinutes} phút trước`
 
   const diffInHours = Math.round(diffInMinutes / 60)
-  return `${diffInHours} gio truoc`
+  return `${diffInHours} giờ trước`
 }
 
 export function getActivityActionLabel(action: RecentActivity['action']) {
-  if (action === 'PAID') return 'da thanh toan'
-  if (action === 'CHECKED_IN') return 'da check-in'
-  return 'da dat'
+  if (action === 'PAID') return 'đã thanh toán'
+  if (action === 'CHECKED_IN') return 'đã check-in'
+  return 'đã đặt'
 }
 
 export function getRecentActivities(activities: RecentActivity[]) {
@@ -166,8 +166,8 @@ export function getRecentActivities(activities: RecentActivity[]) {
 }
 
 export function formatSlotDateLabel(date: string, now = new Date()) {
-  if (date === getTodayKey(now)) return 'Hom nay'
-  if (date === getTomorrowKey(now)) return 'Ngay mai'
+  if (date === getTodayKey(now)) return 'Hôm nay'
+  if (date === getTomorrowKey(now)) return 'Ngày mai'
 
   return new Intl.DateTimeFormat('vi-VN', {
     day: '2-digit',
@@ -178,7 +178,7 @@ export function formatSlotDateLabel(date: string, now = new Date()) {
 export function getFallbackAvailabilityStatus() {
   return {
     status: 'CLOSED',
-    label: 'Dang cap nhat lich phong tu backend...',
+    label: 'Đang cập nhật lịch phòng từ backend...',
     count: 0,
     tone: 'muted',
   } satisfies AvailabilityStatus

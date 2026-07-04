@@ -16,7 +16,6 @@ export default function CheckoutSummary({
     <div className="rounded-2xl bg-[#FAF8F4] p-3.5">
       <div className="space-y-1">
         <PaymentRow label="Tiền phòng" value={formatCurrency(summary.roomPrice)} />
-        <PaymentRow label="Dịch vụ thuê thêm" value={formatCurrency(summary.addonsTotal)} />
         {appliedDiscount && (
           <PaymentRow
             label={`Mã giảm giá (${appliedDiscount.code})`}

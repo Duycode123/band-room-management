@@ -1,0 +1,63 @@
+import type { BookingRoom } from '@/components/booking/booking-data'
+
+export const QUICK_BOOKING_DRAFT_KEY = 'bandroom.homepage.quickBookingDraft'
+export const QUICK_BOOKING_REOPEN_PARAM = 'reopenQuickBooking'
+export const LEGACY_QUICK_BOOKING_RESTORE_PARAM = 'quickBooking'
+export const LEGACY_QUICK_BOOKING_RESTORE_VALUE = 'restore'
+
+export type QuickBookingSourceRoute = '/' | '/rooms'
+
+export type QuickBookingDraft = {
+  sourceRoute: QuickBookingSourceRoute
+  selectedRoom: BookingRoom
+  room?: BookingRoom
+  selectedDate?: string
+  selectedSlot?: {
+    startTime: string
+    endTime: string
+  }
+  selectedStartTime?: string
+  selectedEndTime?: string
+  selectedDuration?: number
+  customerNote?: string
+  totalPrice?: number
+  currentStep?: string
+  timestamp: number
+  initialDate?: string
+  initialStartTime?: string
+  initialDuration?: number
+  initialNote?: string
+  returnPath?: string
+}
+
+export function getQuickBookingRestoreHref(sourceRoute: QuickBookingSourceRoute = '/') {
+  return `${sourceRoute}?${QUICK_BOOKING_REOPEN_PARAM}=1`
+}
+
+export function saveQuickBookingDraft(draft: QuickBookingDraft) {
+  window.sessionStorage.setItem(QUICK_BOOKING_DRAFT_KEY, JSON.stringify(draft))
+}
+
+export function readQuickBookingDraft(): QuickBookingDraft | null {
+  const rawDraft = window.sessionStorage.getItem(QUICK_BOOKING_DRAFT_KEY)
+  if (!rawDraft) return null
+
+  try {
+    const draft = JSON.parse(rawDraft) as QuickBookingDraft
+    if (!draft.selectedRoom && !draft.room) return null
+
+    return draft
+  } catch {
+    window.sessionStorage.removeItem(QUICK_BOOKING_DRAFT_KEY)
+    return null
+  }
+}
+
+export function shouldReopenQuickBooking(search: string) {
+  const searchParams = new URLSearchParams(search)
+
+  return (
+    searchParams.get(QUICK_BOOKING_REOPEN_PARAM) === '1' ||
+    searchParams.get(LEGACY_QUICK_BOOKING_RESTORE_PARAM) === LEGACY_QUICK_BOOKING_RESTORE_VALUE
+  )
+}

@@ -19,6 +19,10 @@ import {
   pendingBookingToSearchParams,
 } from '@/lib/pending-booking'
 import {
+  getQuickBookingRestoreHref,
+  readQuickBookingDraft,
+} from '@/components/booking/quick-booking-draft'
+import {
   createPaymentSession,
   type PaymentMethod,
   type PaymentOption,
@@ -37,6 +41,13 @@ export default function CheckoutPageClient() {
   const [paymentOption, setPaymentOption] = useState<PaymentOption>(getInitialPaymentOption(searchParams.get('paymentOption')))
   const [isPaying, setIsPaying] = useState(false)
   const [paymentError, setPaymentError] = useState('')
+  const [missingCheckoutReturnHref, setMissingCheckoutReturnHref] = useState('/')
+
+  useEffect(() => {
+    const draft = readQuickBookingDraft()
+
+    setMissingCheckoutReturnHref(draft ? getQuickBookingRestoreHref(draft.sourceRoute) : '/')
+  }, [])
 
   useEffect(() => {
     let mounted = true
@@ -187,7 +198,7 @@ export default function CheckoutPageClient() {
             <h2 className="font-display text-xl font-bold text-[#C62828]">Không thể mở checkout</h2>
             <p className="mt-2 text-[#5C5348]">{error}</p>
             <Link
-              href="/customer/booking"
+              href={missingCheckoutReturnHref}
               className="mt-5 inline-flex h-12 items-center justify-center rounded-2xl bg-[#FF7518] px-6 font-display font-semibold text-white transition hover:bg-[#E6640F]"
             >
               Quay lại chọn phòng

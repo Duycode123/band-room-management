@@ -4,6 +4,13 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import BookingSchedulePicker from '@/components/booking/BookingSchedulePicker'
+import HomepageModalShell from '@/components/booking/HomepageModalShell'
+import {
+  getQuickBookingRestoreHref,
+  saveQuickBookingDraft,
+  type QuickBookingSourceRoute,
+} from '@/components/booking/quick-booking-draft'
+import { useAuth } from '@/contexts/AuthContext'
 import {
   DEFAULT_DURATION,
   formatCurrency,
@@ -21,6 +28,9 @@ type BookingQuickModalProps = {
   initialDate?: string
   initialStartTime?: string
   initialDuration?: number
+  initialNote?: string
+  sourceRoute?: QuickBookingSourceRoute
+  returnPath?: string
   onClose: () => void
 }
 
@@ -30,16 +40,20 @@ export default function BookingQuickModal({
   initialDate,
   initialStartTime,
   initialDuration,
+  initialNote,
+  sourceRoute = '/',
+  returnPath,
   onClose,
 }: BookingQuickModalProps) {
   const router = useRouter()
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth()
   const hasInitialTime = Boolean(initialStartTime && initialDuration && initialDuration > 0)
   const [date, setDate] = useState(initialDate || getTodayDateString())
   const [startTime, setStartTime] = useState(hasInitialTime ? initialStartTime || '' : '')
   const [duration, setDuration] = useState(hasInitialTime ? normalizeDuration(initialDuration ?? DEFAULT_DURATION) : 0)
   const [endTime, setEndTime] = useState('')
   const [selectedSlots, setSelectedSlots] = useState<string[]>([])
-  const [note, setNote] = useState('')
+  const [note, setNote] = useState(initialNote ?? '')
   const [error, setError] = useState('')
 
   const roomSubtotal = useMemo(() => getRoomSubtotal(room, duration), [room, duration])
@@ -53,9 +67,9 @@ export default function BookingQuickModal({
     setDuration(shouldPrefillTime ? normalizeDuration(initialDuration ?? DEFAULT_DURATION) : 0)
     setEndTime('')
     setSelectedSlots([])
-    setNote('')
+    setNote(initialNote ?? '')
     setError('')
-  }, [initialDate, initialDuration, initialStartTime, open, room.id])
+  }, [initialDate, initialDuration, initialNote, initialStartTime, open, room.id])
 
   if (!open) return null
 
@@ -70,7 +84,12 @@ export default function BookingQuickModal({
 
   const handleContinue = () => {
     if (!date || !startTime || !endTime || duration < 1 || selectedSlots.length === 0) {
-      setError('Vui long chon khung gio dat phong.')
+      setError('Vui lòng chọn khung giờ đặt phòng.')
+      return
+    }
+
+    if (isAuthLoading) {
+      setError('Hệ thống đang kiểm tra phiên đăng nhập. Vui lòng thử lại sau vài giây.')
       return
     }
 
@@ -82,6 +101,7 @@ export default function BookingQuickModal({
       duration: String(duration),
       slots: selectedSlots.join(','),
       note,
+      returnTo: returnPath ?? getQuickBookingRestoreHref(sourceRoute),
     })
 
     if (isApiBackedBookingRoom(room)) {
@@ -100,31 +120,72 @@ export default function BookingQuickModal({
       }
     }
 
+    const restoreHref = returnPath ?? getQuickBookingRestoreHref(sourceRoute)
+
+    saveQuickBookingDraft({
+      sourceRoute,
+      selectedRoom: room,
+      room,
+      selectedDate: date,
+      selectedSlot: {
+        startTime,
+        endTime,
+      },
+      selectedStartTime: startTime,
+      selectedEndTime: endTime,
+      selectedDuration: duration,
+      customerNote: note,
+      totalPrice: roomSubtotal,
+      currentStep: 'booking',
+      timestamp: Date.now(),
+      initialDate: date,
+      initialStartTime: startTime,
+      initialDuration: duration,
+      initialNote: note,
+      returnPath: restoreHref,
+    })
+
+    if (!isAuthenticated) {
+      const loginParams = new URLSearchParams({ returnUrl: restoreHref })
+      router.push(`/login?${loginParams.toString()}`)
+      return
+    }
+
     router.push(`/customer/booking/confirmation?${params.toString()}`)
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 px-4 py-6">
-      <div className="max-h-[90vh] w-full max-w-[620px] overflow-y-auto rounded-[24px] border border-[#E8E4DC] bg-white p-6 shadow-[0_12px_48px_rgba(26,28,30,0.18)]">
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <div>
-            <p className="font-display text-xs font-bold uppercase tracking-[0.18em] text-[#FF7518]">Dat phong</p>
-            <h2 className="mt-1 font-display text-2xl font-bold tracking-tight text-[#1A1C1E]">Xac nhan nhanh</h2>
-            <p className="mt-1 text-sm text-[#5C5348]">
-              Quick booking nay da bo add-on mock va chi giu thong tin ma backend hien dang xu ly duoc.
-            </p>
-          </div>
-
+    <HomepageModalShell
+      open={open}
+      onClose={onClose}
+      labelledBy="quick-booking-title"
+      eyebrow="Đặt phòng"
+      title="Xác nhận nhanh"
+      description="Đặt phòng nhanh này đã bỏ add-on mock và chỉ giữ thông tin mà backend hiện đang xử lý được."
+      maxWidthClassName="max-w-[720px]"
+      bodyClassName="space-y-0 bg-white"
+      closeLabel="Đóng modal"
+      footer={
+        <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
             onClick={onClose}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E8E4DC] text-xl leading-none text-[#5C5348] transition hover:bg-[#FAF8F4]"
-            aria-label="Dong modal"
+            className="h-12 rounded-2xl border border-[#C9C2B6] bg-transparent font-display font-semibold text-[#1A1C1E] transition hover:bg-[#FAF8F4]"
           >
-            X
+            Hủy
+          </button>
+
+          <button
+            type="button"
+            onClick={handleContinue}
+            disabled={duration < 1 || selectedSlots.length === 0}
+            className="h-12 rounded-2xl bg-[#FF7518] font-display font-semibold text-white transition hover:bg-[#E6640F] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Tiếp tục đặt phòng
           </button>
         </div>
-
+      }
+    >
         <div className="grid gap-5 sm:grid-cols-[170px_1fr]">
           {room.image ? (
             <Image
@@ -139,7 +200,7 @@ export default function BookingQuickModal({
             <div className="flex h-[150px] w-full items-center justify-center rounded-2xl bg-[radial-gradient(circle_at_top,#FFE8D6,transparent_55%),linear-gradient(135deg,#F5F2EC,#E8E4DC)] px-4 text-center">
               <div>
                 <p className="font-display text-lg font-bold text-[#6B3200]">{room.name}</p>
-                <p className="mt-2 text-sm text-[#5C5348]">Backend chua cung cap anh phong.</p>
+                <p className="mt-2 text-sm text-[#5C5348]">Backend chưa cung cấp ảnh phòng.</p>
               </div>
             </div>
           )}
@@ -164,7 +225,7 @@ export default function BookingQuickModal({
 
             <p className="mt-4 font-display text-2xl font-bold text-[#1A1C1E]">
               {formatCurrency(room.pricePerHour)}
-              <span className="ml-1 text-sm font-medium text-[#5C5348]">/ gio</span>
+              <span className="ml-1 text-sm font-medium text-[#5C5348]">/ giờ</span>
             </p>
           </div>
         </div>
@@ -188,28 +249,27 @@ export default function BookingQuickModal({
         />
 
         <section className="mt-6 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4 text-sm text-[#5C5348]">
-          Add-on hien khong con duoc de xuat trong quick booking vi backend chua co contract phan nay.
+          Add-on hiện không còn được đề xuất trong quick booking vì backend chưa có contract phần này.
         </section>
 
-        <Field label="Ghi chu khach hang" className="mt-6 block">
+        <Field label="Ghi chú khách hàng" className="mt-6 block">
           <textarea
             value={note}
             onChange={(event) => setNote(event.target.value)}
             rows={3}
-            placeholder="Vi du: Can chuan bi phong truoc 15 phut, uu tien am thanh vocal ro."
+            placeholder="Ví dụ: Cần chuẩn bị phòng trước 15 phút, ưu tiên âm thanh vocal rõ."
             className="w-full resize-none rounded-2xl border border-[#C9C2B6] bg-white px-3 py-3 text-sm text-[#1A1C1E] outline-none transition placeholder:text-[#8A8176] focus:border-[#FF7518] focus:ring-2 focus:ring-[#FF7518]/20"
           />
         </Field>
 
         <div className="mt-5 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4">
-          <SummaryRow label="Gia phong" value={`${formatCurrency(room.pricePerHour)} / gio`} />
-          <SummaryRow label="Thoi luong" value={duration > 0 ? `${duration} gio` : 'Chua chon'} />
-          <SummaryRow label="Khung gio" value={startTime && endTime ? `${startTime} - ${endTime}` : 'Chua chon'} />
-          <SummaryRow label="Tien phong" value={formatCurrency(roomSubtotal)} />
-          <SummaryRow label="Dich vu thue them" value="Khong ap dung" />
+          <SummaryRow label="Giá phòng" value={`${formatCurrency(room.pricePerHour)} / giờ`} />
+          <SummaryRow label="Thời lượng" value={duration > 0 ? `${duration} giờ` : 'Chưa chọn'} />
+          <SummaryRow label="Khung giờ" value={startTime && endTime ? `${startTime} - ${endTime}` : 'Chưa chọn'} />
+          <SummaryRow label="Tiền phòng" value={formatCurrency(roomSubtotal)} />
           <div className="my-3 h-px bg-[#E8E4DC]" />
           <div className="flex items-center justify-between">
-            <span className="font-display font-semibold text-[#1A1C1E]">Tam tinh</span>
+            <span className="font-display font-semibold text-[#1A1C1E]">Tạm tính</span>
             <span className="font-display text-2xl font-bold text-[#FF7518]">{formatCurrency(roomSubtotal)}</span>
           </div>
         </div>
@@ -219,27 +279,7 @@ export default function BookingQuickModal({
             {error}
           </p>
         )}
-
-        <div className="mt-6 grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-12 rounded-2xl border border-[#C9C2B6] bg-transparent font-display font-semibold text-[#1A1C1E] transition hover:bg-[#FAF8F4]"
-          >
-            Huy
-          </button>
-
-          <button
-            type="button"
-            onClick={handleContinue}
-            disabled={duration < 1 || selectedSlots.length === 0}
-            className="h-12 rounded-2xl bg-[#FF7518] font-display font-semibold text-white transition hover:bg-[#E6640F] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            Tiep tuc dat phong
-          </button>
-        </div>
-      </div>
-    </div>
+    </HomepageModalShell>
   )
 }
 
