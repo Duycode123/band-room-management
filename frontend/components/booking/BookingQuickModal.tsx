@@ -120,38 +120,7 @@ export default function BookingQuickModal({
       }
     }
 
-    const restoreHref = returnPath ?? getQuickBookingRestoreHref(sourceRoute)
-
-    saveQuickBookingDraft({
-      sourceRoute,
-      selectedRoom: room,
-      room,
-      selectedDate: date,
-      selectedSlot: {
-        startTime,
-        endTime,
-      },
-      selectedStartTime: startTime,
-      selectedEndTime: endTime,
-      selectedDuration: duration,
-      customerNote: note,
-      totalPrice: roomSubtotal,
-      currentStep: 'booking',
-      timestamp: Date.now(),
-      initialDate: date,
-      initialStartTime: startTime,
-      initialDuration: duration,
-      initialNote: note,
-      returnPath: restoreHref,
-    })
-
-    if (!isAuthenticated) {
-      const loginParams = new URLSearchParams({ returnUrl: restoreHref })
-      router.push(`/login?${loginParams.toString()}`)
-      return
-    }
-
-    router.push(`/customer/booking/confirmation?${params.toString()}`)
+    router.push(`/rooms/confirmation?${params.toString()}`)
   }
 
   return (

@@ -14,18 +14,21 @@ type BackendRevenueUsagePeriod = {
   bookingCount: number
 }
 
-type BackendRoomUsageSummary = {
-  roomId: number
-  roomName: string
-  revenue: number | string
-  bookingCount: number
-}
-
 type BackendRevenueUsageReport = {
   totalRevenue: number | string
   totalBookings: number
   periods: BackendRevenueUsagePeriod[]
-  rooms: BackendRoomUsageSummary[]
+}
+
+type BackendRoomPerformanceSummary = {
+  roomId: number
+  roomName: string
+  roomTypeName: string
+  successfulBookingCount: number
+}
+
+type BackendRoomPerformanceReport = {
+  rooms: BackendRoomPerformanceSummary[]
 }
 
 type ApiErrorResponse = {
@@ -60,12 +63,11 @@ function eachDayInRange(range: ReportDateRange): string[] {
   return days
 }
 
-function toDateTimeRange(range: ReportDateRange) {
-  const from = `${range.startDate}T00:00:00`
-  const endDate = parseDateKey(range.endDate)
-  endDate.setDate(endDate.getDate() + 1)
-  const to = `${toDateKey(endDate)}T00:00:00`
-  return { from, to }
+function toDateRangeParams(range: ReportDateRange) {
+  return {
+    startDate: range.startDate,
+    endDate: range.endDate,
+  }
 }
 
 function formatDayLabel(dateKey: string) {
@@ -109,13 +111,16 @@ function mapDailyRevenue(range: ReportDateRange, periods: BackendRevenueUsagePer
   })
 }
 
-function mapTopRooms(rooms: BackendRoomUsageSummary[]): TopRoomPoint[] {
-  return rooms.slice(0, 8).map((room) => ({
-    roomId: room.roomId,
-    roomName: room.roomName || 'Chua xac dinh',
-    revenue: parseAmount(room.revenue),
-    orderCount: room.bookingCount,
-  }))
+function mapTopRooms(rooms: BackendRoomPerformanceSummary[]): TopRoomPoint[] {
+  return rooms
+    .filter((room) => room.successfulBookingCount > 0)
+    .slice(0, 8)
+    .map((room) => ({
+      roomId: room.roomId,
+      roomName: room.roomName || 'Chua xac dinh',
+      roomTypeName: room.roomTypeName || undefined,
+      orderCount: room.successfulBookingCount,
+    }))
 }
 
 export function defaultReportDateRange(): ReportDateRange {
@@ -127,23 +132,26 @@ export function defaultReportDateRange(): ReportDateRange {
 
 export async function fetchAdminReport(range: ReportDateRange): Promise<AdminReportData> {
   try {
-    const response = await api.get<ApiResponse<BackendRevenueUsageReport>>(
-      '/api/admin/reports/revenue-usage',
-      {
+    const [revenueResponse, roomPerformanceResponse] = await Promise.all([
+      api.get<ApiResponse<BackendRevenueUsageReport>>('/api/admin/reports/revenue-usage', {
         params: {
-          ...toDateTimeRange(range),
+          ...toDateRangeParams(range),
           bucket: 'DAY',
         },
-      },
-    )
+      }),
+      api.get<ApiResponse<BackendRoomPerformanceReport>>('/api/admin/reports/room-performance', {
+        params: toDateRangeParams(range),
+      }),
+    ])
 
-    const report = response.data.data
+    const revenueReport = revenueResponse.data.data
+    const roomPerformanceReport = roomPerformanceResponse.data.data
 
     return {
-      totalRevenue: parseAmount(report.totalRevenue),
-      totalOrders: report.totalBookings,
-      dailyRevenue: mapDailyRevenue(range, report.periods),
-      topRooms: mapTopRooms(report.rooms),
+      totalRevenue: parseAmount(revenueReport.totalRevenue),
+      totalOrders: revenueReport.totalBookings,
+      dailyRevenue: mapDailyRevenue(range, revenueReport.periods),
+      topRooms: mapTopRooms(roomPerformanceReport.rooms),
     }
   } catch (error) {
     throw new Error(getApiErrorMessage(error, 'Khong the tai bao cao doanh thu.'))

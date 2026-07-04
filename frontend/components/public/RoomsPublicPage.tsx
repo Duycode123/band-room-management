@@ -2,6 +2,7 @@
 
 import Image from 'next/image'
 import { useEffect, useMemo, useState } from 'react'
+import BookingQuickModal from '@/components/booking/BookingQuickModal'
 import { formatCurrency } from '@/components/booking/booking-data'
 import BookingQuickModal from '@/components/booking/BookingQuickModal'
 import {
@@ -65,6 +66,7 @@ type QuickBookingState = {
 export default function RoomsPublicPage() {
   const [filters, setFilters] = useState<RoomFilters>(defaultFilters)
   const [rooms, setRooms] = useState<Room[]>([])
+  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [catalogSource, setCatalogSource] = useState<'backend' | 'fallback'>('backend')
   const [quickBooking, setQuickBooking] = useState<QuickBookingState | null>(null)
@@ -235,7 +237,7 @@ export default function RoomsPublicPage() {
         ) : filteredRooms.length > 0 ? (
           <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {filteredRooms.map((room) => (
-              <RoomCard key={room.id} room={room} onBook={() => setQuickBooking({ room })} />
+              <RoomCard key={room.id} room={room} onBook={setSelectedRoom} />
             ))}
           </div>
         ) : (
@@ -249,25 +251,18 @@ export default function RoomsPublicPage() {
       </section>
 
       <BandRoomFooter />
-
-      {quickBooking && (
+      {selectedRoom && (
         <BookingQuickModal
-          room={quickBooking.room}
+          room={selectedRoom}
           open
-          initialDate={quickBooking.initialDate}
-          initialStartTime={quickBooking.initialStartTime}
-          initialDuration={quickBooking.initialDuration}
-          initialNote={quickBooking.initialNote}
-          sourceRoute="/rooms"
-          returnPath={roomsQuickBookingReturnPath}
-          onClose={() => setQuickBooking(null)}
+          onClose={() => setSelectedRoom(null)}
         />
       )}
     </main>
   )
 }
 
-function RoomCard({ room, onBook }: { room: Room; onBook: () => void }) {
+function RoomCard({ room, onBook }: { room: Room; onBook: (room: Room) => void }) {
   const availabilityStatus = room.availabilityStatus ?? 'AVAILABLE'
   const imageSrc = room.image ?? '/images/band-room-hero.png'
   const canBookNow = availabilityStatus !== 'FULL_TODAY'
@@ -337,6 +332,13 @@ function RoomCard({ room, onBook }: { room: Room; onBook: () => void }) {
         </div>
 
         <div className="mt-6 flex items-center justify-between border-t border-outline-variant pt-5">
+          <p className="text-sm text-on-surface-variant">{room.nextAvailableSlot ?? 'Chọn ngày phù hợp'}</p>
+          <button
+            type="button"
+            onClick={() => onBook(room)}
+            className={isFull ? 'btn-secondary' : 'btn-warm'}
+          >
+            {isFull ? 'Chọn ngày khác' : 'Đặt ngay'}
           <p className="text-sm text-on-surface-variant">{bookingHint}</p>
           <button
             type="button"

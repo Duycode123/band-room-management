@@ -1,7 +1,6 @@
 import type { PaymentMethod } from '@/lib/payment-service'
 
 export const PENDING_BOOKING_KEY = 'pendingBooking'
-export const CHECKOUT_PATH = '/checkout'
 
 export type PendingBooking = {
   bookingId: string

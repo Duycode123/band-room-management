@@ -15,4 +15,5 @@ public class CloudinaryProperties {
     private String apiKey;
     private String apiSecret;
     private String folder = "band-room-management/rooms";
+    private String avatarFolder = "band-room-management/avatars";
 }

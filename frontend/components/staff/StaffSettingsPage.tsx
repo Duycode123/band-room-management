@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import AuthGuard from '@/components/AuthGuard'
 import { StaffPageShell, Toast } from './StaffShared'
@@ -9,6 +9,10 @@ import { clearStaffAuthCaches, getDisplayName, getInitials, getProfileValue, get
 import {
   changePassword,
   getCurrentUser,
+  getNotificationSettings,
+  loadUiPreferences,
+  saveUiPreferences,
+  uploadMyAvatar,
   updateMyProfile,
   type StaffProfile,
 } from '@/lib/staff-settings-service'
@@ -46,6 +50,9 @@ export default function StaffSettingsPage() {
   const [pageError, setPageError] = useState('')
   const [isProfileLoading, setIsProfileLoading] = useState(true)
   const [isProfileSaving, setIsProfileSaving] = useState(false)
+  const [isAvatarUploading, setIsAvatarUploading] = useState(false)
+  const [isNotificationLoading, setIsNotificationLoading] = useState(true)
+  const [savingNotificationKey, setSavingNotificationKey] = useState<keyof StaffNotificationSettings | null>(null)
   const [isPasswordSaving, setIsPasswordSaving] = useState(false)
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
@@ -115,6 +122,42 @@ export default function StaffSettingsPage() {
       showToast('error', error instanceof Error ? error.message : 'Không thể lưu hồ sơ nhân viên.')
     } finally {
       setIsProfileSaving(false)
+    }
+  }
+
+  const handleAvatarChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      showToast('error', 'File tải lên phải là ảnh.')
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('error', 'Ảnh đại diện không được vượt quá 5MB.')
+      return
+    }
+
+    setIsAvatarUploading(true)
+    try {
+      const updatedProfile = await uploadMyAvatar(file, user)
+      setProfile(updatedProfile)
+      if (user) {
+        login({
+          ...user,
+          ...updatedProfile,
+          name: updatedProfile.fullName,
+          role: updatedProfile.role || user.role,
+        })
+      }
+      showToast('success', 'Đã cập nhật ảnh đại diện.')
+    } catch (error) {
+      showToast('error', error instanceof Error ? error.message : 'Không thể tải ảnh đại diện lên.')
+    } finally {
+      setIsAvatarUploading(false)
     }
   }
 
@@ -198,6 +241,23 @@ export default function StaffSettingsPage() {
                   <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-3xl bg-primary-container font-display text-3xl font-bold text-on-primary-container">
                     {profile.avatarUrl ? <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" /> : profileInitials}
                   </div>
+                  <div className="lg:max-w-[240px]">
+                    <label className="block">
+                      <span className="mb-2 block font-display text-xs font-bold uppercase tracking-wide text-on-surface-variant">
+                        Avatar
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => void handleAvatarChange(event)}
+                        disabled={isAvatarUploading || isProfileSaving}
+                        className="block w-full text-xs text-on-surface-variant file:mr-3 file:rounded-2xl file:border-0 file:bg-brand-orange file:px-4 file:py-2.5 file:font-display file:text-sm file:font-bold file:text-white hover:file:bg-brand-orangeHover disabled:cursor-not-allowed disabled:opacity-60"
+                      />
+                      <span className="mt-2 block text-xs text-on-surface-variant">
+                        {isAvatarUploading ? 'Dang tai anh len Cloudinary...' : 'Toi da 5MB. URL avatar se duoc luu vao database.'}
+                      </span>
+                    </label>
+                  </div>
                   <div className="grid flex-1 gap-4 sm:grid-cols-2">
                     <Field label="Tên hiển thị" error={profileErrors.fullName}>
                       <input value={profile.fullName} onChange={(event) => updateProfile('fullName', event.target.value)} className="input-field" disabled={isProfileSaving} />
@@ -214,7 +274,7 @@ export default function StaffSettingsPage() {
                   </div>
                 </div>
                 <div className="mt-6 flex justify-end">
-                  <button type="button" onClick={saveProfile} className="btn-warm" disabled={isProfileSaving}>
+                  <button type="button" onClick={saveProfile} className="btn-warm" disabled={isProfileSaving || isAvatarUploading}>
                     {isProfileSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
                   </button>
                 </div>

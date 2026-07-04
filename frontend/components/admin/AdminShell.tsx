@@ -83,6 +83,13 @@ export default function AdminShell({ children }: AdminShellProps) {
           </nav>
 
           <div className="border-t border-white/10 p-4">
+            <Link
+              href="/customer/profile"
+              className="mb-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 font-display text-sm font-medium text-inverse-on-surface/80 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              <span className="flex h-5 w-5 items-center justify-center rounded-full border border-current text-[11px]">U</span>
+              Ho so ca nhan
+            </Link>
             <button
               type="button"
               onClick={() => void handleLogout()}

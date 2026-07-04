@@ -52,12 +52,11 @@ public class ReviewController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<PagedResponse<ReviewResponse>>> getPublicReviews(
-            @RequestParam(required = false) Integer roomId,
             @RequestParam(required = false) Integer rating,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        PagedResponse<ReviewResponse> data = reviewService.getPublicReviews(roomId, rating, page, size);
+        PagedResponse<ReviewResponse> data = reviewService.getPublicReviews(null, rating, page, size);
 
         return ResponseEntity.ok(success("Lấy danh sách đánh giá công khai thành công", data));
     }

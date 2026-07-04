@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
 import BandRoomHeader from '@/components/layout/BandRoomHeader'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   fetchCurrentUser,
   getCustomerDisplayName,
   getInitials,
+  uploadCustomerAvatar,
   updateCustomerProfile,
   type CustomerProfile,
   type UpdateCustomerProfilePayload,
@@ -35,6 +36,7 @@ export default function CustomerProfileClient() {
   const [profileMessage, setProfileMessage] = useState<Message | null>(null)
   const [isFetchingProfile, setIsFetchingProfile] = useState(true)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -152,6 +154,49 @@ export default function CustomerProfileClient() {
     }
   }
 
+  const handleAvatarChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      setProfileMessage({ type: 'error', text: 'File tải lên phải là ảnh.' })
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setProfileMessage({ type: 'error', text: 'Ảnh đại diện không được vượt quá 5MB.' })
+      return
+    }
+
+    setIsUploadingAvatar(true)
+    setProfileMessage(null)
+
+    try {
+      const updatedProfile = await uploadCustomerAvatar(file, user)
+      setProfile(updatedProfile)
+      login({
+        ...(user ?? { role: updatedProfile.role }),
+        id: updatedProfile.id ? String(updatedProfile.id) : user?.id,
+        fullName: updatedProfile.fullName,
+        name: updatedProfile.fullName,
+        email: updatedProfile.email,
+        phone: updatedProfile.phone,
+        avatarUrl: updatedProfile.avatarUrl,
+        role: updatedProfile.role,
+      })
+      setProfileMessage({ type: 'success', text: 'Cập nhật ảnh đại diện thành công.' })
+    } catch (error) {
+      setProfileMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Không thể tải ảnh đại diện lên. Vui lòng thử lại.',
+      })
+    } finally {
+      setIsUploadingAvatar(false)
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#F5F2EC] text-[#1A1C1E]">
       <BandRoomHeader />
@@ -192,6 +237,19 @@ export default function CustomerProfileClient() {
             </div>
 
             <div className="grid gap-4">
+              <FormField label="Avatar">
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={isFetchingProfile || isUploadingAvatar}
+                  onChange={(event) => void handleAvatarChange(event)}
+                  className="block w-full text-sm text-[#5C5348] file:mr-3 file:rounded-2xl file:border-0 file:bg-[#FF7518] file:px-4 file:py-2.5 file:font-display file:text-sm file:font-semibold file:text-white hover:file:bg-[#E6640F] disabled:cursor-not-allowed disabled:opacity-60"
+                />
+                <p className="mt-2 text-xs text-[#5C5348]">
+                  {isUploadingAvatar ? 'Dang tai anh len Cloudinary...' : 'Chap nhan file anh toi da 5MB. Link anh se duoc luu vao database.'}
+                </p>
+              </FormField>
+
               <FormField label="Họ tên">
                 <input
                   value={profileForm.fullName}
@@ -226,7 +284,7 @@ export default function CustomerProfileClient() {
 
             <button
               type="submit"
-              disabled={isSavingProfile || isFetchingProfile}
+              disabled={isSavingProfile || isFetchingProfile || isUploadingAvatar}
               className="mt-6 h-12 rounded-2xl bg-[#FF7518] px-6 font-display font-semibold text-white transition hover:bg-[#E6640F] focus:outline-none focus:ring-2 focus:ring-[#FF7518]/30 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSavingProfile ? 'Đang lưu' : 'Lưu thay đổi'}
@@ -245,7 +303,7 @@ export default function CustomerProfileClient() {
               Thông tin này được dùng để xác nhận lịch đặt phòng và liên hệ khi cần.
             </p>
             <div className="mt-5 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4 text-sm text-[#5C5348]">
-              Tạm thời chưa hỗ trợ cập nhật avatar vì backend hiện chưa có field lưu dữ liệu này.
+              Avatar moi se duoc upload len Cloudinary qua backend, sau do link anh duoc luu vao database account.avatar_url.
             </div>
           </aside>
         </div>

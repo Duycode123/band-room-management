@@ -115,12 +115,25 @@ export function isApiBackedBookingRoom(room: BookingRoom) {
   return room.code.startsWith('API-')
 }
 
+function getOptimizedCloudinaryImageUrl(imageUrl: string) {
+  if (!/^https:\/\/res\.cloudinary\.com\//i.test(imageUrl)) {
+    return imageUrl
+  }
+
+  if (imageUrl.includes('/image/upload/f_auto,q_auto/')) {
+    return imageUrl
+  }
+
+  return imageUrl.replace('/image/upload/', '/image/upload/f_auto,q_auto/')
+}
+
 function getRoomImage(imageUrl?: string) {
   if (!imageUrl) return undefined
 
   const normalized = imageUrl.trim()
   if (!normalized) return undefined
   if (normalized.startsWith('/')) return normalized
+  if (/^https?:\/\//i.test(normalized)) return getOptimizedCloudinaryImageUrl(normalized)
 
   return undefined
 }

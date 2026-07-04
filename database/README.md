@@ -65,6 +65,7 @@ Core model/entity classes currently present in backend source:
 - `database/migrations/20260703_create_staff_attendance.sql`
 - `database/migrations/20260703_create_user_notification_settings.sql`
 - `database/migrations/20260703_add_email_verification_to_account.sql`
+- `database/migrations/20260703_add_account_avatar_url.sql`
 - `database/sample-data/seed_rooms_and_equipment.sql`
 - `database/sample-data/seed_bookings_and_reviews.sql`
 - `database/schema-target-en.dbml`
@@ -189,6 +190,7 @@ If the change is part of the Vietnamese-to-English rename:
 - `payment_provider` now includes `COUNTER` for pay-at-counter checkout sessions alongside online providers such as `VNPAY`.
 - `payment_provider` also includes `SEPAY` for the upcoming dedicated online checkout integration.
 - `room.max_people` stores the maximum number of people a specific room can hold; `room.image_url` stores the persisted room image URL returned by Cloudinary or another HTTP(S) asset host.
+- `account.avatar_url` stores the current profile image URL for customer, staff, and admin accounts after upload through the backend.
 - `coupon_usage` records the exact discount amount actually consumed by one paid booking and enforces one usage row per booking through `booking_id` uniqueness.
 - `customer_issue_report` stores customer-submitted support issues, optionally linked to one owned booking, and keeps a small explicit lifecycle (`OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`).
 - `user_notification_settings` stores per-account notification preferences for operational events such as booking updates, shift reminders, room issues, and equipment issues.
@@ -226,11 +228,13 @@ The `account` table stores email verification state for customer registration.
   - `email_verification_token_hash`: SHA-256 hash of the current verification token. Raw tokens are sent only by email and are not stored.
   - `email_verification_expires_at`: expiration timestamp for the verification link.
   - `email_verification_sent_at`: timestamp used to enforce resend cooldown.
+  - `avatar_url`: optional HTTP(S) URL of the latest uploaded avatar image for the account, shared across customer, staff, and admin profile views.
 - Uniqueness and security:
   - `ux_account_email_verification_token_hash` prevents token-hash collisions while allowing nulls for verified accounts.
   - existing accounts are marked verified by the migration so current users are not locked out.
 - Migration:
   - `database/migrations/20260703_add_email_verification_to_account.sql`
+  - `database/migrations/20260703_add_account_avatar_url.sql`
 
 ## Reporting Optimization Assets
 

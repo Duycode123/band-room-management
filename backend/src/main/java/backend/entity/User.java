@@ -58,6 +58,9 @@ public class User implements UserDetails {
     @Column(name = "email_verification_sent_at")
     private LocalDateTime emailVerificationSentAt;
 
+    @Column(name = "avatar_url")
+    private String avatarUrl;
+
     @OneToOne(mappedBy = "account", fetch = FetchType.LAZY)
     private Customer customerProfile;
 

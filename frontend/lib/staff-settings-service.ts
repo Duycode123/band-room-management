@@ -91,6 +91,36 @@ export async function updateMyProfile(payload: UpdateStaffProfilePayload) {
   }
 }
 
+export async function uploadMyAvatar(file: File, fallback?: AuthUser | null) {
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const response = await api.post<Partial<StaffProfile & AuthUser>>('/api/users/me/avatar', formData)
+    return normalizeProfile(response.data, fallback)
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Khong the tai anh dai dien len. Vui long thu lai.'))
+  }
+}
+
+export async function getNotificationSettings() {
+  try {
+    const response = await api.get<StaffNotificationSettings>('/api/users/me/notification-settings')
+    return { ...defaultNotificationSettings, ...response.data }
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Không thể tải tùy chọn thông báo. Vui lòng thử lại.'))
+  }
+}
+
+export async function updateNotificationSettings(settings: StaffNotificationSettings) {
+  try {
+    const response = await api.put<StaffNotificationSettings>('/api/users/me/notification-settings', settings)
+    return { ...defaultNotificationSettings, ...response.data }
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Không thể lưu cài đặt. Vui lòng thử lại.'))
+  }
+}
+
 export async function changePassword(payload: ChangeStaffPasswordPayload) {
   try {
     await api.put('/api/users/me/password', payload)

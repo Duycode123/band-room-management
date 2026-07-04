@@ -1,4 +1,3 @@
-import { formatAdminPrice } from '@/lib/admin/adminBookingApi'
 import type { TopRoomPoint } from '@/lib/admin/reportsTypes'
 import { useMemo, useState } from 'react'
 
@@ -22,12 +21,12 @@ export default function TopRoomsBarChart({ data }: TopRoomsBarChartProps) {
   const chart = useMemo(() => {
     const innerW = WIDTH - PAD.left - PAD.right
     const innerH = HEIGHT - PAD.top - PAD.bottom
-    const maxRevenue = Math.max(...data.map((d) => d.revenue), 1)
+    const maxOrders = Math.max(...data.map((room) => room.orderCount), 1)
     const gap = 12
     const barWidth = data.length > 0 ? (innerW - gap * (data.length - 1)) / data.length : 0
 
     const bars = data.map((room, index) => {
-      const height = (room.revenue / maxRevenue) * innerH
+      const height = (room.orderCount / maxOrders) * innerH
       const x = PAD.left + index * (barWidth + gap)
       const y = PAD.top + innerH - height
       return { room, x, y, width: barWidth, height }
@@ -42,7 +41,7 @@ export default function TopRoomsBarChart({ data }: TopRoomsBarChartProps) {
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         className="h-auto w-full"
         role="img"
-        aria-label="Biểu đồ top phòng theo doanh thu"
+        aria-label="Bieu do tan suat su dung phong"
         onMouseLeave={() => setTooltip(null)}
       >
         <line
@@ -85,7 +84,7 @@ export default function TopRoomsBarChart({ data }: TopRoomsBarChartProps) {
               textAnchor="middle"
               className="fill-on-surface text-[10px] font-medium"
             >
-              {bar.room.orderCount} đơn
+              {bar.room.orderCount} luot
             </text>
           </g>
         ))}
@@ -101,8 +100,10 @@ export default function TopRoomsBarChart({ data }: TopRoomsBarChartProps) {
           }}
         >
           <p className="font-display font-semibold text-on-surface">{tooltip.room.roomName}</p>
-          <p className="mt-1 text-brand-orange">{formatAdminPrice(tooltip.room.revenue)}</p>
-          <p className="text-on-surface-variant">{tooltip.room.orderCount} đơn đã thanh toán</p>
+          {tooltip.room.roomTypeName && (
+            <p className="mt-1 text-on-surface-variant">{tooltip.room.roomTypeName}</p>
+          )}
+          <p className="text-brand-orange">{tooltip.room.orderCount} luot dat thanh cong</p>
         </div>
       )}
     </div>
@@ -110,5 +111,5 @@ export default function TopRoomsBarChart({ data }: TopRoomsBarChartProps) {
 }
 
 function truncateLabel(value: string, max: number) {
-  return value.length > max ? `${value.slice(0, max - 1)}…` : value
+  return value.length > max ? `${value.slice(0, max - 1)}...` : value
 }

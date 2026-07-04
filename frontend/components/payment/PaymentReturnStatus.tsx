@@ -107,7 +107,7 @@ function buildRetryHref({
   paymentOption: string | null
 }) {
   if (!bookingId) {
-    return '/customer/booking'
+    return '/rooms'
   }
 
   const params = new URLSearchParams({ bookingId })

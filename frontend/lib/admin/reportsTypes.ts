@@ -13,7 +13,7 @@ export type DailyRevenuePoint = {
 export type TopRoomPoint = {
   roomId: number
   roomName: string
-  revenue: number
+  roomTypeName?: string
   orderCount: number
 }
 

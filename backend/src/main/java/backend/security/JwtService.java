@@ -5,6 +5,8 @@ import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import backend.entity.Role;
+import backend.entity.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +23,7 @@ public class JwtService {
     private static final String SECRET_KEY = "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970";
     private static final String TOKEN_TYPE_CLAIM = "token_type";
     private static final String SESSION_STARTED_AT_CLAIM = "session_started_at";
+    private static final String ROLE_CLAIM = "role";
     private static final String ACCESS_TOKEN_TYPE = "access";
     private static final String REFRESH_TOKEN_TYPE = "refresh";
 
@@ -37,7 +40,7 @@ public class JwtService {
     }
 
     public String generateAccessToken(UserDetails userDetails) {
-        Map<String, Object> claims = new HashMap<>();
+        Map<String, Object> claims = createIdentityClaims(userDetails);
         claims.put(TOKEN_TYPE_CLAIM, ACCESS_TOKEN_TYPE);
         long now = System.currentTimeMillis();
         return buildToken(claims, userDetails, now, now + ACCESS_TOKEN_EXPIRATION);
@@ -91,10 +94,28 @@ public class JwtService {
         long absoluteExpiration = sessionStartedAt + ABSOLUTE_SESSION_EXPIRATION;
         long expiration = Math.min(issuedAt + REFRESH_TOKEN_EXPIRATION, absoluteExpiration);
 
-        Map<String, Object> claims = new HashMap<>();
+        Map<String, Object> claims = createIdentityClaims(userDetails);
         claims.put(TOKEN_TYPE_CLAIM, REFRESH_TOKEN_TYPE);
         claims.put(SESSION_STARTED_AT_CLAIM, sessionStartedAt);
         return buildToken(claims, userDetails, issuedAt, expiration);
+    }
+
+    private Map<String, Object> createIdentityClaims(UserDetails userDetails) {
+        Map<String, Object> claims = new HashMap<>();
+
+        if (userDetails instanceof User user && user.getRole() != null) {
+            claims.put(ROLE_CLAIM, user.getRole().name());
+        } else {
+            String role = userDetails.getAuthorities().stream()
+                    .map(authority -> authority.getAuthority())
+                    .filter(authority -> authority.startsWith("ROLE_"))
+                    .map(authority -> authority.substring("ROLE_".length()))
+                    .findFirst()
+                    .orElse(Role.CUSTOMER.name());
+            claims.put(ROLE_CLAIM, role);
+        }
+
+        return claims;
     }
 
     private String buildToken(

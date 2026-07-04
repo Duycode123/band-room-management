@@ -8,16 +8,21 @@ import backend.entity.Staff;
 import backend.entity.User;
 import backend.entity.UserNotificationSettings;
 import backend.user.application.model.UserProfileUpdateResult;
+import backend.user.application.model.UserAvatarFile;
+import backend.user.application.model.UserAvatarUploadResult;
 import backend.user.application.port.in.ChangeCurrentUserPasswordUseCase;
 import backend.user.application.port.in.GetCurrentUserNotificationSettingsUseCase;
 import backend.user.application.port.in.GetCurrentUserProfileUseCase;
+import backend.user.application.port.in.UploadCurrentUserAvatarUseCase;
 import backend.user.application.port.in.UpdateCurrentUserNotificationSettingsUseCase;
 import backend.user.application.port.in.UpdateCurrentUserProfileUseCase;
 import backend.user.application.port.in.command.ChangeCurrentUserPasswordCommand;
+import backend.user.application.port.in.command.UploadCurrentUserAvatarCommand;
 import backend.user.application.port.in.command.UpdateCurrentUserNotificationSettingsCommand;
 import backend.user.application.port.in.command.UpdateCurrentUserProfileCommand;
 import backend.user.application.port.in.query.GetCurrentUserProfileQuery;
 import backend.user.application.port.out.UserProfileAccountPort;
+import backend.user.application.port.out.UserAvatarStoragePort;
 import backend.user.application.port.out.UserProfileSecurityPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -31,21 +36,25 @@ import java.util.regex.Pattern;
 public class UserProfileUseCaseService implements
         GetCurrentUserProfileUseCase,
         UpdateCurrentUserProfileUseCase,
+        UploadCurrentUserAvatarUseCase,
         ChangeCurrentUserPasswordUseCase,
         GetCurrentUserNotificationSettingsUseCase,
         UpdateCurrentUserNotificationSettingsUseCase {
 
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
     private static final Pattern PHONE_PATTERN = Pattern.compile("^[0-9]{9,11}$");
+    private static final int MAX_AVATAR_BYTES = 5 * 1024 * 1024;
+    private static final int MAX_AVATAR_URL_LENGTH = 500;
 
     private final UserProfileAccountPort userProfileAccountPort;
     private final UserProfileSecurityPort userProfileSecurityPort;
+    private final UserAvatarStoragePort userAvatarStoragePort;
 
     @Override
     public UserResponse getProfile(GetCurrentUserProfileQuery query) {
         User user = getCurrentUser(query.currentUserEmail());
-        Customer customer = userProfileAccountPort.loadCustomerByAccountEmail(user.getEmail()).orElse(null);
-        Staff staff = userProfileAccountPort.loadStaffByAccountEmail(user.getEmail()).orElse(null);
+        Customer customer = loadCustomerProfile(user);
+        Staff staff = loadStaffProfile(user);
         return toUserResponse(user, customer, staff);
     }
 
@@ -69,8 +78,8 @@ public class UserProfileUseCaseService implements
             throw new IllegalArgumentException("Email nay da duoc su dung");
         }
 
-        Customer customer = userProfileAccountPort.loadCustomerByAccountEmail(user.getEmail()).orElse(null);
-        Staff staff = userProfileAccountPort.loadStaffByAccountEmail(user.getEmail()).orElse(null);
+        Customer customer = loadCustomerProfile(user);
+        Staff staff = loadStaffProfile(user);
 
         user.setEmail(email);
         User savedUser = userProfileAccountPort.saveUser(user);
@@ -94,6 +103,27 @@ public class UserProfileUseCaseService implements
                 userProfileSecurityPort.generateAccessToken(savedUser),
                 userProfileSecurityPort.generateRefreshToken(savedUser)
         );
+    }
+
+    @Override
+    @Transactional
+    public UserResponse uploadAvatar(UploadCurrentUserAvatarCommand command) {
+        validateAvatar(command);
+
+        User user = getCurrentUser(command.currentUserEmail());
+        Customer customer = loadCustomerProfile(user);
+        Staff staff = loadStaffProfile(user);
+
+        UserAvatarUploadResult uploadResult = userAvatarStoragePort.uploadAvatar(new UserAvatarFile(
+                command.fileName(),
+                command.contentType(),
+                command.content()
+        ));
+
+        user.setAvatarUrl(normalizeAvatarUrl(uploadResult.secureUrl()));
+        User savedUser = userProfileAccountPort.saveUser(user);
+
+        return toUserResponse(savedUser, customer, staff);
     }
 
     @Override
@@ -187,9 +217,52 @@ public class UserProfileUseCaseService implements
                 .fullName(fullName)
                 .email(email)
                 .phone(phone)
-                .avatarUrl(null)
+                .avatarUrl(normalizeOptional(user.getAvatarUrl()))
                 .role(user.getRole().name())
                 .build();
+    }
+
+    private Customer loadCustomerProfile(User user) {
+        if (user.getRole() != Role.CUSTOMER) {
+            return null;
+        }
+
+        return userProfileAccountPort.loadCustomerByAccountEmail(user.getEmail()).orElse(null);
+    }
+
+    private Staff loadStaffProfile(User user) {
+        if (user.getRole() != Role.STAFF) {
+            return null;
+        }
+
+        return userProfileAccountPort.loadStaffByAccountEmail(user.getEmail()).orElse(null);
+    }
+
+    private void validateAvatar(UploadCurrentUserAvatarCommand command) {
+        byte[] content = command.content();
+        if (content == null || content.length == 0) {
+            throw new IllegalArgumentException("Vui long chon anh dai dien");
+        }
+        if (content.length > MAX_AVATAR_BYTES) {
+            throw new IllegalArgumentException("Anh dai dien khong duoc vuot qua 5MB");
+        }
+
+        String contentType = normalizeRequired(command.contentType(), "File tai len phai la anh");
+        if (!contentType.toLowerCase().startsWith("image/")) {
+            throw new IllegalArgumentException("File tai len phai la anh");
+        }
+    }
+
+    private String normalizeAvatarUrl(String avatarUrl) {
+        String normalized = normalizeRequired(avatarUrl, "Cloudinary khong tra ve URL anh dai dien");
+        if (normalized.length() > MAX_AVATAR_URL_LENGTH) {
+            throw new IllegalStateException("URL anh dai dien toi da 500 ky tu");
+        }
+        if (!normalized.matches("^https?://.+")) {
+            throw new IllegalStateException("URL anh dai dien phai la link http hoac https");
+        }
+
+        return normalized;
     }
 
     private UserNotificationSettings getOrCreateNotificationSettings(User user) {
