@@ -1,8 +1,36 @@
-import type { AdminBooking, BookingStatus } from './types'
-import { fetchAdminBookings } from './adminBookingApi'
+import axios from 'axios'
+import api from '@/lib/api'
 import type { AdminReportData, DailyRevenuePoint, ReportDateRange, TopRoomPoint } from './reportsTypes'
 
-const REVENUE_STATUSES: BookingStatus[] = ['PAID', 'CHECKED_IN', 'COMPLETED']
+type ApiResponse<T> = {
+  success: boolean
+  message: string
+  data: T
+}
+
+type BackendRevenueUsagePeriod = {
+  periodStart: string
+  revenue: number | string
+  bookingCount: number
+}
+
+type BackendRoomUsageSummary = {
+  roomId: number
+  roomName: string
+  revenue: number | string
+  bookingCount: number
+}
+
+type BackendRevenueUsageReport = {
+  totalRevenue: number | string
+  totalBookings: number
+  periods: BackendRevenueUsagePeriod[]
+  rooms: BackendRoomUsageSummary[]
+}
+
+type ApiErrorResponse = {
+  message?: string
+}
 
 function parseDateKey(value: string) {
   const [year, month, day] = value.split('-').map(Number)
@@ -12,11 +40,6 @@ function parseDateKey(value: string) {
 function toDateKey(date: Date) {
   const pad = (n: number) => n.toString().padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-}
-
-function formatDayLabel(dateKey: string) {
-  const date = parseDateKey(dateKey)
-  return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
 }
 
 function eachDayInRange(range: ReportDateRange): string[] {
@@ -37,39 +60,46 @@ function eachDayInRange(range: ReportDateRange): string[] {
   return days
 }
 
-function bookingDateKey(booking: AdminBooking) {
-  return toDateKey(new Date(booking.startTime))
+function toDateTimeRange(range: ReportDateRange) {
+  const from = `${range.startDate}T00:00:00`
+  const endDate = parseDateKey(range.endDate)
+  endDate.setDate(endDate.getDate() + 1)
+  const to = `${toDateKey(endDate)}T00:00:00`
+  return { from, to }
 }
 
-function isInRange(dateKey: string, range: ReportDateRange) {
-  return dateKey >= range.startDate && dateKey <= range.endDate
+function formatDayLabel(dateKey: string) {
+  const date = parseDateKey(dateKey)
+  return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
 }
 
-export function buildReportFromBookings(
-  bookings: AdminBooking[],
-  range: ReportDateRange,
-): AdminReportData {
-  const inRange = bookings.filter((booking) => isInRange(bookingDateKey(booking), range))
-  const countable = inRange.filter((booking) => booking.bookingStatus !== 'CANCELLED')
-  const revenueBookings = countable.filter((booking) => REVENUE_STATUSES.includes(booking.bookingStatus))
+function parseAmount(value: number | string | null | undefined) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
 
-  const dailyMap = new Map<string, { revenue: number; orderCount: number }>()
-  for (const day of eachDayInRange(range)) {
-    dailyMap.set(day, { revenue: 0, orderCount: 0 })
+function getApiErrorMessage(error: unknown, fallback: string) {
+  if (axios.isAxiosError<ApiErrorResponse>(error)) {
+    return error.response?.data?.message || fallback
   }
 
-  for (const booking of countable) {
-    const key = bookingDateKey(booking)
-    const bucket = dailyMap.get(key)
-    if (!bucket) continue
-    bucket.orderCount += 1
-    if (REVENUE_STATUSES.includes(booking.bookingStatus)) {
-      bucket.revenue += booking.totalPrice
-    }
-  }
+  return fallback
+}
 
-  const dailyRevenue: DailyRevenuePoint[] = eachDayInRange(range).map((date) => {
-    const bucket = dailyMap.get(date) ?? { revenue: 0, orderCount: 0 }
+function mapDailyRevenue(range: ReportDateRange, periods: BackendRevenueUsagePeriod[]): DailyRevenuePoint[] {
+  const periodMap = new Map<string, { revenue: number; orderCount: number }>()
+
+  periods.forEach((period) => {
+    const date = toDateKey(new Date(period.periodStart))
+    periodMap.set(date, {
+      revenue: parseAmount(period.revenue),
+      orderCount: period.bookingCount,
+    })
+  })
+
+  return eachDayInRange(range).map((date) => {
+    const bucket = periodMap.get(date) ?? { revenue: 0, orderCount: 0 }
+
     return {
       date,
       label: formatDayLabel(date),
@@ -77,31 +107,15 @@ export function buildReportFromBookings(
       orderCount: bucket.orderCount,
     }
   })
+}
 
-  const roomMap = new Map<string, TopRoomPoint>()
-  for (const booking of revenueBookings) {
-    const key = booking.roomName || `room-${booking.roomId}`
-    const current = roomMap.get(key) ?? {
-      roomId: booking.roomId,
-      roomName: booking.roomName || 'Chưa xác định',
-      revenue: 0,
-      orderCount: 0,
-    }
-    current.revenue += booking.totalPrice
-    current.orderCount += 1
-    roomMap.set(key, current)
-  }
-
-  const topRooms = [...roomMap.values()]
-    .sort((a, b) => b.revenue - a.revenue || b.orderCount - a.orderCount)
-    .slice(0, 8)
-
-  return {
-    totalRevenue: revenueBookings.reduce((sum, booking) => sum + booking.totalPrice, 0),
-    totalOrders: countable.length,
-    dailyRevenue,
-    topRooms,
-  }
+function mapTopRooms(rooms: BackendRoomUsageSummary[]): TopRoomPoint[] {
+  return rooms.slice(0, 8).map((room) => ({
+    roomId: room.roomId,
+    roomName: room.roomName || 'Chua xac dinh',
+    revenue: parseAmount(room.revenue),
+    orderCount: room.bookingCount,
+  }))
 }
 
 export function defaultReportDateRange(): ReportDateRange {
@@ -112,12 +126,26 @@ export function defaultReportDateRange(): ReportDateRange {
 }
 
 export async function fetchAdminReport(range: ReportDateRange): Promise<AdminReportData> {
-  const bookings = await fetchAdminBookings({
-    query: '',
-    bookingStatus: 'ALL',
-    paymentStatus: 'ALL',
-    date: '',
-  })
+  try {
+    const response = await api.get<ApiResponse<BackendRevenueUsageReport>>(
+      '/api/admin/reports/revenue-usage',
+      {
+        params: {
+          ...toDateTimeRange(range),
+          bucket: 'DAY',
+        },
+      },
+    )
 
-  return buildReportFromBookings(bookings, range)
+    const report = response.data.data
+
+    return {
+      totalRevenue: parseAmount(report.totalRevenue),
+      totalOrders: report.totalBookings,
+      dailyRevenue: mapDailyRevenue(range, report.periods),
+      topRooms: mapTopRooms(report.rooms),
+    }
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Khong the tai bao cao doanh thu.'))
+  }
 }

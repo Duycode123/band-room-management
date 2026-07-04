@@ -12,7 +12,13 @@ public interface RoomCatalogPort {
 
     Optional<Room> loadRoom(Integer roomId);
 
+    Optional<Room> loadRoomForUpdate(Integer roomId);
+
     boolean existsRoomName(String roomName);
+
+    boolean existsBookingForRoom(Integer roomId);
+
+    boolean existsEquipmentForRoom(Integer roomId);
 
     List<RoomType> loadRoomTypes();
 

@@ -227,6 +227,22 @@ export async function updateAdminBookingStatus(
   }
 }
 
+export async function cancelAdminBooking(
+  bookingId: number,
+  reason?: string,
+): Promise<AdminBooking | null> {
+  try {
+    const response = await api.put<ApiResponse<BackendBooking>>(
+      `/api/admin/bookings/${bookingId}/cancel`,
+      reason?.trim() ? { reason: reason.trim() } : {},
+    )
+
+    return mapBackendBooking(response.data.data)
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Khong the huy booking.'))
+  }
+}
+
 export async function getAdminBookingById(bookingId: number): Promise<AdminBooking | null> {
   try {
     const response = await api.get<ApiResponse<BackendBooking>>(`/api/admin/bookings/${bookingId}`)

@@ -4,13 +4,20 @@ import backend.booking.application.port.in.GetRoomAvailabilityUseCase;
 import backend.booking.application.port.in.query.GetRoomAvailabilityQuery;
 import backend.common.ApiResponse;
 import backend.dto.request.CreateRoomRequest;
+import backend.dto.request.UpdateRoomRequest;
 import backend.dto.response.RoomAvailabilityResponse;
 import backend.dto.response.RoomResponse;
 import backend.entity.RoomStatus;
 import backend.room.application.port.in.CreateRoomUseCase;
+import backend.room.application.port.in.DeleteRoomUseCase;
 import backend.room.application.port.in.GetRoomDetailUseCase;
 import backend.room.application.port.in.ListRoomsUseCase;
+import backend.room.application.port.in.UpdateRoomStatusUseCase;
+import backend.room.application.port.in.UpdateRoomUseCase;
 import backend.room.application.port.in.command.CreateRoomCommand;
+import backend.room.application.port.in.command.DeleteRoomCommand;
+import backend.room.application.port.in.command.UpdateRoomCommand;
+import backend.room.application.port.in.command.UpdateRoomStatusCommand;
 import backend.room.application.port.in.query.GetRoomDetailQuery;
 import backend.room.application.port.in.query.ListRoomsQuery;
 import jakarta.validation.Valid;
@@ -18,9 +25,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -37,6 +47,9 @@ public class RoomController {
     private final ListRoomsUseCase listRoomsUseCase;
     private final GetRoomDetailUseCase getRoomDetailUseCase;
     private final CreateRoomUseCase createRoomUseCase;
+    private final UpdateRoomUseCase updateRoomUseCase;
+    private final UpdateRoomStatusUseCase updateRoomStatusUseCase;
+    private final DeleteRoomUseCase deleteRoomUseCase;
     private final GetRoomAvailabilityUseCase getRoomAvailabilityUseCase;
 
     @GetMapping
@@ -68,6 +81,8 @@ public class RoomController {
         RoomResponse room = createRoomUseCase.createRoom(new CreateRoomCommand(
                 request.getRoomName(),
                 request.getRoomTypeId(),
+                request.getMaxPeople(),
+                request.getImageUrl(),
                 request.getStatus(),
                 authentication.getName()
         ));
@@ -76,6 +91,61 @@ public class RoomController {
                 .success(true)
                 .message("Them phong tap thanh cong")
                 .data(room)
+                .build());
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<RoomResponse>> updateRoom(
+            @PathVariable Integer id,
+            @Valid @RequestBody UpdateRoomRequest request,
+            Authentication authentication
+    ) {
+        RoomResponse room = updateRoomUseCase.updateRoom(new UpdateRoomCommand(
+                id,
+                request.getRoomName(),
+                request.getRoomTypeId(),
+                request.getMaxPeople(),
+                request.getImageUrl(),
+                request.getStatus(),
+                authentication.getName()
+        ));
+
+        return ResponseEntity.ok(ApiResponse.<RoomResponse>builder()
+                .success(true)
+                .message("Cap nhat phong tap thanh cong")
+                .data(room)
+                .build());
+    }
+
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<ApiResponse<RoomResponse>> updateRoomStatus(
+            @PathVariable Integer id,
+            @RequestParam RoomStatus status,
+            Authentication authentication
+    ) {
+        RoomResponse room = updateRoomStatusUseCase.updateRoomStatus(new UpdateRoomStatusCommand(
+                id,
+                status,
+                authentication.getName()
+        ));
+
+        return ResponseEntity.ok(ApiResponse.<RoomResponse>builder()
+                .success(true)
+                .message("Cap nhat trang thai phong thanh cong")
+                .data(room)
+                .build());
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteRoom(
+            @PathVariable Integer id,
+            Authentication authentication
+    ) {
+        deleteRoomUseCase.deleteRoom(new DeleteRoomCommand(id, authentication.getName()));
+
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .success(true)
+                .message("Xoa phong tap thanh cong")
                 .build());
     }
 
