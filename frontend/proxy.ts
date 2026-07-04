@@ -1,22 +1,62 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
 const LOGIN_PATH = '/login'
+const HOME_PATH = '/'
 const AUTH_COOKIE_NAMES = ['access_token', 'refresh_token']
 
 function hasAuthCookie(request: NextRequest) {
   return AUTH_COOKIE_NAMES.some((name) => request.cookies.has(name))
 }
 
-export function proxy(request: NextRequest) {
-  if (hasAuthCookie(request)) {
-    return NextResponse.next()
-  }
+function decodeJwtPayload(token: string) {
+  try {
+    const parts = token.split('.')
+    if (parts.length < 2) return null
 
+    const normalized = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=')
+    return JSON.parse(atob(padded)) as { role?: string }
+  } catch {
+    return null
+  }
+}
+
+function getRoleFromAccessToken(request: NextRequest) {
+  const token = request.cookies.get('access_token')?.value
+  if (!token) return null
+
+  const payload = decodeJwtPayload(token)
+  return payload?.role?.trim().toUpperCase() ?? null
+}
+
+function redirectToLogin(request: NextRequest) {
   const loginUrl = request.nextUrl.clone()
   loginUrl.pathname = LOGIN_PATH
   loginUrl.searchParams.set('redirect', request.nextUrl.pathname)
-
   return NextResponse.redirect(loginUrl)
+}
+
+function redirectUnauthorized(request: NextRequest) {
+  const homeUrl = request.nextUrl.clone()
+  homeUrl.pathname = HOME_PATH
+  homeUrl.search = ''
+  homeUrl.searchParams.set('error', 'unauthorized')
+  return NextResponse.redirect(homeUrl)
+}
+
+export function proxy(request: NextRequest) {
+  if (!hasAuthCookie(request)) {
+    return redirectToLogin(request)
+  }
+
+  if (request.nextUrl.pathname.startsWith('/admin')) {
+    const role = getRoleFromAccessToken(request)
+    if (role !== 'ADMIN') {
+      return redirectUnauthorized(request)
+    }
+  }
+
+  return NextResponse.next()
 }
 
 export const config = {
@@ -37,6 +77,5 @@ export const config = {
     '/customer/report-issue/:path*',
     '/customer/accessibility',
     '/customer/accessibility/:path*',
-    '/profile/:path*',
   ],
 }

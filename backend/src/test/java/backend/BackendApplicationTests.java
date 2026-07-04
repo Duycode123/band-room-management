@@ -16,6 +16,8 @@ import backend.security.AuthCookieService;
 import backend.security.CustomUserDetailsService;
 import backend.security.JwtService;
 import backend.service.TokenRevocationService;
+import backend.user.application.model.UserAvatarUploadResult;
+import backend.user.application.port.out.UserAvatarStoragePort;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +29,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.mock.web.MockMultipartFile;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -34,12 +37,14 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
@@ -86,6 +91,9 @@ class BackendApplicationTests {
 
     @MockBean
     private EquipmentRepository equipmentRepository;
+
+    @MockBean
+    private UserAvatarStoragePort userAvatarStoragePort;
 
     @MockBean
     private AuthenticationManager authenticationManager;
@@ -194,7 +202,7 @@ class BackendApplicationTests {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value("M\u1eadt kh\u1ea9u hi\u1ec7n t\u1ea1i kh\u00f4ng \u0111\u00fang"));
+                .andExpect(jsonPath("$.message").value("M\u1eadt kh\u1ea9u hi\u1ec7n t\u1ea1i kh\u00f4ng \u0111\u00fang."));
     }
 
     @Test
@@ -384,6 +392,40 @@ class BackendApplicationTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data[0].typeName").value("Standard"));
+    }
+
+    @Test
+    void uploadAvatarStoresCloudinaryUrlForAuthenticatedUser() throws Exception {
+        User user = User.builder()
+                .email("avatar-user@example.com")
+                .password("unused")
+                .role(Role.CUSTOMER)
+                .build();
+        Customer customer = Customer.builder()
+                .id(10)
+                .account(user)
+                .fullName("Avatar User")
+                .email(user.getEmail())
+                .phone("0912345678")
+                .build();
+
+        when(userDetailsService.loadUserByUsername(user.getEmail())).thenReturn(user);
+        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(customerRepository.findByAccount_Email(user.getEmail())).thenReturn(Optional.of(customer));
+        when(userAvatarStoragePort.uploadAvatar(any())).thenReturn(
+                new UserAvatarUploadResult("https://res.cloudinary.com/demo/image/upload/v1/avatars/avatar-user.jpg")
+        );
+        String accessToken = jwtService.generateAccessToken(user);
+
+        mockMvc.perform(multipart("/api/users/me/avatar")
+                        .file(new MockMultipartFile("file", "avatar-user.jpg", "image/jpeg", new byte[]{1, 2, 3}))
+                        .cookie(new Cookie(AuthCookieService.ACCESS_COOKIE_NAME, accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("avatar-user@example.com"))
+                .andExpect(jsonPath("$.avatarUrl").value("https://res.cloudinary.com/demo/image/upload/v1/avatars/avatar-user.jpg"));
+
+        assertEquals("https://res.cloudinary.com/demo/image/upload/v1/avatars/avatar-user.jpg", user.getAvatarUrl());
     }
 
     @Test

@@ -22,6 +22,7 @@ Each use case should capture:
 The first pass in this repository focuses on flows that already exist in the backend codebase:
 
 - authentication
+- current user profile and avatar management
 - room listing and room detail
 - create booking
 - customer checkout and payment session handoff

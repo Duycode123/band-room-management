@@ -34,6 +34,7 @@ cloudinary.cloud-name=${CLOUDINARY_CLOUD_NAME:your_cloud_name}
 cloudinary.api-key=${CLOUDINARY_API_KEY:your_api_key}
 cloudinary.api-secret=${CLOUDINARY_API_SECRET:your_api_secret}
 cloudinary.folder=${CLOUDINARY_FOLDER:band-room-management/rooms}
+cloudinary.avatar-folder=${CLOUDINARY_AVATAR_FOLDER:band-room-management/avatars}
 
 # ===== VNPay =====
 # Keep credentials in environment variables for local development and production.

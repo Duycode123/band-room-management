@@ -70,7 +70,7 @@ const RESPONSE_RULES: Array<{ keywords: string[]; reply: ChatbotReply }> = [
     keywords: ['link', 'ở đâu', 'trang', 'đường dẫn'],
     reply: {
       content:
-        'Đăng nhập tài khoản khách → menu **Đặt phòng** (`/customer/booking`) hoặc từ trang chủ chọn **Đặt ngay** trên thẻ phòng.',
+        'Đăng nhập tài khoản khách → menu **Đặt phòng** (`/rooms`) hoặc từ trang chủ chọn **Đặt ngay** trên thẻ phòng.',
     },
   },
   {

@@ -341,7 +341,7 @@ export default function HomePage() {
       return
     }
 
-    router.push('/customer/booking')
+    router.push('/rooms')
   }
 
   const handleAvailabilityBadgeClick = () => {

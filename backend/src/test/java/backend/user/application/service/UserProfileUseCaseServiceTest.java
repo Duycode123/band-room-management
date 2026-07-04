@@ -6,10 +6,13 @@ import backend.entity.Role;
 import backend.entity.Staff;
 import backend.entity.User;
 import backend.entity.UserNotificationSettings;
+import backend.user.application.model.UserAvatarUploadResult;
 import backend.user.application.port.in.command.ChangeCurrentUserPasswordCommand;
+import backend.user.application.port.in.command.UploadCurrentUserAvatarCommand;
 import backend.user.application.port.in.command.UpdateCurrentUserNotificationSettingsCommand;
 import backend.user.application.port.in.query.GetCurrentUserProfileQuery;
 import backend.user.application.port.out.UserProfileAccountPort;
+import backend.user.application.port.out.UserAvatarStoragePort;
 import backend.user.application.port.out.UserProfileSecurityPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,18 +39,47 @@ class UserProfileUseCaseServiceTest {
     @Mock
     private UserProfileSecurityPort userProfileSecurityPort;
 
+    @Mock
+    private UserAvatarStoragePort userAvatarStoragePort;
+
     private UserProfileUseCaseService userProfileUseCaseService;
 
     @BeforeEach
     void setUp() {
         userProfileUseCaseService = new UserProfileUseCaseService(
                 userProfileAccountPort,
-                userProfileSecurityPort
+                userProfileSecurityPort,
+                userAvatarStoragePort
         );
     }
 
     @Test
     void getProfileUsesStaffProfileForStaffAccount() {
+        User user = staffUser();
+        user.setAvatarUrl("https://res.cloudinary.com/demo/image/upload/v1/avatars/vinh.jpg");
+        Staff staff = Staff.builder()
+                .id(5)
+                .account(user)
+                .fullName("Vinh Nguyen")
+                .email("vinh@example.com")
+                .phone("0912345678")
+                .build();
+
+        when(userProfileAccountPort.loadUserByEmail("vinh@example.com")).thenReturn(Optional.of(user));
+        when(userProfileAccountPort.loadStaffByAccountEmail("vinh@example.com")).thenReturn(Optional.of(staff));
+
+        UserResponse response = userProfileUseCaseService.getProfile(
+                new GetCurrentUserProfileQuery("vinh@example.com")
+        );
+
+        assertEquals("Vinh Nguyen", response.getFullName());
+        assertEquals("0912345678", response.getPhone());
+        assertEquals("STAFF", response.getRole());
+        assertEquals("https://res.cloudinary.com/demo/image/upload/v1/avatars/vinh.jpg", response.getAvatarUrl());
+    }
+
+    @Test
+    void uploadAvatarStoresSecureUrlForCurrentUser() {
         User user = staffUser();
         Staff staff = Staff.builder()
                 .id(5)
@@ -58,16 +90,37 @@ class UserProfileUseCaseServiceTest {
                 .build();
 
         when(userProfileAccountPort.loadUserByEmail("vinh@example.com")).thenReturn(Optional.of(user));
-        when(userProfileAccountPort.loadCustomerByAccountEmail("vinh@example.com")).thenReturn(Optional.empty());
         when(userProfileAccountPort.loadStaffByAccountEmail("vinh@example.com")).thenReturn(Optional.of(staff));
-
-        UserResponse response = userProfileUseCaseService.getProfile(
-                new GetCurrentUserProfileQuery("vinh@example.com")
+        when(userAvatarStoragePort.uploadAvatar(any())).thenReturn(
+                new UserAvatarUploadResult("https://res.cloudinary.com/demo/image/upload/v1/avatars/vinh.jpg")
         );
+        when(userProfileAccountPort.saveUser(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        assertEquals("Vinh Nguyen", response.getFullName());
-        assertEquals("0912345678", response.getPhone());
-        assertEquals("STAFF", response.getRole());
+        UserResponse response = userProfileUseCaseService.uploadAvatar(new UploadCurrentUserAvatarCommand(
+                "vinh@example.com",
+                "avatar.jpg",
+                "image/jpeg",
+                new byte[]{1, 2, 3}
+        ));
+
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userProfileAccountPort).saveUser(userCaptor.capture());
+        assertEquals("https://res.cloudinary.com/demo/image/upload/v1/avatars/vinh.jpg", userCaptor.getValue().getAvatarUrl());
+        assertEquals("https://res.cloudinary.com/demo/image/upload/v1/avatars/vinh.jpg", response.getAvatarUrl());
+    }
+
+    @Test
+    void uploadAvatarRejectsNonImageContentType() {
+        assertThrows(IllegalArgumentException.class, () -> userProfileUseCaseService.uploadAvatar(
+                new UploadCurrentUserAvatarCommand(
+                        "vinh@example.com",
+                        "avatar.txt",
+                        "text/plain",
+                        new byte[]{1}
+                )
+        ));
+
+        verify(userAvatarStoragePort, never()).uploadAvatar(any());
     }
 
     @Test

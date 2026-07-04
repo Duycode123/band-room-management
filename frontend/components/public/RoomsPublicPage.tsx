@@ -1,8 +1,8 @@
 'use client'
 
 import Image from 'next/image'
-import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+import BookingQuickModal from '@/components/booking/BookingQuickModal'
 import { formatCurrency } from '@/components/booking/booking-data'
 import BandRoomFooter from '@/components/layout/BandRoomFooter'
 import BandRoomHeader from '@/components/layout/BandRoomHeader'
@@ -51,6 +51,7 @@ const defaultFilters: RoomFilters = {
 export default function RoomsPublicPage() {
   const [filters, setFilters] = useState<RoomFilters>(defaultFilters)
   const [rooms, setRooms] = useState<Room[]>([])
+  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [catalogSource, setCatalogSource] = useState<'backend' | 'fallback'>('backend')
   const filteredRooms = useMemo(() => filterRooms(rooms, filters), [rooms, filters])
@@ -191,7 +192,7 @@ export default function RoomsPublicPage() {
         ) : filteredRooms.length > 0 ? (
           <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {filteredRooms.map((room) => (
-              <RoomCard key={room.id} room={room} />
+              <RoomCard key={room.id} room={room} onBook={setSelectedRoom} />
             ))}
           </div>
         ) : (
@@ -205,11 +206,18 @@ export default function RoomsPublicPage() {
       </section>
 
       <BandRoomFooter />
+      {selectedRoom && (
+        <BookingQuickModal
+          room={selectedRoom}
+          open
+          onClose={() => setSelectedRoom(null)}
+        />
+      )}
     </main>
   )
 }
 
-function RoomCard({ room }: { room: Room }) {
+function RoomCard({ room, onBook }: { room: Room; onBook: (room: Room) => void }) {
   const availabilityStatus = room.availabilityStatus ?? 'AVAILABLE'
   const imageSrc = room.image ?? '/images/band-room-hero.png'
   const isFull = availabilityStatus === 'FULL_TODAY'
@@ -263,12 +271,13 @@ function RoomCard({ room }: { room: Room }) {
 
         <div className="mt-6 flex items-center justify-between border-t border-outline-variant pt-5">
           <p className="text-sm text-on-surface-variant">{room.nextAvailableSlot ?? 'Chọn ngày phù hợp'}</p>
-          <Link
-            href={isFull ? '/customer/booking' : `/customer/booking?roomId=${room.id}`}
+          <button
+            type="button"
+            onClick={() => onBook(room)}
             className={isFull ? 'btn-secondary' : 'btn-warm'}
           >
             {isFull ? 'Chọn ngày khác' : 'Đặt ngay'}
-          </Link>
+          </button>
         </div>
       </div>
     </article>

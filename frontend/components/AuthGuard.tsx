@@ -28,7 +28,7 @@ export default function AuthGuard({ allowedRoles, children }: AuthGuardProps) {
       return
     }
     if (!allowedRoles.includes(user.role)) {
-      router.replace('/unauthorized')
+      router.replace('/?error=unauthorized')
     }
   }, [user, allowedRoles, isLoading, isLoggingOut, router])
 

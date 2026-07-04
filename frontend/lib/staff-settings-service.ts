@@ -120,6 +120,18 @@ export async function updateMyProfile(payload: UpdateStaffProfilePayload) {
   }
 }
 
+export async function uploadMyAvatar(file: File, fallback?: AuthUser | null) {
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const response = await api.post<Partial<StaffProfile & AuthUser>>('/api/users/me/avatar', formData)
+    return normalizeProfile(response.data, fallback)
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Khong the tai anh dai dien len. Vui long thu lai.'))
+  }
+}
+
 export async function getNotificationSettings() {
   try {
     const response = await api.get<StaffNotificationSettings>('/api/users/me/notification-settings')

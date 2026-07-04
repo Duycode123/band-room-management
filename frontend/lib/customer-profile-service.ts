@@ -189,6 +189,21 @@ export async function updateCustomerProfile(payload: UpdateCustomerProfilePayloa
   }
 }
 
+export async function uploadCustomerAvatar(file: File, fallback?: AuthUser | null): Promise<CustomerProfile> {
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const response = await api.post<CurrentUserApiResponse>('/api/users/me/avatar', formData)
+    const updatedProfile = normalizeCurrentUser(response.data, fallback)
+
+    writeStoredCustomerProfile(updatedProfile)
+    return updatedProfile
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Khong the tai anh dai dien len. Vui long thu lai.'))
+  }
+}
+
 export async function changeCustomerPassword(payload: ChangeCustomerPasswordPayload): Promise<void> {
   try {
     await api.put('/api/users/me/password', payload)

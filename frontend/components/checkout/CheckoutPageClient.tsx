@@ -29,7 +29,7 @@ const DEPOSIT_AMOUNT = 50000
 export default function CheckoutPageClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const confirmationHref = `/customer/booking/confirmation?${searchParams.toString()}`
+  const confirmationHref = `/rooms/confirmation?${searchParams.toString()}`
   const [booking, setBooking] = useState<CheckoutBooking | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -187,7 +187,7 @@ export default function CheckoutPageClient() {
             <h2 className="font-display text-xl font-bold text-[#C62828]">Không thể mở checkout</h2>
             <p className="mt-2 text-[#5C5348]">{error}</p>
             <Link
-              href="/customer/booking"
+              href="/rooms"
               className="mt-5 inline-flex h-12 items-center justify-center rounded-2xl bg-[#FF7518] px-6 font-display font-semibold text-white transition hover:bg-[#E6640F]"
             >
               Quay lại chọn phòng
