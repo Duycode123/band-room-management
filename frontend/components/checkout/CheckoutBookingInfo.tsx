@@ -21,10 +21,6 @@ export default function CheckoutBookingInfo({ booking }: { booking: CheckoutBook
       </div>
 
       <InfoList title="Thiết bị có sẵn" items={booking.equipments} />
-      <InfoList
-        title="Dịch vụ thuê thêm"
-        items={booking.addons.length > 0 ? booking.addons.map((addon) => addon.name) : ['Chưa chọn dịch vụ thuê thêm']}
-      />
 
       <div className="mt-6 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4 text-sm text-[#5C5348]">
         Bước tiếp theo sẽ tạo phiên thanh toán tạm thời. Trạng thái booking trong hệ thống vẫn giữ là chờ thanh toán.

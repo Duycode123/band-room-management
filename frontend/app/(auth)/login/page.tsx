@@ -223,7 +223,13 @@ function getRedirectPath(role: Parameters<typeof getPostLoginPath>[0]) {
     return getPostLoginPath(role)
   }
 
-  const redirectPath = new URLSearchParams(window.location.search).get('redirect')
+  const searchParams = new URLSearchParams(window.location.search)
+  const returnUrl = searchParams.get('returnUrl')
+  const redirectPath = searchParams.get('redirect')
+
+  if (returnUrl && returnUrl.startsWith('/') && !returnUrl.startsWith('//') && returnUrl !== '/login') {
+    return returnUrl
+  }
 
   if (redirectPath && redirectPath.startsWith('/') && !redirectPath.startsWith('//') && redirectPath !== '/login') {
     return redirectPath

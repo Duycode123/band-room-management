@@ -10,7 +10,7 @@ const HIDDEN_PREFIXES = [
 
 const HIDDEN_EXACT = new Set(['/customer/checkout'])
 
-const VISIBLE_PREFIXES = ['/', '/customer', '/payment/return']
+const VISIBLE_PREFIXES = ['/', '/rooms', '/customer', '/payment/return']
 
 export function shouldShowChatbot(pathname: string | null): boolean {
   if (!pathname) return false
@@ -21,6 +21,7 @@ export function shouldShowChatbot(pathname: string | null): boolean {
   }
 
   if (pathname === '/') return true
+  if (pathname === '/rooms') return true
   if (pathname.startsWith('/customer')) return true
   if (pathname.startsWith('/payment/return')) return true
 
