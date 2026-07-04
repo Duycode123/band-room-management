@@ -13,6 +13,7 @@ Allow an admin to attach one management response to an existing customer review 
 ## Related Endpoints
 
 - `GET /api/admin/reviews`
+- `GET /api/admin/reviews?staffId={staffId}`
 - `GET /api/admin/reviews/{id}`
 - `PATCH /api/admin/reviews/{id}/approval`
 - `PUT /api/admin/reviews/{id}/response`
@@ -58,6 +59,7 @@ Allow an admin to attach one management response to an existing customer review 
 - Admin response content is trimmed before persistence.
 - Review approval and admin response are separate actions.
 - Public review payloads include the admin response only when the review itself is already visible through approved/public endpoints.
+- Admin review listing can be filtered by `staffId` when a booking has a related check-in staff member.
 
 ## Data Touched
 

@@ -19,6 +19,7 @@ public interface ReviewService {
 
     PagedResponse<ReviewResponse> getReviewsForAdmin(
             Integer roomId,
+            Integer staffId,
             Boolean approved,
             Integer rating,
             String keyword,

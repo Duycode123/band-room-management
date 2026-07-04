@@ -21,6 +21,7 @@ import backend.repository.ReviewAdminResponseRepository;
 import backend.repository.ReviewRepository;
 import backend.repository.UserRepository;
 import backend.service.ReviewService;
+import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -141,6 +142,7 @@ public class ReviewServiceImpl implements ReviewService {
     @Transactional(readOnly = true)
     public PagedResponse<ReviewResponse> getReviewsForAdmin(
             Integer roomId,
+            Integer staffId,
             Boolean approved,
             Integer rating,
             String keyword,
@@ -149,9 +151,14 @@ public class ReviewServiceImpl implements ReviewService {
     ) {
         Specification<Review> specification = (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
+            var bookingJoin = root.join("booking");
+            var staffJoin = bookingJoin.join("checkinStaff", JoinType.LEFT);
 
             if (roomId != null) {
-                predicates.add(criteriaBuilder.equal(root.get("booking").get("room").get("id"), roomId));
+                predicates.add(criteriaBuilder.equal(bookingJoin.get("room").get("id"), roomId));
+            }
+            if (staffId != null) {
+                predicates.add(criteriaBuilder.equal(staffJoin.get("id"), staffId));
             }
             if (approved != null) {
                 predicates.add(criteriaBuilder.equal(root.get("approved"), approved));
@@ -164,8 +171,9 @@ public class ReviewServiceImpl implements ReviewService {
                 String normalizedKeyword = "%" + keyword.trim().toLowerCase() + "%";
                 predicates.add(criteriaBuilder.or(
                         criteriaBuilder.like(criteriaBuilder.lower(root.get("content")), normalizedKeyword),
-                        criteriaBuilder.like(criteriaBuilder.lower(root.get("booking").get("customer").get("fullName")), normalizedKeyword),
-                        criteriaBuilder.like(criteriaBuilder.lower(root.get("booking").get("room").get("roomName")), normalizedKeyword)
+                        criteriaBuilder.like(criteriaBuilder.lower(bookingJoin.get("customer").get("fullName")), normalizedKeyword),
+                        criteriaBuilder.like(criteriaBuilder.lower(bookingJoin.get("room").get("roomName")), normalizedKeyword),
+                        criteriaBuilder.like(criteriaBuilder.lower(staffJoin.get("fullName")), normalizedKeyword)
                 ));
             }
 

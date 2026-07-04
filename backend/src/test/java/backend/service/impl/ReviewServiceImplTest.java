@@ -8,6 +8,7 @@ import backend.entity.Review;
 import backend.entity.ReviewAdminResponse;
 import backend.entity.Role;
 import backend.entity.Room;
+import backend.entity.Staff;
 import backend.entity.User;
 import backend.exception.ForbiddenException;
 import backend.repository.BookingRepository;
@@ -172,6 +173,20 @@ class ReviewServiceImplTest {
 
         verify(reviewAdminResponseRepository).delete(existingResponse);
         assertNull(review.getAdminResponse());
+    }
+
+    @Test
+    void reviewResponseIncludesRelatedStaffWhenBookingHasCheckinStaff() {
+        Review review = sampleReview();
+        review.getBooking().setCheckinStaff(Staff.builder()
+                .id(17)
+                .fullName("Tran Thi B")
+                .build());
+
+        ReviewResponse response = ReviewResponse.from(review);
+
+        assertEquals(17, response.staffId());
+        assertEquals("Tran Thi B", response.staffName());
     }
 
     private Review sampleReview() {

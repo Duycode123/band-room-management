@@ -35,6 +35,10 @@ public class Booking {
     @JoinColumn(name = "discount_code_id")
     private DiscountCode discountCode;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "checkin_staff_id")
+    private Staff checkinStaff;
+
     @Column(name = "start_time", nullable = false)
     private LocalDateTime startTime;
 
