@@ -28,7 +28,9 @@ import backend.booking.application.port.out.LoadReviewPort;
 import backend.booking.application.port.out.LoadRoomPort;
 import backend.booking.application.port.out.LoadUserPort;
 import backend.booking.application.port.out.SaveBookingPort;
+import backend.booking.application.port.out.SearchBookingsForManagementPort;
 import backend.booking.application.port.out.SearchCustomerBookingsPort;
+import backend.booking.application.port.out.model.BookingManagementSearchCriteria;
 import backend.booking.application.port.out.model.CustomerBookingHistoryCriteria;
 import backend.coupon.domain.model.CouponValidationResult;
 import backend.coupon.domain.port.in.ValidateCouponCommand;
@@ -88,6 +90,7 @@ public class BookingUseCaseService implements
     private final LoadBookingPort loadBookingPort;
     private final SaveBookingPort saveBookingPort;
     private final SearchCustomerBookingsPort searchCustomerBookingsPort;
+    private final SearchBookingsForManagementPort searchBookingsForManagementPort;
     private final LoadReviewPort loadReviewPort;
     private final BookingCancellationNotificationService bookingCancellationNotificationService;
     private final ValidateCouponUseCase validateCouponUseCase;
@@ -263,13 +266,69 @@ public class BookingUseCaseService implements
         User currentUser = getCurrentUser(query.currentUserEmail());
         checkAdminOrStaff(currentUser);
 
-        List<Booking> bookings = query.status() == null
-                ? loadBookingPort.loadAllBookingsForManagement()
-                : loadBookingPort.loadBookingsForManagementByStatus(query.status());
-
-        return bookings.stream()
+        return searchBookingsForManagementPort
+                .loadBookingsForManagement(toManagementCriteria(query, null, null)).stream()
                 .map(BookingResponse::new)
                 .toList();
+    }
+
+    @Override
+    public PagedResponse<BookingResponse> getBookingsPage(ListBookingsForManagementQuery query) {
+        User currentUser = getCurrentUser(query.currentUserEmail());
+        checkAdminOrStaff(currentUser);
+
+        int page = query.page() == null ? 0 : query.page();
+        int size = query.size() == null ? 10 : query.size();
+
+        if (page < 0) {
+            throw new IllegalArgumentException("Trang khong duoc nho hon 0");
+        }
+        if (size < 1 || size > 100) {
+            throw new IllegalArgumentException("Kich thuoc trang phai tu 1 den 100");
+        }
+
+        PageResult<Booking> bookingPage = searchBookingsForManagementPort.searchBookingsForManagement(
+                toManagementCriteria(query, page, size)
+        );
+
+        return PagedResponse.of(
+                bookingPage.content().stream().map(BookingResponse::new).toList(),
+                bookingPage.page(),
+                bookingPage.size(),
+                bookingPage.totalElements(),
+                bookingPage.totalPages(),
+                bookingPage.first(),
+                bookingPage.last()
+        );
+    }
+
+    private BookingManagementSearchCriteria toManagementCriteria(
+            ListBookingsForManagementQuery query,
+            Integer page,
+            Integer size
+    ) {
+        if (query.from() != null && query.to() != null && query.from().isAfter(query.to())) {
+            throw new IllegalArgumentException("Thoi gian bat dau khong duoc sau thoi gian ket thuc");
+        }
+
+        String sortProperty = query.sortBy() == null ? "createdAt" : resolveSortProperty(query.sortBy());
+        String sortDirection = query.direction() == null ? "DESC" : resolveSortDirection(query.direction());
+
+        String search = query.search() == null || query.search().trim().isBlank()
+                ? null
+                : query.search().trim();
+
+        return new BookingManagementSearchCriteria(
+                query.status(),
+                query.roomId(),
+                search,
+                query.from(),
+                query.to(),
+                page,
+                size,
+                sortProperty,
+                sortDirection
+        );
     }
 
     @Override

@@ -8,10 +8,12 @@ public record PaymentSessionResult(
         Integer bookingId,
         String bookingCode,
         String method,
+        String paymentOption,
         String status,
         BigDecimal amount,
         String paymentUrl,
         LocalDateTime createdAt,
+        LocalDateTime expiresAt,
         LocalDateTime paidAt
 ) {
 }

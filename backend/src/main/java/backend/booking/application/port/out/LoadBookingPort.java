@@ -16,8 +16,4 @@ public interface LoadBookingPort {
             LocalDateTime endTime,
             BookingStatus cancelledStatus
     );
-
-    List<Booking> loadAllBookingsForManagement();
-
-    List<Booking> loadBookingsForManagementByStatus(BookingStatus status);
 }

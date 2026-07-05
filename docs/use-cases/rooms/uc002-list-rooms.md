@@ -4,7 +4,7 @@
 
 - Source: Product Backlog `UC002`
 - Primary actor: Customer
-- Current status in repo: Partially implemented
+- Current status in repo: Implemented core flow
 
 ## Goal
 
@@ -46,25 +46,26 @@ Allow a customer to browse available rooms and narrow the list to rooms that mat
 
 ## Current Implementation Notes
 
-- Current backend supports `roomTypeId` and `status` query parameters.
-- Response is returned as `ApiResponse<List<RoomResponse>>`.
+- Current backend supports `roomTypeId`, `status`, `search`, and `minCapacity` query parameters.
+- `search` matches the room name case-insensitively (substring match); blank input is treated as no filter and LIKE wildcards in the input are escaped.
+- `minCapacity` filters rooms whose `maxPeople` is greater than or equal to the given value and must be at least 1.
+- Pagination is opt-in: when `page` or `size` is provided, the response is `ApiResponse<PagedResponse<RoomResponse>>` (defaults: `page=0`, `size=10`, max size 100). Without them, the response stays `ApiResponse<List<RoomResponse>>` so existing consumers are unaffected.
+- Results are always sorted by room name ascending.
 - Room summary payload includes stored image URL and maximum people capacity when available.
-- There is no backend pagination yet.
-- There is no backend search by room name or address yet.
+- Filtering is implemented with a JPA specification inside `RoomPersistenceAdapter`; the application layer only sees `RoomSearchCriteria` and `PageResult`.
 
 ## Known Gaps / Follow-up
 
-- Add pagination if room count becomes large.
-- Add search and richer filters if still required by product scope.
+- Search covers room name only; address/description search is not in the current schema.
+- The name search is a leading-wildcard LIKE, which cannot use a btree index; acceptable at current data volume, revisit (e.g. `pg_trgm`) if the room table grows large.
 - Clarify whether rooms in maintenance should be excluded completely or shown with status.
 
-## Hexagonal Refactor Notes
+## Hexagonal Notes
 
-Suggested inbound port:
+Inbound port:
 
-- `ListRoomsUseCase`
+- `ListRoomsUseCase` (`getRooms` for the plain list, `getRoomsPage` for the paged variant)
 
-Suggested outbound ports:
+Outbound port:
 
-- `LoadRoomsPort`
-- `LoadRoomTypesPort`
+- `RoomCatalogPort.loadRooms(RoomSearchCriteria)` / `RoomCatalogPort.searchRooms(RoomSearchCriteria)`

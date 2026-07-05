@@ -46,3 +46,22 @@ payment.vnpay.version=2.1.0
 payment.vnpay.command=pay
 payment.vnpay.currency-code=VND
 payment.vnpay.locale=vn
+
+# ===== SePay =====
+# Online deposit flow redirects customers to the SePay-hosted payment portal.
+# Configure the SePay webhook URL as: ${APP_PUBLIC_BACKEND_URL}/api/payments/sepay/webhook
+# Prefer HMAC-SHA256 in production. API key is supported as a fallback for simpler setups.
+payment.sepay.checkout-url=${SEPAY_CHECKOUT_URL:}
+payment.sepay.merchant-id=${SEPAY_MERCHANT_ID:}
+payment.sepay.secret-key=${SEPAY_SECRET_KEY:}
+payment.sepay.success-url=${SEPAY_SUCCESS_URL:http://localhost:3000/payment/return}
+payment.sepay.error-url=${SEPAY_ERROR_URL:http://localhost:3000/payment/return}
+payment.sepay.cancel-url=${SEPAY_CANCEL_URL:http://localhost:3000/payment/return}
+payment.sepay.currency=${SEPAY_CURRENCY:VND}
+payment.sepay.operation=${SEPAY_OPERATION:}
+payment.sepay.method=${SEPAY_METHOD:}
+payment.sepay.transaction-type=${SEPAY_TRANSACTION_TYPE:}
+payment.sepay.portal-signature-param=${SEPAY_PORTAL_SIGNATURE_PARAM:signature}
+payment.sepay.webhook-hmac-secret=${SEPAY_WEBHOOK_HMAC_SECRET:}
+payment.sepay.webhook-timestamp-tolerance-seconds=${SEPAY_WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS:300}
+payment.sepay.ipn-secret=${SEPAY_IPN_SECRET:}

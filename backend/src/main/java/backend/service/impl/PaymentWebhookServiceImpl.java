@@ -1,15 +1,21 @@
 package backend.service.impl;
 
+import backend.config.SePayProperties;
 import backend.config.VNPayProperties;
 import backend.dto.response.VNPayIpnResponse;
 import backend.entity.Booking;
 import backend.entity.BookingStatus;
+import backend.entity.PaymentProvider;
 import backend.entity.PaymentTransaction;
 import backend.entity.PaymentTransactionStatus;
 import backend.repository.PaymentTransactionRepository;
 import backend.service.CouponUsageTrackingService;
 import backend.service.PaymentWebhookService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +25,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -37,13 +45,19 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
     private static final String INVALID_AMOUNT_CODE = "04";
     private static final String INVALID_SIGNATURE_CODE = "97";
     private static final String UNKNOWN_ERROR_CODE = "99";
-    private static final Pattern BOOKING_CODE_PATTERN = Pattern.compile("BR\\d{8}");
+    private static final Pattern SEPAY_PAYMENT_REFERENCE_PATTERN = Pattern.compile("PAY-?[A-Z0-9]{16}");
     private static final DateTimeFormatter VNPAY_DATE_TIME_FORMATTER =
             DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+    private static final DateTimeFormatter SEPAY_DATE_TIME_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final TypeReference<Map<String, Object>> WEBHOOK_PAYLOAD_TYPE = new TypeReference<>() {
+    };
 
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final VNPayProperties vnPayProperties;
+    private final SePayProperties sePayProperties;
     private final CouponUsageTrackingService couponUsageTrackingService;
+    private final ObjectMapper objectMapper;
 
     @Override
     @Transactional
@@ -101,10 +115,31 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
 
     @Override
     @Transactional
-    public Map<String, Object> handleSepayWebhook(Map<String, Object> payload) {
+    public Map<String, Object> handleSepayWebhook(
+            String rawBody,
+            String authorizationHeader,
+            String signatureHeader,
+            String timestampHeader
+    ) {
+        if (!isSepayRequestAuthorized(rawBody, authorizationHeader, signatureHeader, timestampHeader)) {
+            return Map.of("success", false, "message", "Unauthorized webhook request");
+        }
+
+        Map<String, Object> payload;
+        try {
+            payload = parseSepayPayload(rawBody);
+        } catch (IllegalArgumentException exception) {
+            return Map.of("success", false, "message", "Invalid webhook payload");
+        }
+
+        String providerTransactionId = firstText(payload, "id", "transactionId", "referenceCode");
+        if (isAlreadyProcessed(providerTransactionId)) {
+            return Map.of("success", true, "message", "Transaction already confirmed");
+        }
+
         String transactionReference = extractSepayReference(payload);
         if (isBlank(transactionReference)) {
-            return Map.of("success", false, "message", "Missing transaction reference");
+            return Map.of("success", true, "message", "No matching payment reference");
         }
 
         PaymentTransaction transaction = paymentTransactionRepository
@@ -112,21 +147,34 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
                 .orElse(null);
 
         if (transaction == null) {
-            return Map.of("success", false, "message", "Transaction not found");
+            return Map.of("success", true, "message", "Transaction not found");
         }
 
-        if (!isSepayAmountValid(payload, transaction.getAmount())) {
-            return Map.of("success", false, "message", "Invalid amount");
+        if (transaction.getProvider() != PaymentProvider.SEPAY) {
+            return Map.of("success", true, "message", "Transaction provider is not SePay");
+        }
+
+        if (!isIncomingSepayTransfer(payload)) {
+            return Map.of("success", true, "message", "Transfer is not incoming");
+        }
+
+        if (!isSepayAmountSufficient(payload, transaction.getAmount())) {
+            return Map.of("success", true, "message", "Payment amount did not match");
         }
 
         if (transaction.getStatus() == PaymentTransactionStatus.SUCCEEDED) {
             return Map.of("success", true, "message", "Transaction already confirmed");
         }
 
-        transaction.setProviderTransactionId(firstText(payload, "id", "transactionId", "referenceCode"));
+        if (transaction.getStatus() == PaymentTransactionStatus.FAILED
+                || transaction.getStatus() == PaymentTransactionStatus.CANCELLED) {
+            return Map.of("success", true, "message", "Transaction is already closed");
+        }
+
+        transaction.setProviderTransactionId(blankToNull(providerTransactionId));
         transaction.setResponseCode("SEPAY_SUCCESS");
         transaction.setStatus(PaymentTransactionStatus.SUCCEEDED);
-        transaction.setPaidAt(LocalDateTime.now());
+        transaction.setPaidAt(parseSepayTransactionDate(firstText(payload, "transactionDate")));
 
         Booking booking = transaction.getBooking();
         if (booking.getStatus() == BookingStatus.PENDING_PAYMENT) {
@@ -134,7 +182,11 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
         }
 
         couponUsageTrackingService.recordPaidBookingUsage(booking);
-        paymentTransactionRepository.save(transaction);
+        try {
+            paymentTransactionRepository.save(transaction);
+        } catch (DataIntegrityViolationException exception) {
+            return Map.of("success", true, "message", "Duplicate provider transaction");
+        }
 
         return Map.of("success", true, "message", "Confirm success");
     }
@@ -226,10 +278,122 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
         return new VNPayIpnResponse(code, message);
     }
 
+    private Map<String, Object> parseSepayPayload(String rawBody) {
+        if (isBlank(rawBody)) {
+            throw new IllegalArgumentException("Blank SePay webhook body");
+        }
+
+        try {
+            return objectMapper.readValue(rawBody, WEBHOOK_PAYLOAD_TYPE);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalArgumentException("Cannot parse SePay webhook body", exception);
+        }
+    }
+
+    private boolean isAlreadyProcessed(String providerTransactionId) {
+        if (isBlank(providerTransactionId)) {
+            return false;
+        }
+
+        return paymentTransactionRepository.findByProviderTransactionId(providerTransactionId).isPresent();
+    }
+
+    private boolean isSepayRequestAuthorized(
+            String rawBody,
+            String authorizationHeader,
+            String signatureHeader,
+            String timestampHeader
+    ) {
+        String hmacSecret = blankToNull(sePayProperties.getWebhookHmacSecret());
+        if (hmacSecret != null) {
+            return isValidSepayHmac(rawBody, signatureHeader, timestampHeader, hmacSecret);
+        }
+
+        String expectedSecret = sePayProperties.getIpnSecret();
+
+        // No secret configured (local/dev): keep the webhook open so the flow can be
+        // exercised without a real SePay account. Production should set
+        // payment.sepay.webhook-hmac-secret, or at least payment.sepay.ipn-secret.
+        if (isBlank(expectedSecret)) {
+            return true;
+        }
+
+        if (isBlank(authorizationHeader)) {
+            return false;
+        }
+
+        String presented = authorizationHeader.trim();
+        // SePay sends "Authorization: Apikey <secret>"; also accept the bare secret.
+        if (presented.regionMatches(true, 0, "Apikey ", 0, "Apikey ".length())) {
+            presented = presented.substring("Apikey ".length()).trim();
+        } else if (presented.regionMatches(true, 0, "Bearer ", 0, "Bearer ".length())) {
+            presented = presented.substring("Bearer ".length()).trim();
+        }
+
+        return constantTimeEquals(presented, expectedSecret.trim());
+    }
+
+    private boolean isValidSepayHmac(
+            String rawBody,
+            String signatureHeader,
+            String timestampHeader,
+            String secret
+    ) {
+        if (isBlank(rawBody) || isBlank(signatureHeader) || isBlank(timestampHeader)) {
+            return false;
+        }
+
+        long timestamp;
+        try {
+            timestamp = Long.parseLong(timestampHeader.trim());
+        } catch (NumberFormatException exception) {
+            return false;
+        }
+
+        long toleranceSeconds = Math.max(0, sePayProperties.getWebhookTimestampToleranceSeconds());
+        long now = Instant.now().getEpochSecond();
+        if (toleranceSeconds > 0 && Math.abs(now - timestamp) > toleranceSeconds) {
+            return false;
+        }
+
+        String expected = "sha256=" + hmacSha256(secret, timestamp + "." + rawBody);
+        return constantTimeEquals(expected, signatureHeader.trim());
+    }
+
+    private String hmacSha256(String key, String data) {
+        try {
+            Mac hmac256 = Mac.getInstance("HmacSHA256");
+            SecretKeySpec secretKey = new SecretKeySpec(
+                    key.getBytes(StandardCharsets.UTF_8),
+                    "HmacSHA256"
+            );
+            hmac256.init(secretKey);
+
+            byte[] bytes = hmac256.doFinal(data.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hash = new StringBuilder(bytes.length * 2);
+
+            for (byte value : bytes) {
+                hash.append(String.format("%02x", value));
+            }
+
+            return hash.toString();
+        } catch (Exception exception) {
+            throw new IllegalStateException("Cannot create SePay webhook signature", exception);
+        }
+    }
+
+    private boolean constantTimeEquals(String a, String b) {
+        return MessageDigest.isEqual(
+                a.getBytes(StandardCharsets.UTF_8),
+                b.getBytes(StandardCharsets.UTF_8)
+        );
+    }
+
     private String extractSepayReference(Map<String, Object> payload) {
         String explicitReference = firstText(
                 payload,
                 "transactionReference",
+                "paymentId",
                 "bookingCode",
                 "orderCode",
                 "order_id",
@@ -237,7 +401,7 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
         );
 
         if (!isBlank(explicitReference)) {
-            return explicitReference.trim();
+            return normalizeSepayReference(explicitReference);
         }
 
         String content = firstText(payload, "content", "description", "transferContent", "transactionContent");
@@ -245,17 +409,38 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
             return null;
         }
 
-        Matcher matcher = BOOKING_CODE_PATTERN.matcher(content.toUpperCase());
-        return matcher.find() ? matcher.group() : null;
+        Matcher matcher = SEPAY_PAYMENT_REFERENCE_PATTERN.matcher(content.toUpperCase());
+        return matcher.find() ? normalizeSepayReference(matcher.group()) : null;
     }
 
-    private boolean isSepayAmountValid(Map<String, Object> payload, BigDecimal transactionAmount) {
+    private String normalizeSepayReference(String rawReference) {
+        return rawReference == null ? null : rawReference.trim().toUpperCase().replace("-", "");
+    }
+
+    private boolean isIncomingSepayTransfer(Map<String, Object> payload) {
+        String transferType = firstText(payload, "transferType", "type");
+        return "in".equalsIgnoreCase(transferType);
+    }
+
+    private boolean isSepayAmountSufficient(Map<String, Object> payload, BigDecimal transactionAmount) {
         BigDecimal receivedAmount = firstAmount(payload, "amount", "transferAmount", "money", "value");
-        if (receivedAmount == null) {
-            return true;
+        if (receivedAmount == null || transactionAmount == null) {
+            return false;
         }
 
-        return receivedAmount.compareTo(transactionAmount) == 0;
+        return receivedAmount.compareTo(transactionAmount.setScale(2, RoundingMode.HALF_UP)) >= 0;
+    }
+
+    private LocalDateTime parseSepayTransactionDate(String rawTransactionDate) {
+        if (isBlank(rawTransactionDate)) {
+            return LocalDateTime.now();
+        }
+
+        try {
+            return LocalDateTime.parse(rawTransactionDate, SEPAY_DATE_TIME_FORMATTER);
+        } catch (DateTimeParseException exception) {
+            return LocalDateTime.now();
+        }
     }
 
     private BigDecimal firstAmount(Map<String, Object> payload, String... keys) {

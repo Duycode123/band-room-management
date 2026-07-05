@@ -1,5 +1,6 @@
 package backend.room.application.service;
 
+import backend.dto.response.PagedResponse;
 import backend.dto.response.RoomResponse;
 import backend.dto.response.RoomTypeResponse;
 import backend.entity.Role;
@@ -24,9 +25,11 @@ import backend.room.application.port.in.command.UpdateRoomStatusCommand;
 import backend.room.application.port.in.query.GetRoomDetailQuery;
 import backend.room.application.port.in.query.GetRoomTypeDetailQuery;
 import backend.room.application.port.in.query.ListRoomsQuery;
+import backend.room.application.model.PageResult;
 import backend.room.application.port.out.RoomActorPort;
 import backend.room.application.port.out.RoomCatalogPort;
 import backend.room.application.port.out.RoomMutationPort;
+import backend.room.application.port.out.model.RoomSearchCriteria;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,15 +49,62 @@ public class RoomUseCaseService implements
         ListRoomTypesUseCase,
         GetRoomTypeDetailUseCase {
 
+    private static final int DEFAULT_PAGE_SIZE = 10;
+    private static final int MAX_PAGE_SIZE = 100;
+
     private final RoomCatalogPort roomCatalogPort;
     private final RoomMutationPort roomMutationPort;
     private final RoomActorPort roomActorPort;
 
     @Override
     public List<RoomResponse> getRooms(ListRoomsQuery query) {
-        return roomCatalogPort.loadRooms(query.roomTypeId(), query.status()).stream()
+        return roomCatalogPort.loadRooms(toSearchCriteria(query, null, null)).stream()
                 .map(RoomResponse::from)
                 .toList();
+    }
+
+    @Override
+    public PagedResponse<RoomResponse> getRoomsPage(ListRoomsQuery query) {
+        int page = query.page() == null ? 0 : query.page();
+        int size = query.size() == null ? DEFAULT_PAGE_SIZE : query.size();
+
+        if (page < 0) {
+            throw new IllegalArgumentException("page phai lon hon hoac bang 0");
+        }
+        if (size < 1 || size > MAX_PAGE_SIZE) {
+            throw new IllegalArgumentException("size phai nam trong khoang 1-" + MAX_PAGE_SIZE);
+        }
+
+        PageResult<Room> roomPage = roomCatalogPort.searchRooms(toSearchCriteria(query, page, size));
+
+        return PagedResponse.of(
+                roomPage.content().stream().map(RoomResponse::from).toList(),
+                roomPage.page(),
+                roomPage.size(),
+                roomPage.totalElements(),
+                roomPage.totalPages(),
+                roomPage.first(),
+                roomPage.last()
+        );
+    }
+
+    private RoomSearchCriteria toSearchCriteria(ListRoomsQuery query, Integer page, Integer size) {
+        if (query.minCapacity() != null && query.minCapacity() < 1) {
+            throw new IllegalArgumentException("minCapacity phai lon hon hoac bang 1");
+        }
+
+        String search = query.search() == null || query.search().trim().isBlank()
+                ? null
+                : query.search().trim();
+
+        return new RoomSearchCriteria(
+                query.roomTypeId(),
+                query.status(),
+                search,
+                query.minCapacity(),
+                page,
+                size
+        );
     }
 
     @Override

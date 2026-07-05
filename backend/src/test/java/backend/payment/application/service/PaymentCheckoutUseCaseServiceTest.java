@@ -1,5 +1,6 @@
 package backend.payment.application.service;
 
+import backend.config.SePayProperties;
 import backend.entity.Booking;
 import backend.entity.BookingStatus;
 import backend.entity.Customer;
@@ -36,13 +37,18 @@ class PaymentCheckoutUseCaseServiceTest {
     @Mock
     private PaymentTransactionRepository paymentTransactionRepository;
 
+    private final SePayProperties sePayProperties = new SePayProperties();
+
     private PaymentCheckoutUseCaseService paymentCheckoutUseCaseService;
 
     @BeforeEach
     void setUp() {
+        sePayProperties.setCheckoutUrl("https://pay.sepay.vn/checkout");
+        sePayProperties.setMerchantId("merchant-1");
         paymentCheckoutUseCaseService = new PaymentCheckoutUseCaseService(
                 bookingRepository,
-                paymentTransactionRepository
+                paymentTransactionRepository,
+                sePayProperties
         );
     }
 
@@ -75,8 +81,12 @@ class PaymentCheckoutUseCaseServiceTest {
         assertEquals(BookingStatus.PENDING_PAYMENT, booking.getStatus());
         assertEquals(PaymentMethod.ONLINE, booking.getPaymentMethod());
         assertEquals("e_wallet", result.method());
-        assertEquals("success", result.status());
+        assertEquals("pending", result.status());
         assertEquals(booking.getBookingCode(), result.bookingCode());
+        assertEquals(true, result.paymentUrl().startsWith("https://pay.sepay.vn/checkout?"));
+        assertEquals(true, result.paymentUrl().contains("paymentId=" + savedTransaction.getTransactionReference()));
+        assertEquals(true, result.paymentUrl().contains("amount=50000"));
+        assertEquals(true, result.paymentUrl().contains("merchantId=merchant-1"));
     }
 
     @Test
@@ -108,7 +118,7 @@ class PaymentCheckoutUseCaseServiceTest {
         assertEquals(BookingStatus.PENDING_PAYMENT, booking.getStatus());
         assertEquals(PaymentMethod.CASH, booking.getPaymentMethod());
         assertEquals("cash", result.method());
-        assertEquals("success", result.status());
+        assertEquals("pending", result.status());
     }
 
     private Booking booking(int id, PaymentMethod paymentMethod) {

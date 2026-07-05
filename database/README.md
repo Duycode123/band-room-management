@@ -188,7 +188,7 @@ If the change is part of the Vietnamese-to-English rename:
 - Payment and booking timeout behavior should stay aligned with booking-expiry logic in the backend.
 - Enum-backed statuses deserve explicit documentation because they affect filters, transitions, and reporting.
 - `payment_provider` now includes `COUNTER` for pay-at-counter checkout sessions alongside online providers such as `VNPAY`.
-- `payment_provider` also includes `SEPAY` for the upcoming dedicated online checkout integration.
+- `payment_provider` includes `SEPAY` for online deposit checkout through the SePay-hosted portal and webhook confirmation.
 - `room.max_people` stores the maximum number of people a specific room can hold; `room.image_url` stores the persisted room image URL returned by Cloudinary or another HTTP(S) asset host.
 - `account.avatar_url` stores the current profile image URL for customer, staff, and admin accounts after upload through the backend.
 - `coupon_usage` records the exact discount amount actually consumed by one paid booking and enforces one usage row per booking through `booking_id` uniqueness.

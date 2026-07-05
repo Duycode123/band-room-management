@@ -55,3 +55,10 @@ Allow a customer to cancel a paid booking before the 24-hour policy deadline and
 
 - Implemented incrementally inside the booking use-case service.
 - Notification content is template-based in `BookingCancellationNotificationService`.
+- The refund summary (amount, percentage, method, expected date) is computed and communicated, but no `payment_transaction` refund row is written and no money is moved.
+
+## Known gaps / follow-up (deliberately deferred)
+
+- **Automated refund disbursement is not implemented and is intentionally deferred.** Actually returning money requires calling the live SePay/VNPay refund API with production merchant credentials, which is not available in this environment; implementing a fake disbursement would misrepresent behaviour.
+- Recording a `REFUNDED` reconciliation row would require adding a value to the PostgreSQL `payment_transaction_status` named enum (a payment-table schema migration). This is scoped as a follow-up to be done alongside the real disbursement integration, so the enum and the code that sets it land together rather than leaving an unused status.
+- Until then, cancellations of paid bookings should be reconciled manually by staff using the booking status change plus the emailed/in-app refund summary.

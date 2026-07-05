@@ -53,12 +53,12 @@ export const paymentMethodOptions: Array<{
   {
     id: 'bank_transfer',
     label: 'Chuyển khoản ngân hàng',
-    description: 'Dùng cho đặt cọc online. SePay sẽ được tích hợp sau.',
+    description: 'Dùng cho đặt cọc online qua portal SePay.',
   },
   {
     id: 'e_wallet',
     label: 'Ví điện tử',
-    description: 'Tạm thời mô phỏng luồng thanh toán online để kiểm tra checkout.',
+    description: 'Chưa bật trong phiên bản hiện tại.',
   },
   {
     id: 'cash',
@@ -105,7 +105,7 @@ export function getReturnStatusContent(status?: string | null) {
       icon: 'OK',
       title: 'Thanh toán thành công',
       message:
-        'Giao diện đang mô phỏng thanh toán thành công để kiểm thử. Booking trên hệ thống vẫn đang ở trạng thái chờ thanh toán cho tới khi tích hợp SePay hoàn tất.',
+        'SePay đã xác nhận giao dịch. Booking đã được chuyển sang trạng thái đã thanh toán.',
       primaryLabel: 'Xem lịch đặt phòng',
       primaryHref: '/customer/bookings',
     },
@@ -121,7 +121,7 @@ export function getReturnStatusContent(status?: string | null) {
       tone: 'pending',
       icon: '...',
       title: 'Đang chờ thanh toán',
-      message: 'Phiên thanh toán tạm thời đã được tạo và đang chờ hệ thống đối soát.',
+      message: 'Phiên thanh toán SePay đã được tạo và đang chờ portal/webhook đối soát.',
       primaryLabel: 'Xem lịch đặt phòng',
       primaryHref: '/customer/bookings',
     },

@@ -5,6 +5,7 @@ import backend.booking.application.port.in.query.GetRoomAvailabilityQuery;
 import backend.common.ApiResponse;
 import backend.dto.request.CreateRoomRequest;
 import backend.dto.request.UpdateRoomRequest;
+import backend.dto.response.PagedResponse;
 import backend.dto.response.RoomAvailabilityResponse;
 import backend.dto.response.RoomResponse;
 import backend.entity.RoomStatus;
@@ -53,14 +54,29 @@ public class RoomController {
     private final GetRoomAvailabilityUseCase getRoomAvailabilityUseCase;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<RoomResponse>>> getRooms(
+    public ResponseEntity<ApiResponse<?>> getRooms(
             @RequestParam(required = false) Integer roomTypeId,
-            @RequestParam(required = false) RoomStatus status
+            @RequestParam(required = false) RoomStatus status,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Integer minCapacity,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size
     ) {
+        ListRoomsQuery query = new ListRoomsQuery(roomTypeId, status, search, minCapacity, page, size);
+
+        if (page != null || size != null) {
+            PagedResponse<RoomResponse> roomsPage = listRoomsUseCase.getRoomsPage(query);
+            return ResponseEntity.ok(ApiResponse.<PagedResponse<RoomResponse>>builder()
+                    .success(true)
+                    .message("Lay danh sach phong thanh cong")
+                    .data(roomsPage)
+                    .build());
+        }
+
         return ResponseEntity.ok(ApiResponse.<List<RoomResponse>>builder()
                 .success(true)
                 .message("Lay danh sach phong thanh cong")
-                .data(listRoomsUseCase.getRooms(new ListRoomsQuery(roomTypeId, status)))
+                .data(listRoomsUseCase.getRooms(query))
                 .build());
     }
 

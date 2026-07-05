@@ -1,14 +1,17 @@
 package backend.room.application.port.out;
 
 import backend.entity.Room;
-import backend.entity.RoomStatus;
 import backend.entity.RoomType;
+import backend.room.application.model.PageResult;
+import backend.room.application.port.out.model.RoomSearchCriteria;
 
 import java.util.List;
 import java.util.Optional;
 
 public interface RoomCatalogPort {
-    List<Room> loadRooms(Integer roomTypeId, RoomStatus status);
+    List<Room> loadRooms(RoomSearchCriteria criteria);
+
+    PageResult<Room> searchRooms(RoomSearchCriteria criteria);
 
     Optional<Room> loadRoom(Integer roomId);
 

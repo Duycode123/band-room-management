@@ -3,11 +3,13 @@ package backend.controller;
 import backend.booking.application.port.in.CalculateBookingCostUseCase;
 import backend.booking.application.port.in.CancelCustomerBookingUseCase;
 import backend.booking.application.port.in.CreateBookingUseCase;
+import backend.booking.application.port.in.GetCustomerBookingDetailUseCase;
 import backend.booking.application.port.in.GetCustomerBookingHistoryUseCase;
 import backend.booking.application.port.in.command.CalculateBookingCostCommand;
 import backend.booking.application.port.in.command.CancelCustomerBookingCommand;
 import backend.booking.application.port.in.command.CreateBookingCommand;
 import backend.booking.application.port.in.query.CustomerBookingHistoryQuery;
+import backend.booking.application.port.in.query.GetCustomerBookingDetailQuery;
 import backend.dto.request.CancelBookingRequest;
 import backend.dto.request.CalculateBookingCostRequest;
 import backend.dto.request.CreateBookingRequest;
@@ -32,17 +34,20 @@ public class BookingController {
     private final CalculateBookingCostUseCase calculateBookingCostUseCase;
     private final CreateBookingUseCase createBookingUseCase;
     private final GetCustomerBookingHistoryUseCase getCustomerBookingHistoryUseCase;
+    private final GetCustomerBookingDetailUseCase getCustomerBookingDetailUseCase;
     private final CancelCustomerBookingUseCase cancelCustomerBookingUseCase;
 
     public BookingController(
             CalculateBookingCostUseCase calculateBookingCostUseCase,
             CreateBookingUseCase createBookingUseCase,
             GetCustomerBookingHistoryUseCase getCustomerBookingHistoryUseCase,
+            GetCustomerBookingDetailUseCase getCustomerBookingDetailUseCase,
             CancelCustomerBookingUseCase cancelCustomerBookingUseCase
     ) {
         this.calculateBookingCostUseCase = calculateBookingCostUseCase;
         this.createBookingUseCase = createBookingUseCase;
         this.getCustomerBookingHistoryUseCase = getCustomerBookingHistoryUseCase;
+        this.getCustomerBookingDetailUseCase = getCustomerBookingDetailUseCase;
         this.cancelCustomerBookingUseCase = cancelCustomerBookingUseCase;
     }
 
@@ -109,6 +114,18 @@ public class BookingController {
         );
 
         return ResponseEntity.ok(success("Lay lich su dat phong thanh cong", data));
+    }
+
+    @GetMapping("/my/{id}")
+    public ResponseEntity<?> getMyBookingDetail(
+            @PathVariable Integer id,
+            Authentication authentication
+    ) {
+        BookingResponse data = getCustomerBookingDetailUseCase.getCustomerBookingDetail(
+                new GetCustomerBookingDetailQuery(id, authentication.getName())
+        );
+
+        return ResponseEntity.ok(success("Lay chi tiet don dat phong thanh cong", data));
     }
 
     @PutMapping("/{id}/cancel")

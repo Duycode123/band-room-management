@@ -9,7 +9,9 @@ import backend.booking.application.port.out.LoadRoomPort;
 import backend.booking.application.port.out.LoadUserPort;
 import backend.booking.application.port.out.SaveBookingPort;
 import backend.booking.application.port.out.SavePaymentTransactionPort;
+import backend.booking.application.port.out.SearchBookingsForManagementPort;
 import backend.booking.application.port.out.SearchCustomerBookingsPort;
+import backend.booking.application.port.out.model.BookingManagementSearchCriteria;
 import backend.booking.application.port.out.model.CustomerBookingHistoryCriteria;
 import backend.entity.Booking;
 import backend.entity.BookingStatus;
@@ -24,6 +26,8 @@ import backend.repository.PaymentTransactionRepository;
 import backend.repository.ReviewRepository;
 import backend.repository.RoomRepository;
 import backend.repository.UserRepository;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -48,7 +52,8 @@ public class BookingPersistenceAdapter implements
         LoadReviewPort,
         SaveBookingPort,
         SavePaymentTransactionPort,
-        SearchCustomerBookingsPort {
+        SearchCustomerBookingsPort,
+        SearchBookingsForManagementPort {
 
     private final BookingRepository bookingRepository;
     private final RoomRepository roomRepository;
@@ -96,16 +101,6 @@ public class BookingPersistenceAdapter implements
             BookingStatus cancelledStatus
     ) {
         return bookingRepository.findBlockingBookings(roomId, startTime, endTime, cancelledStatus);
-    }
-
-    @Override
-    public List<Booking> loadAllBookingsForManagement() {
-        return bookingRepository.findAllByOrderByCreatedAtDesc();
-    }
-
-    @Override
-    public List<Booking> loadBookingsForManagementByStatus(BookingStatus status) {
-        return bookingRepository.findByStatusOrderByCreatedAtDesc(status);
     }
 
     @Override
@@ -165,5 +160,74 @@ public class BookingPersistenceAdapter implements
                 bookingPage.isFirst(),
                 bookingPage.isLast()
         );
+    }
+
+    @Override
+    public List<Booking> loadBookingsForManagement(BookingManagementSearchCriteria criteria) {
+        return bookingRepository.findAll(
+                toManagementSpecification(criteria),
+                Sort.by(Sort.Direction.fromString(criteria.direction()), criteria.sortBy())
+        );
+    }
+
+    @Override
+    public PageResult<Booking> searchBookingsForManagement(BookingManagementSearchCriteria criteria) {
+        Page<Booking> bookingPage = bookingRepository.findAll(
+                toManagementSpecification(criteria),
+                PageRequest.of(
+                        criteria.page(),
+                        criteria.size(),
+                        Sort.by(Sort.Direction.fromString(criteria.direction()), criteria.sortBy())
+                )
+        );
+
+        return new PageResult<>(
+                bookingPage.getContent(),
+                bookingPage.getNumber(),
+                bookingPage.getSize(),
+                bookingPage.getTotalElements(),
+                bookingPage.getTotalPages(),
+                bookingPage.isFirst(),
+                bookingPage.isLast()
+        );
+    }
+
+    private Specification<Booking> toManagementSpecification(BookingManagementSearchCriteria criteria) {
+        return (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (criteria.status() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("status"), criteria.status()));
+            }
+            if (criteria.roomId() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("room").get("id"), criteria.roomId()));
+            }
+            if (criteria.from() != null) {
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("startTime"), criteria.from()));
+            }
+            if (criteria.to() != null) {
+                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("startTime"), criteria.to()));
+            }
+            if (criteria.search() != null) {
+                String pattern = "%" + escapeLikePattern(criteria.search().toLowerCase()) + "%";
+                Join<Object, Object> customer = root.join("customer", JoinType.LEFT);
+                Join<Object, Object> room = root.join("room", JoinType.LEFT);
+
+                predicates.add(criteriaBuilder.or(
+                        criteriaBuilder.like(criteriaBuilder.lower(customer.get("fullName")), pattern, '\\'),
+                        criteriaBuilder.like(criteriaBuilder.lower(customer.get("email")), pattern, '\\'),
+                        criteriaBuilder.like(criteriaBuilder.lower(room.get("roomName")), pattern, '\\')
+                ));
+            }
+
+            return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
+        };
+    }
+
+    private String escapeLikePattern(String value) {
+        return value
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
     }
 }

@@ -12,7 +12,10 @@ import backend.booking.application.port.out.LoadReviewPort;
 import backend.booking.application.port.out.LoadRoomPort;
 import backend.booking.application.port.out.LoadUserPort;
 import backend.booking.application.port.out.SaveBookingPort;
+import backend.booking.application.port.out.SearchBookingsForManagementPort;
 import backend.booking.application.port.out.SearchCustomerBookingsPort;
+import backend.booking.application.port.in.query.ListBookingsForManagementQuery;
+import backend.booking.application.port.out.model.BookingManagementSearchCriteria;
 import backend.coupon.domain.model.CouponValidationResult;
 import backend.coupon.domain.model.DiscountType;
 import backend.coupon.domain.port.in.ValidateCouponUseCase;
@@ -24,6 +27,7 @@ import backend.entity.Booking;
 import backend.entity.BookingStatus;
 import backend.entity.Customer;
 import backend.entity.PaymentMethod;
+import backend.entity.Role;
 import backend.entity.Room;
 import backend.entity.RoomStatus;
 import backend.entity.RoomType;
@@ -33,6 +37,7 @@ import backend.exception.ForbiddenException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -74,6 +79,9 @@ class BookingUseCaseServiceTest {
     private SearchCustomerBookingsPort searchCustomerBookingsPort;
 
     @Mock
+    private SearchBookingsForManagementPort searchBookingsForManagementPort;
+
+    @Mock
     private LoadReviewPort loadReviewPort;
 
     @Mock
@@ -94,6 +102,7 @@ class BookingUseCaseServiceTest {
                 loadBookingPort,
                 saveBookingPort,
                 searchCustomerBookingsPort,
+                searchBookingsForManagementPort,
                 loadReviewPort,
                 bookingCancellationNotificationService,
                 validateCouponUseCase
@@ -295,6 +304,69 @@ class BookingUseCaseServiceTest {
                         new GetCustomerBookingDetailQuery(12, ownerAccount.getEmail())
                 )
         );
+    }
+
+    @Test
+    void adminBookingListPassesNormalizedCriteriaToSearchPort() {
+        User admin = User.builder().id(1).email("admin@example.com").role(Role.ADMIN).build();
+        when(loadUserPort.loadUserByEmail("admin@example.com")).thenReturn(Optional.of(admin));
+        when(searchBookingsForManagementPort.loadBookingsForManagement(any())).thenReturn(List.of());
+
+        bookingUseCaseService.getAllBookings(new ListBookingsForManagementQuery(
+                BookingStatus.PAID,
+                3,
+                "  an@example.com  ",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "admin@example.com"
+        ));
+
+        ArgumentCaptor<BookingManagementSearchCriteria> criteriaCaptor =
+                ArgumentCaptor.forClass(BookingManagementSearchCriteria.class);
+        verify(searchBookingsForManagementPort).loadBookingsForManagement(criteriaCaptor.capture());
+        assertEquals(BookingStatus.PAID, criteriaCaptor.getValue().status());
+        assertEquals(3, criteriaCaptor.getValue().roomId());
+        assertEquals("an@example.com", criteriaCaptor.getValue().search());
+        assertEquals("createdAt", criteriaCaptor.getValue().sortBy());
+        assertEquals("DESC", criteriaCaptor.getValue().direction());
+    }
+
+    @Test
+    void adminBookingPageRejectsInvalidPaginationAndSort() {
+        User admin = User.builder().id(1).email("admin@example.com").role(Role.ADMIN).build();
+        when(loadUserPort.loadUserByEmail("admin@example.com")).thenReturn(Optional.of(admin));
+
+        assertThrows(IllegalArgumentException.class, () -> bookingUseCaseService.getBookingsPage(
+                new ListBookingsForManagementQuery(
+                        null, null, null, null, null, -1, 10, null, null, "admin@example.com"
+                )
+        ));
+        assertThrows(IllegalArgumentException.class, () -> bookingUseCaseService.getBookingsPage(
+                new ListBookingsForManagementQuery(
+                        null, null, null, null, null, 0, 101, null, null, "admin@example.com"
+                )
+        ));
+        assertThrows(IllegalArgumentException.class, () -> bookingUseCaseService.getBookingsPage(
+                new ListBookingsForManagementQuery(
+                        null, null, null, null, null, 0, 10, "hackedColumn", null, "admin@example.com"
+                )
+        ));
+        verify(searchBookingsForManagementPort, never()).searchBookingsForManagement(any());
+    }
+
+    @Test
+    void adminBookingListRejectsCustomerActor() {
+        User customer = User.builder().id(2).email("customer@example.com").role(Role.CUSTOMER).build();
+        when(loadUserPort.loadUserByEmail("customer@example.com")).thenReturn(Optional.of(customer));
+
+        assertThrows(ForbiddenException.class, () -> bookingUseCaseService.getAllBookings(
+                new ListBookingsForManagementQuery(null, "customer@example.com")
+        ));
+        verify(searchBookingsForManagementPort, never()).loadBookingsForManagement(any());
     }
 
     private Room availableRoom() {

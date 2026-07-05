@@ -6,12 +6,17 @@ import backend.entity.RoomStatus;
 import backend.entity.RoomType;
 import backend.entity.User;
 import backend.exception.ForbiddenException;
+import backend.dto.response.PagedResponse;
+import backend.dto.response.RoomResponse;
+import backend.room.application.model.PageResult;
 import backend.room.application.port.in.command.DeleteRoomCommand;
 import backend.room.application.port.in.command.UpdateRoomCommand;
 import backend.room.application.port.in.command.UpdateRoomStatusCommand;
+import backend.room.application.port.in.query.ListRoomsQuery;
 import backend.room.application.port.out.RoomActorPort;
 import backend.room.application.port.out.RoomCatalogPort;
 import backend.room.application.port.out.RoomMutationPort;
+import backend.room.application.port.out.model.RoomSearchCriteria;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -19,10 +24,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -164,6 +172,86 @@ class RoomUseCaseServiceTest {
                 RoomStatus.AVAILABLE,
                 "staff@example.com"
         )));
+    }
+
+    @Test
+    void getRoomsPassesNormalizedFiltersToCatalogPort() {
+        RoomUseCaseService service = new RoomUseCaseService(roomCatalogPort, roomMutationPort, roomActorPort);
+
+        when(roomCatalogPort.loadRooms(any(RoomSearchCriteria.class))).thenReturn(List.of(existingRoom()));
+
+        List<RoomResponse> rooms = service.getRooms(new ListRoomsQuery(
+                2, RoomStatus.AVAILABLE, "  Studio  ", 4, null, null
+        ));
+
+        ArgumentCaptor<RoomSearchCriteria> criteriaCaptor = ArgumentCaptor.forClass(RoomSearchCriteria.class);
+        verify(roomCatalogPort).loadRooms(criteriaCaptor.capture());
+        assertEquals(2, criteriaCaptor.getValue().roomTypeId());
+        assertEquals(RoomStatus.AVAILABLE, criteriaCaptor.getValue().status());
+        assertEquals("Studio", criteriaCaptor.getValue().search());
+        assertEquals(4, criteriaCaptor.getValue().minCapacity());
+        assertEquals(1, rooms.size());
+        assertEquals("Studio A", rooms.get(0).getRoomName());
+    }
+
+    @Test
+    void getRoomsTreatsBlankSearchAsNoFilter() {
+        RoomUseCaseService service = new RoomUseCaseService(roomCatalogPort, roomMutationPort, roomActorPort);
+
+        when(roomCatalogPort.loadRooms(any(RoomSearchCriteria.class))).thenReturn(List.of());
+
+        service.getRooms(new ListRoomsQuery(null, null, "   ", null, null, null));
+
+        ArgumentCaptor<RoomSearchCriteria> criteriaCaptor = ArgumentCaptor.forClass(RoomSearchCriteria.class);
+        verify(roomCatalogPort).loadRooms(criteriaCaptor.capture());
+        assertNull(criteriaCaptor.getValue().search());
+    }
+
+    @Test
+    void getRoomsRejectsMinCapacityBelowOne() {
+        RoomUseCaseService service = new RoomUseCaseService(roomCatalogPort, roomMutationPort, roomActorPort);
+
+        assertThrows(IllegalArgumentException.class, () -> service.getRooms(new ListRoomsQuery(
+                null, null, null, 0, null, null
+        )));
+        verify(roomCatalogPort, never()).loadRooms(any(RoomSearchCriteria.class));
+    }
+
+    @Test
+    void getRoomsPageMapsPageResultAndAppliesDefaults() {
+        RoomUseCaseService service = new RoomUseCaseService(roomCatalogPort, roomMutationPort, roomActorPort);
+
+        when(roomCatalogPort.searchRooms(any(RoomSearchCriteria.class)))
+                .thenReturn(new PageResult<>(List.of(existingRoom()), 0, 10, 1, 1, true, true));
+
+        PagedResponse<RoomResponse> pageResponse = service.getRoomsPage(new ListRoomsQuery(
+                null, null, null, null, null, null
+        ));
+
+        ArgumentCaptor<RoomSearchCriteria> criteriaCaptor = ArgumentCaptor.forClass(RoomSearchCriteria.class);
+        verify(roomCatalogPort).searchRooms(criteriaCaptor.capture());
+        assertEquals(0, criteriaCaptor.getValue().page());
+        assertEquals(10, criteriaCaptor.getValue().size());
+        assertEquals(1, pageResponse.content().size());
+        assertEquals(1, pageResponse.totalElements());
+        assertTrue(pageResponse.first());
+        assertTrue(pageResponse.last());
+    }
+
+    @Test
+    void getRoomsPageRejectsInvalidPagination() {
+        RoomUseCaseService service = new RoomUseCaseService(roomCatalogPort, roomMutationPort, roomActorPort);
+
+        assertThrows(IllegalArgumentException.class, () -> service.getRoomsPage(new ListRoomsQuery(
+                null, null, null, null, -1, 10
+        )));
+        assertThrows(IllegalArgumentException.class, () -> service.getRoomsPage(new ListRoomsQuery(
+                null, null, null, null, 0, 0
+        )));
+        assertThrows(IllegalArgumentException.class, () -> service.getRoomsPage(new ListRoomsQuery(
+                null, null, null, null, 0, 101
+        )));
+        verify(roomCatalogPort, never()).searchRooms(any(RoomSearchCriteria.class));
     }
 
     private User adminUser() {

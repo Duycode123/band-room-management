@@ -24,6 +24,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpHeaders;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -35,6 +37,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+
+import org.mockito.ArgumentMatchers;
 
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -369,7 +373,8 @@ class BackendApplicationTests {
                 .maxPeople(6)
                 .status(RoomStatus.AVAILABLE)
                 .build();
-        when(roomRepository.findAllByOrderByRoomNameAsc()).thenReturn(List.of(room));
+        when(roomRepository.findAll(ArgumentMatchers.<Specification<Room>>any(), any(Sort.class)))
+                .thenReturn(List.of(room));
 
         mockMvc.perform(get("/api/rooms"))
                 .andExpect(status().isOk())

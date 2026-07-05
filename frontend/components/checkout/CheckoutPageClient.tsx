@@ -142,7 +142,7 @@ export default function CheckoutPageClient() {
   }, [searchParams])
 
   useEffect(() => {
-    if (paymentOption === 'deposit' && paymentMethod === 'cash') {
+    if (paymentOption === 'deposit' && paymentMethod !== 'bank_transfer') {
       setPaymentMethod('bank_transfer')
       return
     }
@@ -253,7 +253,7 @@ export default function CheckoutPageClient() {
             </div>
             <h1 className="font-display text-4xl font-bold tracking-tight">Thanh toán đặt phòng</h1>
             <p className="mt-2 text-[#5C5348]">
-              Hệ thống đang đọc lại booking từ backend trước khi tạo phiên thanh toán tạm thời.
+              Hệ thống đang đọc lại booking từ backend trước khi tạo phiên thanh toán SePay.
             </p>
           </div>
           <span className="w-fit rounded-full bg-[#FFE8D6] px-4 py-2 font-display text-sm font-bold text-[#6B3200]">
@@ -320,7 +320,7 @@ export default function CheckoutPageClient() {
                     <PaymentOptionButton
                       active={paymentOption === 'deposit'}
                       title="Đặt cọc 50.000 VND"
-                      description="Tạm thời chỉ hỗ trợ thanh toán online ở lựa chọn này."
+                      description="Thanh toán online qua portal riêng của SePay."
                       onClick={() => {
                         setPaymentOption('deposit')
                         setPaymentError('')
@@ -346,7 +346,7 @@ export default function CheckoutPageClient() {
                     </span>
                   </div>
                   <p className="mt-2 text-xs leading-5 text-[#5C5348]">
-                    Do SePay chưa nối xong, nút thanh toán hiện chỉ mô phỏng kết quả thành công để kiểm tra giao diện.
+                    Sau khi hoàn tất ở portal SePay, webhook sẽ cập nhật trạng thái booking trong hệ thống.
                   </p>
                 </div>
               </div>
@@ -378,7 +378,7 @@ export default function CheckoutPageClient() {
                 {isPaying
                   ? 'Đang tạo giao dịch...'
                   : paymentOption === 'deposit'
-                    ? `Thanh toán cọc ${formatCurrency(amountToPayNow)}`
+                    ? `Sang portal SePay ${formatCurrency(amountToPayNow)}`
                     : 'Xác nhận thanh toán toàn bộ'}
               </button>
             </aside>

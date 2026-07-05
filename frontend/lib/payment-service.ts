@@ -16,6 +16,12 @@ export type CreatePaymentSessionResponse = {
   paymentUrl: string
   paymentId: string
   status: PaymentStatus
+  amount: number
+  bookingId: number
+  bookingCode: string
+  method: string
+  paymentOption: PaymentOption
+  expiresAt?: string | null
 }
 
 export type PaymentTransactionDetail = {
@@ -23,9 +29,11 @@ export type PaymentTransactionDetail = {
   bookingId: number
   bookingCode: string
   method: string
+  paymentOption: PaymentOption
   status: PaymentStatus
   amount: number
   createdAt?: string | null
+  expiresAt?: string | null
   paidAt?: string | null
 }
 
@@ -40,9 +48,11 @@ type BackendPaymentSession = {
   bookingId: number
   bookingCode: string
   method: string
+  paymentOption: PaymentOption
   status: PaymentStatus
   amount: number | string
   paymentUrl: string
+  expiresAt?: string | null
 }
 
 type BackendPaymentTransaction = {
@@ -50,9 +60,11 @@ type BackendPaymentTransaction = {
   bookingId: number
   bookingCode: string
   method: string
+  paymentOption: PaymentOption
   status: PaymentStatus
   amount: number | string
   createdAt?: string | null
+  expiresAt?: string | null
   paidAt?: string | null
 }
 
@@ -87,6 +99,12 @@ export async function createPaymentSession(
       paymentUrl: response.data.data.paymentUrl,
       paymentId: response.data.data.paymentId,
       status: response.data.data.status,
+      amount: parseAmount(response.data.data.amount),
+      bookingId: response.data.data.bookingId,
+      bookingCode: response.data.data.bookingCode,
+      method: response.data.data.method,
+      paymentOption: response.data.data.paymentOption,
+      expiresAt: response.data.data.expiresAt,
     }
   } catch (error) {
     throw new Error(getApiErrorMessage(error, 'Không thể tạo giao dịch thanh toán.'))
@@ -102,9 +120,11 @@ export async function getPaymentTransactionDetail(paymentId: string): Promise<Pa
       bookingId: response.data.data.bookingId,
       bookingCode: response.data.data.bookingCode,
       method: response.data.data.method,
+      paymentOption: response.data.data.paymentOption,
       status: response.data.data.status,
       amount: parseAmount(response.data.data.amount),
       createdAt: response.data.data.createdAt,
+      expiresAt: response.data.data.expiresAt,
       paidAt: response.data.data.paidAt,
     }
   } catch (error) {

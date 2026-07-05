@@ -2,19 +2,26 @@ package backend.room.adapter.out.persistence;
 
 import backend.equipment.adapter.out.persistence.EquipmentRepository;
 import backend.entity.Room;
-import backend.entity.RoomStatus;
 import backend.entity.RoomType;
 import backend.entity.User;
 import backend.repository.BookingRepository;
 import backend.repository.RoomRepository;
 import backend.repository.RoomTypeRepository;
 import backend.repository.UserRepository;
+import backend.room.application.model.PageResult;
 import backend.room.application.port.out.RoomActorPort;
 import backend.room.application.port.out.RoomCatalogPort;
 import backend.room.application.port.out.RoomMutationPort;
+import backend.room.application.port.out.model.RoomSearchCriteria;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,18 +39,62 @@ public class RoomPersistenceAdapter implements
     private final EquipmentRepository equipmentRepository;
 
     @Override
-    public List<Room> loadRooms(Integer roomTypeId, RoomStatus status) {
-        if (roomTypeId != null && status != null) {
-            return roomRepository.findByRoomType_IdAndStatusOrderByRoomNameAsc(roomTypeId, status);
-        }
-        if (roomTypeId != null) {
-            return roomRepository.findByRoomType_IdOrderByRoomNameAsc(roomTypeId);
-        }
-        if (status != null) {
-            return roomRepository.findByStatusOrderByRoomNameAsc(status);
-        }
+    public List<Room> loadRooms(RoomSearchCriteria criteria) {
+        return roomRepository.findAll(toSpecification(criteria), roomNameAscending());
+    }
 
-        return roomRepository.findAllByOrderByRoomNameAsc();
+    @Override
+    public PageResult<Room> searchRooms(RoomSearchCriteria criteria) {
+        Page<Room> roomPage = roomRepository.findAll(
+                toSpecification(criteria),
+                PageRequest.of(criteria.page(), criteria.size(), roomNameAscending())
+        );
+
+        return new PageResult<>(
+                roomPage.getContent(),
+                roomPage.getNumber(),
+                roomPage.getSize(),
+                roomPage.getTotalElements(),
+                roomPage.getTotalPages(),
+                roomPage.isFirst(),
+                roomPage.isLast()
+        );
+    }
+
+    private Sort roomNameAscending() {
+        return Sort.by(Sort.Direction.ASC, "roomName");
+    }
+
+    private Specification<Room> toSpecification(RoomSearchCriteria criteria) {
+        return (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (criteria.roomTypeId() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("roomType").get("id"), criteria.roomTypeId()));
+            }
+            if (criteria.status() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("status"), criteria.status()));
+            }
+            if (criteria.search() != null) {
+                predicates.add(criteriaBuilder.like(
+                        criteriaBuilder.lower(root.get("roomName")),
+                        "%" + escapeLikePattern(criteria.search().toLowerCase()) + "%",
+                        '\\'
+                ));
+            }
+            if (criteria.minCapacity() != null) {
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("maxPeople"), criteria.minCapacity()));
+            }
+
+            return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
+        };
+    }
+
+    private String escapeLikePattern(String value) {
+        return value
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
     }
 
     @Override

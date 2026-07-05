@@ -52,6 +52,13 @@ Allow an authenticated account to view its current profile, update contact infor
 4. Backend stores the returned secure URL into `account.avatar_url`.
 5. Backend returns the updated profile with the new `avatarUrl`.
 
+### Update Notification Settings
+
+1. Authenticated user submits notification preferences.
+2. Backend loads or creates that account's `user_notification_settings` row.
+3. Backend stores the five preference flags for booking, shift, room issue, and equipment issue notifications.
+4. Backend returns the saved notification settings.
+
 ## Alternate And Error Flows
 
 - Missing or invalid session: backend rejects the request as unauthorized.
@@ -60,6 +67,7 @@ Allow an authenticated account to view its current profile, update contact infor
 - Missing file, non-image file, or file larger than 5 MB: backend rejects the avatar upload.
 - Cloudinary upload failure: backend returns an application error and does not update `account.avatar_url`.
 - Account exists but has no customer or staff row: backend still returns a fallback profile based on account email and role.
+- Missing notification settings row: backend treats all notification preferences as enabled and creates the row on first save.
 
 ## Business Rules
 
@@ -68,18 +76,21 @@ Allow an authenticated account to view its current profile, update contact infor
 - Only HTTP(S) avatar URLs are allowed to be persisted.
 - Avatar URLs are limited to 500 characters.
 - Profile update and avatar upload are separate operations to keep business validation and file handling isolated.
+- Each account has at most one notification settings row, enforced by `user_notification_settings.account_id`.
 
 ## Data Touched
 
 - `account`
 - `customer`
 - `staff`
+- `user_notification_settings`
 
 ## Current Implementation Notes
 
 - The backend keeps avatar persistence on the `account` row so one authenticated identity has one current avatar regardless of role-specific profile table.
 - Customer and staff profile views already consume `avatarUrl`; admin can access the same current-user profile endpoint and shared profile page.
 - Avatar upload reuses the existing Cloudinary integration style already used for room images, but with a dedicated avatar folder.
+- Notification settings use an idempotent upsert keyed by account id.
 
 ## Known Gaps
 

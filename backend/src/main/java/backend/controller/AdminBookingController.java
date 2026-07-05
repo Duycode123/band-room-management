@@ -10,11 +10,14 @@ import backend.booking.application.port.in.query.GetBookingManagementDetailQuery
 import backend.booking.application.port.in.query.ListBookingsForManagementQuery;
 import backend.dto.request.CancelBookingRequest;
 import backend.dto.response.BookingResponse;
+import backend.dto.response.PagedResponse;
 import backend.entity.BookingStatus;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,13 +46,37 @@ public class AdminBookingController {
     @GetMapping
     public ResponseEntity<?> getAllBookings(
             @RequestParam(required = false) BookingStatus status,
+            @RequestParam(required = false) Integer roomId,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String direction,
             Authentication authentication
     ) {
-        String currentUserEmail = authentication.getName();
-
-        List<BookingResponse> data = listBookingsForManagementUseCase.getAllBookings(
-                new ListBookingsForManagementQuery(status, currentUserEmail)
+        ListBookingsForManagementQuery query = new ListBookingsForManagementQuery(
+                status,
+                roomId,
+                search,
+                from,
+                to,
+                page,
+                size,
+                sortBy,
+                direction,
+                authentication.getName()
         );
+
+        if (page != null || size != null) {
+            PagedResponse<BookingResponse> data = listBookingsForManagementUseCase.getBookingsPage(query);
+            return ResponseEntity.ok(success("Lay danh sach don dat phong thanh cong", data));
+        }
+
+        List<BookingResponse> data = listBookingsForManagementUseCase.getAllBookings(query);
 
         return ResponseEntity.ok(success("Lay danh sach don dat phong thanh cong", data));
     }
