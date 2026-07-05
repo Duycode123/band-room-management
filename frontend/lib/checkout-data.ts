@@ -6,6 +6,7 @@ import {
 import { fetchRooms } from '@/lib/booking/bookingApi'
 import { getBookingDetail } from '@/lib/customer-booking-service'
 import type { AppliedDiscount } from '@/lib/discount-service'
+import { getPendingBooking } from '@/lib/pending-booking'
 import type { PaymentMethod, PaymentStatus } from '@/lib/payment-service'
 
 export type CheckoutBooking = {
@@ -162,7 +163,7 @@ export async function getCheckoutBookingFromParams(searchParams: URLSearchParams
 
   const booking = await getBookingDetail(bookingId, backendBookingId)
   if (!booking) {
-    return null
+    return buildCheckoutBookingFromPending(bookingId, backendBookingId, searchParams)
   }
 
   const rooms = await fetchRooms().catch(() => [])
@@ -201,6 +202,51 @@ export async function getCheckoutBookingFromParams(searchParams: URLSearchParams
     serviceFee: 0,
     note: booking.note,
     status: booking.status,
+  }
+}
+
+async function buildCheckoutBookingFromPending(
+  bookingId: string,
+  backendBookingId: number | undefined,
+  searchParams: URLSearchParams,
+): Promise<CheckoutBooking | null> {
+  const pending = getPendingBooking()
+  if (!pending || pending.bookingId !== bookingId) {
+    return null
+  }
+
+  const roomId = searchParams.get('roomId') || pending.roomId
+  const rooms = await fetchRooms().catch(() => [])
+  const room = rooms.find((item) => item.id === roomId)
+  if (!room) {
+    return null
+  }
+
+  const duration = pending.duration > 0 ? pending.duration : 1
+  const categoryLabel = room.roomTypeName?.trim() || inferCategoryLabel(searchParams.get('roomType'))
+  const pricePerHour = room.pricePerHour
+
+  return {
+    bookingId,
+    backendBookingId,
+    roomId,
+    roomName: room.name,
+    categoryLabel,
+    image: getSafeImageUrl(room.imageUrl),
+    imageClassName: 'object-center',
+    date: pending.date,
+    startTime: pending.startTime,
+    endTime: pending.endTime,
+    duration,
+    capacity: `Tối đa ${room.capacity} người`,
+    location: room.location || 'Band Room Studio',
+    pricePerHour,
+    equipments: room.equipment?.length ? room.equipment : [categoryLabel],
+    addons: [],
+    discount: 0,
+    serviceFee: 0,
+    note: pending.note,
+    status: 'PENDING_PAYMENT',
   }
 }
 

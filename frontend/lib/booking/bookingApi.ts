@@ -70,6 +70,7 @@ type CreateBookingRequest = {
   startTime: string
   endTime: string
   paymentMethod: BookingPaymentMethod
+  couponCode?: string
   note?: string
 }
 
@@ -79,6 +80,7 @@ export type CreateBookingPayload = {
   startTime: string
   endTime: string
   paymentMethod: BookingPaymentMethod
+  couponCode?: string
   note?: string
 }
 
@@ -267,6 +269,7 @@ export async function createBooking(payload: CreateBookingPayload): Promise<Book
     startTime: toBackendIso(payload.date, payload.startTime),
     endTime: toBackendIso(payload.date, payload.endTime),
     paymentMethod: payload.paymentMethod,
+    couponCode: payload.couponCode?.trim() || undefined,
     note: payload.note?.trim() || undefined,
   }
 
