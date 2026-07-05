@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import CheckoutBookingInfo from '@/components/checkout/CheckoutBookingInfo'
+import CheckoutCouponInput from '@/components/checkout/CheckoutCouponInput'
 import CheckoutPaymentMethods from '@/components/checkout/CheckoutPaymentMethods'
 import CheckoutSummary from '@/components/checkout/CheckoutSummary'
 import BandRoomHeader from '@/components/layout/BandRoomHeader'
@@ -14,9 +15,16 @@ import {
   type CheckoutBooking,
 } from '@/lib/checkout-data'
 import {
+  clearCheckoutSession,
+  getCheckoutSession,
+  saveCheckoutSession,
+} from '@/lib/checkout-session'
+import type { AppliedDiscount } from '@/lib/discount-service'
+import {
   clearPendingBooking,
   getPendingBooking,
   pendingBookingToSearchParams,
+  savePendingBooking,
 } from '@/lib/pending-booking'
 import {
   getQuickBookingRestoreHref,
@@ -41,6 +49,7 @@ export default function CheckoutPageClient() {
   const [paymentOption, setPaymentOption] = useState<PaymentOption>(getInitialPaymentOption(searchParams.get('paymentOption')))
   const [isPaying, setIsPaying] = useState(false)
   const [paymentError, setPaymentError] = useState('')
+  const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null)
   const [missingCheckoutReturnHref, setMissingCheckoutReturnHref] = useState('/')
 
   useEffect(() => {
@@ -85,6 +94,33 @@ export default function CheckoutPageClient() {
         }
 
         setBooking(loadedBooking)
+
+        const savedSession = getCheckoutSession(loadedBooking.bookingId)
+        if (savedSession?.appliedCoupon) {
+          setAppliedDiscount(savedSession.appliedCoupon)
+        } else {
+          const discountFromParams = readDiscountFromParams(checkoutParams)
+          const pendingBooking = getPendingBooking()
+          const discountFromPending =
+            pendingBooking?.bookingId === loadedBooking.bookingId &&
+            pendingBooking.discountCode &&
+            pendingBooking.discountAmount !== undefined
+              ? {
+                  code: pendingBooking.discountCode,
+                  discountAmount: pendingBooking.discountAmount,
+                }
+              : null
+
+          const restoredDiscount = discountFromParams ?? discountFromPending
+          setAppliedDiscount(restoredDiscount)
+          if (restoredDiscount) {
+            saveCheckoutSession({
+              bookingId: loadedBooking.bookingId,
+              appliedCoupon: restoredDiscount,
+            })
+          }
+        }
+
         setPaymentOption(getInitialPaymentOption(checkoutParams.get('paymentOption')))
         setPaymentMethod(getInitialPaymentMethod(checkoutParams.get('method')))
       } catch {
@@ -116,11 +152,49 @@ export default function CheckoutPageClient() {
     }
   }, [paymentMethod, paymentOption])
 
-  const summary = useMemo(() => (booking ? calculateCheckoutSummary(booking, null) : null), [booking])
+  const summary = useMemo(
+    () => (booking ? calculateCheckoutSummary(booking, appliedDiscount) : null),
+    [appliedDiscount, booking],
+  )
   const amountToPayNow = useMemo(() => {
     if (!summary) return 0
     return paymentOption === 'deposit' ? Math.min(DEPOSIT_AMOUNT, summary.total) : summary.total
   }, [paymentOption, summary])
+
+  const handleApplyCoupon = (discount: AppliedDiscount) => {
+    if (!booking) return
+
+    setAppliedDiscount(discount)
+    saveCheckoutSession({
+      bookingId: booking.bookingId,
+      appliedCoupon: discount,
+    })
+
+    const pendingBooking = getPendingBooking()
+    if (pendingBooking?.bookingId === booking.bookingId) {
+      savePendingBooking({
+        ...pendingBooking,
+        discountCode: discount.code,
+        discountAmount: discount.discountAmount,
+      })
+    }
+  }
+
+  const handleRemoveCoupon = () => {
+    if (!booking) return
+
+    setAppliedDiscount(null)
+    clearCheckoutSession()
+
+    const pendingBooking = getPendingBooking()
+    if (pendingBooking?.bookingId === booking.bookingId) {
+      savePendingBooking({
+        ...pendingBooking,
+        discountCode: undefined,
+        discountAmount: undefined,
+      })
+    }
+  }
 
   const handlePay = async () => {
     if (!booking || !summary) {
@@ -226,7 +300,18 @@ export default function CheckoutPageClient() {
                 </span>
               </div>
 
-              <CheckoutSummary booking={booking} appliedDiscount={null} />
+              <CheckoutSummary booking={booking} appliedDiscount={appliedDiscount} />
+
+              <div className="mt-4">
+                <CheckoutCouponInput
+                  bookingId={booking.bookingId}
+                  subtotal={summary.subtotal}
+                  appliedDiscount={appliedDiscount}
+                  onApplied={handleApplyCoupon}
+                  onRemoved={handleRemoveCoupon}
+                  disabled={isPaying}
+                />
+              </div>
 
               <div className="mt-4 grid gap-3">
                 <div className="rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-3">
@@ -342,4 +427,16 @@ function getInitialPaymentMethod(value: string | null): PaymentMethod {
 
 function getInitialPaymentOption(value: string | null): PaymentOption {
   return value === 'full' ? 'full' : 'deposit'
+}
+
+function readDiscountFromParams(searchParams: URLSearchParams): AppliedDiscount | null {
+  const code = searchParams.get('discountCode')?.trim().toUpperCase()
+  const rawAmount = searchParams.get('discountAmount')
+  const discountAmount = rawAmount ? Number(rawAmount) : NaN
+
+  if (!code || !Number.isFinite(discountAmount) || discountAmount <= 0) {
+    return null
+  }
+
+  return { code, discountAmount }
 }

@@ -41,7 +41,6 @@ export default function LoginPage() {
       clearStoredCustomerProfile()
       const currentProfile = await fetchCurrentUser(sessionUser)
 
-      alert('Đăng nhập thành công!')
       login({
         ...sessionUser,
         id: currentProfile.id ?? sessionUser.id,

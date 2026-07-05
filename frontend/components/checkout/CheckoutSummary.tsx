@@ -16,12 +16,18 @@ export default function CheckoutSummary({
     <div className="rounded-2xl bg-[#FAF8F4] p-3.5">
       <div className="space-y-1">
         <PaymentRow label="Tiền phòng" value={formatCurrency(summary.roomPrice)} />
+        {summary.addonsTotal > 0 && (
+          <PaymentRow label="Thiết bị thêm" value={formatCurrency(summary.addonsTotal)} />
+        )}
         {appliedDiscount && (
-          <PaymentRow
-            label={`Mã giảm giá (${appliedDiscount.code})`}
-            value={`-${formatCurrency(appliedDiscount.discountAmount)}`}
-            green
-          />
+          <>
+            <PaymentRow label="Tạm tính" value={formatCurrency(summary.subtotal)} />
+            <PaymentRow
+              label={`Mã giảm giá (${appliedDiscount.code})`}
+              value={`-${formatCurrency(appliedDiscount.discountAmount)}`}
+              green
+            />
+          </>
         )}
       </div>
 

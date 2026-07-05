@@ -250,6 +250,20 @@ export async function getBookingDetail(
   bookingId: string,
   backendBookingId?: number,
 ): Promise<BookingHistoryItem | null> {
+  try {
+    const bookings = await getCustomerBookings()
+
+    if (backendBookingId) {
+      const byBackendId = bookings.find((booking) => booking.backendBookingId === backendBookingId)
+      if (byBackendId) return byBackendId
+    }
+
+    const byCode = bookings.find((booking) => booking.bookingId === bookingId)
+    if (byCode) return byCode
+  } catch {
+    // Fall back to detail endpoint or pending checkout data below.
+  }
+
   if (backendBookingId) {
     try {
       const [booking, reviews] = await Promise.all([fetchBackendBookingDetail(backendBookingId), fetchBackendReviews()])
@@ -259,8 +273,7 @@ export async function getBookingDetail(
     }
   }
 
-  const bookings = await getCustomerBookings()
-  return bookings.find((booking) => booking.bookingId === bookingId) ?? null
+  return null
 }
 
 export async function submitBookingReview(payload: SubmitBookingReviewPayload): Promise<BookingReview> {

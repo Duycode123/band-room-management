@@ -23,8 +23,15 @@ import {
   type PaymentMethodId,
 } from '@/components/booking/booking-data'
 import { useAuth } from '@/contexts/AuthContext'
+import CheckoutCouponInput from '@/components/checkout/CheckoutCouponInput'
+import {
+  clearConfirmationCouponDraft,
+  getConfirmationCouponDraft,
+  saveConfirmationCouponDraft,
+} from '@/lib/booking-coupon-draft'
 import { resolveBookingRoom } from '@/lib/booking-room-service'
 import { createBooking, mapPaymentMethodToBackend } from '@/lib/booking/bookingApi'
+import type { AppliedDiscount } from '@/lib/discount-service'
 import { savePendingBooking } from '@/lib/pending-booking'
 
 export default function BookingConfirmationClient() {
@@ -42,9 +49,12 @@ export default function BookingConfirmationClient() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId>('bank_transfer')
   const [confirmError, setConfirmError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null)
 
   const displayRoom = apiRoom ?? room
   const roomSubtotal = displayRoom.pricePerHour * getBookingDuration(searchParams)
+  const discountAmount = Math.min(appliedDiscount?.discountAmount ?? 0, roomSubtotal)
+  const totalAfterDiscount = Math.max(0, roomSubtotal - discountAmount)
   const activePaymentMethod = paymentMethods.find((method) => method.id === paymentMethod) ?? paymentMethods[0]
   const selectionHref = '/rooms'
   const date = searchParams.get('date') || DEFAULT_BOOKING_DATE
@@ -52,6 +62,18 @@ export default function BookingConfirmationClient() {
   const duration = getBookingDuration(searchParams)
   const endTime = searchParams.get('endTime') || calculateEndTime(startTime, duration)
   const note = searchParams.get('note')?.trim() || EMPTY_NOTE_TEXT
+  const couponDraftKey = {
+    roomId: displayRoom.id,
+    date,
+    startTime,
+    endTime,
+  }
+
+  useEffect(() => {
+    if (!displayRoom.id) return
+
+    setAppliedDiscount(getConfirmationCouponDraft(couponDraftKey))
+  }, [date, displayRoom.id, endTime, startTime])
 
   useEffect(() => {
     if (apiRoom) {
@@ -118,6 +140,7 @@ export default function BookingConfirmationClient() {
         startTime,
         endTime,
         paymentMethod: mapPaymentMethodToBackend(paymentMethod),
+        couponCode: appliedDiscount?.code,
         note: note === EMPTY_NOTE_TEXT ? '' : note,
       })
 
@@ -131,7 +154,11 @@ export default function BookingConfirmationClient() {
         addons: [],
         note,
         method: paymentMethod,
+        discountCode: appliedDiscount?.code,
+        discountAmount: appliedDiscount?.discountAmount,
       })
+
+      clearConfirmationCouponDraft()
 
       const params = new URLSearchParams({
         bookingId: booking.bookingCode || String(booking.bookingId),
@@ -139,6 +166,11 @@ export default function BookingConfirmationClient() {
         roomId: displayRoom.id,
         method: paymentMethod,
       })
+
+      if (appliedDiscount) {
+        params.set('discountCode', appliedDiscount.code)
+        params.set('discountAmount', String(appliedDiscount.discountAmount))
+      }
 
       router.push(`/customer/checkout?${params.toString()}`)
     } catch (error) {
@@ -232,10 +264,6 @@ export default function BookingConfirmationClient() {
 
             <InfoSection title="Thiết bị hiển thị" items={displayRoom.includedEquipments} />
 
-            <div className="mt-6 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4 text-sm text-[#5C5348]">
-              Tạm thời chưa áp dụng add-on và mã giảm giá ở bước này để ưu tiên hoàn thiện luồng đặt phòng và checkout thật.
-            </div>
-
             <div className="mt-6">
               <h3 className="font-display text-lg font-bold">Ghi chú khách hàng</h3>
               <div className="mt-3 whitespace-pre-wrap rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4 text-[#5C5348]">
@@ -265,11 +293,36 @@ export default function BookingConfirmationClient() {
             <PaymentRow label="Tiền phòng" value={formatCurrency(roomSubtotal)} />
             <PaymentRow label="Dịch vụ thuê thêm" value="Chưa áp dụng" />
 
+            <div className="my-4">
+              <CheckoutCouponInput
+                subtotal={roomSubtotal}
+                appliedDiscount={appliedDiscount}
+                disabled={isSubmitting}
+                onApplied={(discount) => {
+                  setAppliedDiscount(discount)
+                  saveConfirmationCouponDraft(couponDraftKey, discount)
+                  setConfirmError('')
+                }}
+                onRemoved={() => {
+                  setAppliedDiscount(null)
+                  saveConfirmationCouponDraft(couponDraftKey, null)
+                }}
+              />
+            </div>
+
+            {appliedDiscount && (
+              <PaymentRow
+                label={`Mã giảm giá (${appliedDiscount.code})`}
+                value={`-${formatCurrency(discountAmount)}`}
+                green
+              />
+            )}
+
             <div className="my-5 rounded-2xl bg-[#FAF8F4] p-4">
               <div className="flex items-center justify-between gap-4">
                 <span className="font-display text-lg font-bold">Tổng tham chiếu</span>
                 <span className="font-display text-3xl font-bold text-[#FF7518]">
-                  {formatCurrency(roomSubtotal)}
+                  {formatCurrency(totalAfterDiscount)}
                 </span>
               </div>
             </div>
@@ -343,11 +396,11 @@ function InfoSection({ title, items }: { title: string; items: string[] }) {
   )
 }
 
-function PaymentRow({ label, value }: { label: string; value: string }) {
+function PaymentRow({ label, value, green = false }: { label: string; value: string; green?: boolean }) {
   return (
     <div className="flex items-center justify-between py-2 text-sm">
       <span className="text-[#5C5348]">{label}</span>
-      <span className="font-semibold text-[#1A1C1E]">{value}</span>
+      <span className={['font-semibold', green ? 'text-[#0A4D27]' : 'text-[#1A1C1E]'].join(' ')}>{value}</span>
     </div>
   )
 }
