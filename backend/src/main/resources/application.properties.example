@@ -48,6 +48,14 @@ payment.vnpay.command=pay
 payment.vnpay.currency-code=VND
 payment.vnpay.locale=vn
 
+# ===== Gemini AI Chatbot =====
+# Get a free developer API key from https://aistudio.google.com/app/apikey
+gemini.ai.api-key=${GEMINI_AI_API_KEY:}
+gemini.ai.model=${GEMINI_AI_MODEL:gemini-2.5-flash}
+gemini.ai.base-url=${GEMINI_AI_BASE_URL:https://generativelanguage.googleapis.com/v1beta}
+gemini.ai.max-output-tokens=${GEMINI_AI_MAX_OUTPUT_TOKENS:1200}
+gemini.ai.temperature=${GEMINI_AI_TEMPERATURE:0.35}
+
 # ===== SePay =====
 # Online deposit flow redirects customers to the configured SePay/VietQR checkout URL.
 # Configure the SePay webhook URL as: ${APP_PUBLIC_BACKEND_URL}/api/payments/sepay/webhook

@@ -16,4 +16,6 @@ export type QuickReply = {
 export type ChatbotReply = {
   content: string
   quickReplies?: QuickReply[]
+  usedAi?: boolean
+  mode?: string
 }
