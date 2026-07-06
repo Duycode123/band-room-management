@@ -291,7 +291,6 @@ export default function BookingConfirmationClient() {
             <div className="my-4 h-px bg-[#E8E4DC]" />
 
             <PaymentRow label="Tiền phòng" value={formatCurrency(roomSubtotal)} />
-            <PaymentRow label="Dịch vụ thuê thêm" value="Chưa áp dụng" />
 
             <div className="my-4">
               <CheckoutCouponInput
