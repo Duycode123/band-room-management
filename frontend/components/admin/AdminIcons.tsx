@@ -49,6 +49,14 @@ export function IconReports({ className = 'h-5 w-5' }: IconProps) {
   )
 }
 
+export function IconReviews({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+      <path d="M12 17.3 6.2 20l1.2-6.6L2 9.3l6.7-1L12 2l3.3 6.3 6.7 1-5.4 4.1 1.2 6.6z" />
+    </svg>
+  )
+}
+
 export function IconCoupons({ className = 'h-5 w-5' }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
