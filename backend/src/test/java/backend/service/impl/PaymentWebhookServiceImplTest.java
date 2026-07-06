@@ -190,6 +190,7 @@ class PaymentWebhookServiceImplTest {
     @Test
     void gatewayOrderPaidIpnMarksTransactionSucceededAndBookingPaid() {
         PaymentTransaction transaction = pendingTransaction("PAY0123456789ABCDEF", new BigDecimal("50000.00"));
+        transaction.getBooking().setTotalAmount(new BigDecimal("50000.00"));
         when(paymentTransactionRepository.findByTransactionReference("PAY0123456789ABCDEF"))
                 .thenReturn(Optional.of(transaction));
 
@@ -206,6 +207,28 @@ class PaymentWebhookServiceImplTest {
         assertEquals(PaymentTransactionStatus.SUCCEEDED, transaction.getStatus());
         assertEquals(BookingStatus.PAID, transaction.getBooking().getStatus());
         assertEquals("68ba94ac80123", transaction.getProviderTransactionId());
+        verify(couponUsageTrackingService).recordPaidBookingUsage(transaction.getBooking());
+        verify(paymentTransactionRepository).save(transaction);
+    }
+
+    @Test
+    void gatewayOrderPaidIpnMarksBookingDepositPaidWhenAmountIsPartial() {
+        PaymentTransaction transaction = pendingTransaction("PAY0123456789ABCDEF", new BigDecimal("50000.00"));
+        transaction.getBooking().setTotalAmount(new BigDecimal("450000.00"));
+        when(paymentTransactionRepository.findByTransactionReference("PAY0123456789ABCDEF"))
+                .thenReturn(Optional.of(transaction));
+
+        Map<String, Object> result = service.handleSepayWebhook(
+                gatewayIpnBody("ORDER_PAID", "PAY0123456789ABCDEF", "50000.00"),
+                null,
+                null,
+                null,
+                null
+        );
+
+        assertEquals(true, result.get("success"));
+        assertEquals(PaymentTransactionStatus.SUCCEEDED, transaction.getStatus());
+        assertEquals(BookingStatus.DEPOSIT_PAID, transaction.getBooking().getStatus());
         verify(couponUsageTrackingService).recordPaidBookingUsage(transaction.getBooking());
         verify(paymentTransactionRepository).save(transaction);
     }
@@ -232,7 +255,11 @@ class PaymentWebhookServiceImplTest {
     }
 
     @Test
-    void gatewayVoidIpnIsAcknowledgedWithoutStateChanges() {
+    void gatewayVoidIpnCancelsPendingTransactionAndBooking() {
+        PaymentTransaction transaction = pendingTransaction("PAY0123456789ABCDEF", new BigDecimal("50000.00"));
+        when(paymentTransactionRepository.findByTransactionReference("PAY0123456789ABCDEF"))
+                .thenReturn(Optional.of(transaction));
+
         Map<String, Object> result = service.handleSepayWebhook(
                 gatewayIpnBody("TRANSACTION_VOID", "PAY0123456789ABCDEF", "50000.00"),
                 null,
@@ -242,9 +269,11 @@ class PaymentWebhookServiceImplTest {
         );
 
         assertEquals(true, result.get("success"));
-        assertEquals("Notification type ignored: TRANSACTION_VOID", result.get("message"));
-        verify(paymentTransactionRepository, never()).findByTransactionReference(any());
-        verify(paymentTransactionRepository, never()).save(any());
+        assertEquals("Payment cancelled", result.get("message"));
+        assertEquals(PaymentTransactionStatus.CANCELLED, transaction.getStatus());
+        assertEquals("SEPAY_TRANSACTION_VOID", transaction.getResponseCode());
+        assertEquals(BookingStatus.CANCELLED, transaction.getBooking().getStatus());
+        verify(paymentTransactionRepository).save(transaction);
     }
 
     @Test

@@ -41,8 +41,8 @@ public class PaymentCheckoutUseCaseService {
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final SePayProperties sePayProperties;
 
-    @Value("${app.booking.payment-expiration-minutes:15}")
-    private long paymentExpirationMinutes;
+    @Value("${app.booking.payment-expiration-seconds:300}")
+    private long paymentExpirationSeconds;
 
     private static final BigDecimal DEPOSIT_AMOUNT = new BigDecimal("50000");
     private static final List<String> SEPAY_SIGNED_FIELD_NAMES = List.of(
@@ -86,13 +86,15 @@ public class PaymentCheckoutUseCaseService {
             throw new IllegalStateException("Khong the thanh toan don dat phong da bi huy");
         }
 
-        if (booking.getStatus() == BookingStatus.PAID
+        if (booking.getStatus() == BookingStatus.DEPOSIT_PAID
+                || booking.getStatus() == BookingStatus.PAID
                 || booking.getStatus() == BookingStatus.CHECKED_IN
                 || booking.getStatus() == BookingStatus.COMPLETED) {
             throw new IllegalStateException("Don dat phong nay da duoc thanh toan");
         }
 
         validateMethodForPaymentOption(checkoutMethod, paymentOption);
+        closeExistingOpenTransactions(booking.getId());
 
         String paymentId = generatePaymentId();
         PaymentMethod selectedPaymentMethod = PaymentMethod.ONLINE;
@@ -112,9 +114,14 @@ public class PaymentCheckoutUseCaseService {
 
         paymentTransactionRepository.save(paymentTransaction);
 
-        boolean bookingChanged = booking.getPaymentMethod() != selectedPaymentMethod;
-        if (bookingChanged) {
+        boolean bookingChanged = booking.getPaymentMethod() != selectedPaymentMethod
+                || booking.getStatus() != BookingStatus.PENDING_PAYMENT;
+        if (booking.getPaymentMethod() != selectedPaymentMethod) {
             booking.setPaymentMethod(selectedPaymentMethod);
+        }
+
+        if (booking.getStatus() != BookingStatus.PENDING_PAYMENT) {
+            booking.setStatus(BookingStatus.PENDING_PAYMENT);
         }
 
         if (bookingChanged) {
@@ -145,18 +152,7 @@ public class PaymentCheckoutUseCaseService {
                 .findByTransactionReferenceAndBooking_Customer_Account_Email(paymentId.trim(), customerEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay giao dich thanh toan"));
 
-        return new PaymentTransactionDetail(
-                paymentTransaction.getTransactionReference(),
-                paymentTransaction.getBooking().getId(),
-                paymentTransaction.getBooking().getBookingCode(),
-                mapMethod(paymentTransaction.getProvider()),
-                resolvePaymentOption(paymentTransaction).apiValue,
-                mapStatus(paymentTransaction.getStatus(), paymentTransaction.getBooking()),
-                paymentTransaction.getAmount(),
-                paymentTransaction.getCreatedAt(),
-                resolveExpiresAt(paymentTransaction.getCreatedAt()),
-                paymentTransaction.getPaidAt()
-        );
+        return toPaymentTransactionDetail(paymentTransaction);
     }
 
     public SePayCheckoutForm getSePayCheckoutForm(String paymentId, String customerEmail) {
@@ -234,6 +230,23 @@ public class PaymentCheckoutUseCaseService {
         if (checkoutMethod == CheckoutMethod.CASH) {
             throw new IllegalArgumentException("Thanh toan tai quay khong duoc ho tro, vui long thanh toan online qua SePay");
         }
+    }
+
+    private void closeExistingOpenTransactions(Integer bookingId) {
+        List<PaymentTransaction> openTransactions = paymentTransactionRepository.findByBooking_IdAndStatusIn(
+                bookingId,
+                List.of(PaymentTransactionStatus.INITIALIZED, PaymentTransactionStatus.PENDING)
+        );
+
+        if (openTransactions.isEmpty()) {
+            return;
+        }
+
+        openTransactions.forEach(transaction -> {
+            transaction.setStatus(PaymentTransactionStatus.CANCELLED);
+            transaction.setResponseCode("PAYMENT_SESSION_REPLACED");
+        });
+        paymentTransactionRepository.saveAll(openTransactions);
     }
 
     private String generatePaymentId() {
@@ -404,11 +417,11 @@ public class PaymentCheckoutUseCaseService {
     }
 
     private LocalDateTime resolveExpiresAt(LocalDateTime createdAt) {
-        if (createdAt == null || paymentExpirationMinutes <= 0) {
+        if (createdAt == null || paymentExpirationSeconds <= 0) {
             return null;
         }
 
-        return createdAt.plusMinutes(paymentExpirationMinutes);
+        return createdAt.plusSeconds(paymentExpirationSeconds);
     }
 
     private String encode(String value) {
@@ -432,6 +445,21 @@ public class PaymentCheckoutUseCaseService {
 
     private String mapMethod(PaymentProvider provider) {
         return provider == PaymentProvider.COUNTER ? "cash" : "bank_transfer";
+    }
+
+    private PaymentTransactionDetail toPaymentTransactionDetail(PaymentTransaction paymentTransaction) {
+        return new PaymentTransactionDetail(
+                paymentTransaction.getTransactionReference(),
+                paymentTransaction.getBooking().getId(),
+                paymentTransaction.getBooking().getBookingCode(),
+                mapMethod(paymentTransaction.getProvider()),
+                resolvePaymentOption(paymentTransaction).apiValue,
+                mapStatus(paymentTransaction.getStatus(), paymentTransaction.getBooking()),
+                paymentTransaction.getAmount(),
+                paymentTransaction.getCreatedAt(),
+                resolveExpiresAt(paymentTransaction.getCreatedAt()),
+                paymentTransaction.getPaidAt()
+        );
     }
 
     private PaymentOption resolvePaymentOption(PaymentTransaction transaction) {

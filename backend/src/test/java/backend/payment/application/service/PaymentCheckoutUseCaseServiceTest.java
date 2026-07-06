@@ -133,6 +133,42 @@ class PaymentCheckoutUseCaseServiceTest {
     }
 
     @Test
+    void replacesExistingOpenPaymentSessionBeforeCreatingANewOne() {
+        Booking booking = booking(25, PaymentMethod.ONLINE);
+        PaymentTransaction existing = PaymentTransaction.builder()
+                .booking(booking)
+                .transactionReference("PAYOLD")
+                .amount(new BigDecimal("50000"))
+                .status(PaymentTransactionStatus.PENDING)
+                .build();
+        when(bookingRepository.findByIdAndCustomer_Account_Email(25, "customer@example.com"))
+                .thenReturn(Optional.of(booking));
+        when(paymentTransactionRepository.findByBooking_IdAndStatusIn(eq(25), any()))
+                .thenReturn(List.of(existing));
+        when(paymentTransactionRepository.save(any(PaymentTransaction.class))).thenAnswer(invocation -> {
+            PaymentTransaction saved = invocation.getArgument(0);
+            saved.prePersist();
+            return saved;
+        });
+
+        paymentCheckoutUseCaseService.createPaymentSession(
+                25,
+                "bank_transfer",
+                "full",
+                "customer@example.com"
+        );
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<PaymentTransaction>> existingTransactionsCaptor = ArgumentCaptor.forClass(List.class);
+        verify(paymentTransactionRepository).saveAll(existingTransactionsCaptor.capture());
+
+        PaymentTransaction closed = existingTransactionsCaptor.getValue().getFirst();
+        assertEquals(PaymentTransactionStatus.CANCELLED, closed.getStatus());
+        assertEquals("PAYMENT_SESSION_REPLACED", closed.getResponseCode());
+        assertEquals(BookingStatus.PENDING_PAYMENT, booking.getStatus());
+    }
+
+    @Test
     void rejectsCashCheckoutBecauseCounterPaymentIsNotSupported() {
         Booking booking = booking(25, PaymentMethod.ONLINE);
         when(bookingRepository.findByIdAndCustomer_Account_Email(25, "customer@example.com"))

@@ -37,7 +37,7 @@ public class HomepageQueryService {
     }
 
     private String mapAction(BookingStatus status) {
-        if (status == BookingStatus.PAID) {
+        if (status == BookingStatus.DEPOSIT_PAID || status == BookingStatus.PAID) {
             return "PAID";
         }
 

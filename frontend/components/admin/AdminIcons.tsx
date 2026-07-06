@@ -31,6 +31,15 @@ export function IconEquipment({ className = 'h-5 w-5' }: IconProps) {
   )
 }
 
+export function IconCoupons({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+      <path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2.2a2.4 2.4 0 0 0 0 4.6V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2.2a2.4 2.4 0 0 0 0-4.6V7z" />
+      <path d="M9 9h.01M15 15h.01M15 9l-6 6" />
+    </svg>
+  )
+}
+
 export function IconRooms({ className = 'h-5 w-5' }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">

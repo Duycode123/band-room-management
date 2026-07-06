@@ -66,6 +66,7 @@ Core model/entity classes currently present in backend source:
 - `database/migrations/20260703_create_user_notification_settings.sql`
 - `database/migrations/20260703_add_email_verification_to_account.sql`
 - `database/migrations/20260703_add_account_avatar_url.sql`
+- `database/migrations/20260706_add_deposit_paid_and_payment_timeout.sql`
 - `database/sample-data/seed_rooms_and_equipment.sql`
 - `database/sample-data/seed_bookings_and_reviews.sql`
 - `database/schema-target-en.dbml`
@@ -185,8 +186,9 @@ If the change is part of the Vietnamese-to-English rename:
 - Booking is already a lifecycle-heavy aggregate and should be documented carefully whenever status semantics change.
 - Review moderation keeps `approved = false` by default until an admin approves the review.
 - Each review can have at most one admin response stored in `review_response`.
-- Payment and booking timeout behavior should stay aligned with booking-expiry logic in the backend.
+- Payment and booking timeout behavior should stay aligned with booking-expiry logic in the backend. Checkout sessions expire after `app.booking.payment-expiration-seconds` seconds by default (`300`), cancelling both the pending `payment_transaction` and its still-pending booking.
 - Enum-backed statuses deserve explicit documentation because they affect filters, transitions, and reporting.
+- `booking_status.DEPOSIT_PAID` means the customer paid only the online deposit. Full online payment still uses `PAID`.
 - `payment_provider` now includes `COUNTER` for pay-at-counter checkout sessions alongside online providers such as `VNPAY`.
 - `payment_provider` includes `SEPAY` for online deposit checkout through the SePay-hosted portal and webhook confirmation.
 - `room.max_people` stores the maximum number of people a specific room can hold; `room.image_url` stores the persisted room image URL returned by Cloudinary or another HTTP(S) asset host.
