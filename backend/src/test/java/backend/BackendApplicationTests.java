@@ -107,6 +107,14 @@ class BackendApplicationTests {
     }
 
     @Test
+    void rootHealthEndpointIsPublic() throws Exception {
+        mockMvc.perform(get("/"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("UP"));
+    }
+
+    @Test
     void logoutRevokesAccessAndRefreshTokens() throws Exception {
         User user = User.builder()
                 .email("logout-test@example.com")

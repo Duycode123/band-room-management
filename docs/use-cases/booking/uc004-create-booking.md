@@ -39,8 +39,8 @@ Allow an authenticated customer to select a valid room/time range, see the expec
 7. Customer confirms booking.
 8. Backend validates the request again, checks availability under concurrency control, and creates the booking.
 9. Backend stores the booking with pending-payment status and returns booking summary data.
-10. For online SePay payment, backend creates a pending payment transaction using a `PAY...` transfer reference and returns the SePay-hosted payment portal URL.
-11. Frontend redirects the customer to the SePay portal returned by `POST /api/payments/sessions`.
+10. For online SePay payment, backend creates a pending payment transaction using a `PAY...` transfer reference and returns `/api/payments/sepay/checkout/{paymentId}` as the payment URL (or a VietQR image URL when no portal checkout URL is configured).
+11. Frontend hard-navigates to that backend endpoint (through the Next.js `/api` rewrite proxy so the auth cookie applies); the endpoint renders an auto-submitting HTML form that POSTs the HMAC-SHA256-signed fields to the SePay-hosted portal (`payment.sepay.checkout-url`).
 12. SePay posts the bank transaction webhook after money is received; backend verifies the webhook, matches the transfer reference and amount, then marks the transaction as succeeded and the booking as paid.
 
 ## Alternate and Error Flows
@@ -80,10 +80,11 @@ Allow an authenticated customer to select a valid room/time range, see the expec
 - The service catches persistence conflicts and converts them into booking conflict errors.
 - A scheduled expiry job exists to auto-cancel stale unpaid bookings after the configured timeout.
 - Checkout now asks the backend to create a `payment_transaction` record instead of simulating payment only in the frontend.
-- The current backend maps checkout methods into the existing booking payment model (`CASH` or `ONLINE`) and exposes a payment-return lookup endpoint for the frontend.
+- Customer checkout only supports online payment through SePay: either a 50,000 VND deposit or the full amount, both via the SePay-hosted portal. `cash` is rejected by `POST /api/payments/sessions`; the booking payment method is always set to `ONLINE` by checkout. (`PaymentProvider.COUNTER` remains only for reading historical counter transactions.)
 - Cost calculation and booking creation now reuse the coupon validation use case so the same coupon rules apply before and during booking creation.
-- The SePay checkout path returns the external portal URL built from `payment.sepay.checkout-url` plus transaction parameters such as `paymentId`, `orderCode`, `amount`, and return URLs. `checkout-url` may also use placeholders like `{paymentId}` or `{amount}` if the deployed SePay portal requires a fixed URL template.
+- The SePay checkout path returns `/api/payments/sepay/checkout/{paymentId}`; that endpoint renders an auto-submitting form that POSTs HMAC-SHA256-signed fields to `payment.sepay.checkout-url` (sandbox `https://pay-sandbox.sepay.vn/v1/checkout/init`, production `https://pay.sepay.vn/v1/checkout/init`; signature contract verified against the official `sepay-pg-node` SDK). When `checkout-url` is blank, backend builds a VietQR image URL from `payment.sepay.qr-bank-account`, `payment.sepay.qr-bank-code`, and `payment.sepay.qr-template`, using the generated `PAY...` payment reference as transfer content.
 - Payment completion is closed by the provider webhooks: `PaymentWebhookServiceImpl` moves the transaction to `SUCCEEDED`/`FAILED`, flips the booking from `PENDING_PAYMENT` to `PAID` (or `CANCELLED` on VNPay failure), and records coupon usage on success. VNPay IPN is HMAC-SHA512 signature-verified; SePay can use HMAC-SHA256 headers (`payment.sepay.webhook-hmac-secret`) or the fallback `Authorization: Apikey <secret>` value from `payment.sepay.ipn-secret`.
+- `POST /api/payments/sepay/webhook` handles two SePay payload shapes: (1) the Payment Gateway IPN (nested `notification_type` + `order` + `transaction`; configured in the SePay dashboard under Payment Gateway → Configuration → IPN; authenticated by the `X-Secret-Key` header matched against `payment.sepay.ipn-secret`) — `ORDER_PAID` with `order_invoice_number = PAY...` and sufficient `order_amount` confirms the transaction and booking; `TRANSACTION_VOID` is acknowledged but intentionally does not change state yet (gap); (2) the legacy flat bank-transfer webhook (`transferType: "in"` + `PAY...` reference inside the transfer content), kept for the VietQR fallback flow.
 - The SePay secret is optional in local/dev (blank secret = webhook open so the flow can be exercised without a SePay account); production should set `payment.sepay.webhook-hmac-secret`.
 
 ## Known Gaps / Follow-up

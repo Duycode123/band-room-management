@@ -12,10 +12,7 @@ export default function CheckoutPaymentMethods({
   paymentOption: PaymentOption
   onChange: (method: PaymentMethod) => void
 }) {
-  const visibleOptions =
-    paymentOption === 'deposit'
-      ? paymentMethodOptions.filter((option) => option.id === 'bank_transfer')
-      : paymentMethodOptions.filter((option) => option.id === 'cash')
+  const visibleOptions = paymentMethodOptions.filter((option) => option.id === 'bank_transfer')
 
   return (
     <div>
@@ -67,26 +64,17 @@ function PaymentMethodInstruction({
   method: PaymentMethod
   paymentOption: PaymentOption
 }) {
-  if (paymentOption === 'deposit') {
-    return (
-      <div className="mt-4 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-3 text-sm text-[#5C5348]">
-        <p className="font-display font-semibold text-[#1A1C1E]">Đặt cọc 50.000 VND chỉ hỗ trợ online</p>
-        <p className="mt-2">
-          Hệ thống sẽ chuyển bạn sang portal thanh toán riêng của SePay và tự xác nhận khi webhook báo tiền vào.
-        </p>
-        <p className="mt-2 text-xs">Mã đặt phòng: {bookingId}</p>
-        <p className="sr-only">Phương thức đang chọn: {getPaymentMethodLabel(method)}</p>
-      </div>
-    )
-  }
-
   return (
     <div className="mt-4 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-3 text-sm text-[#5C5348]">
-      <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#FFE8D6] font-display text-sm font-bold text-[#FF7518]">
-        VND
-      </div>
-      <p>Thanh toán toàn bộ hiện tạm đi theo hướng thanh toán tại quầy.</p>
-      <p className="mt-2 font-medium">Booking trên hệ thống vẫn giữ trạng thái chờ thanh toán cho tới khi nhân viên xác nhận tại quầy.</p>
+      <p className="font-display font-semibold text-[#1A1C1E]">
+        {paymentOption === 'deposit'
+          ? 'Đặt cọc 50.000 VND qua portal SePay'
+          : 'Thanh toán toàn bộ qua portal SePay'}
+      </p>
+      <p className="mt-2">
+        Hệ thống sẽ chuyển bạn sang portal thanh toán riêng của SePay và tự xác nhận khi webhook báo tiền vào.
+      </p>
+      <p className="mt-2 text-xs">Mã đặt phòng: {bookingId}</p>
       <p className="sr-only">Phương thức đang chọn: {getPaymentMethodLabel(method)}</p>
     </div>
   )

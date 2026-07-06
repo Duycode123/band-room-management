@@ -8,6 +8,7 @@ import backend.entity.PaymentProvider;
 import backend.entity.PaymentTransaction;
 import backend.entity.PaymentTransactionStatus;
 import backend.exception.ResourceNotFoundException;
+import backend.payment.application.model.SePayCheckoutForm;
 import backend.payment.application.model.PaymentSessionResult;
 import backend.payment.application.model.PaymentTransactionDetail;
 import backend.repository.BookingRepository;
@@ -25,8 +26,10 @@ import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.Base64;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 import java.util.UUID;
 
 @Service
@@ -42,6 +45,26 @@ public class PaymentCheckoutUseCaseService {
     private long paymentExpirationMinutes;
 
     private static final BigDecimal DEPOSIT_AMOUNT = new BigDecimal("50000");
+    private static final List<String> SEPAY_SIGNED_FIELD_NAMES = List.of(
+            "merchant",
+            "env",
+            "operation",
+            "payment_method",
+            "order_amount",
+            "currency",
+            "order_invoice_number",
+            "order_description",
+            "customer_id",
+            "agreement_id",
+            "agreement_name",
+            "agreement_type",
+            "agreement_payment_frequency",
+            "agreement_amount_per_payment",
+            "success_url",
+            "error_url",
+            "cancel_url",
+            "order_id"
+    );
 
     @Transactional
     public PaymentSessionResult createPaymentSession(
@@ -72,15 +95,13 @@ public class PaymentCheckoutUseCaseService {
         validateMethodForPaymentOption(checkoutMethod, paymentOption);
 
         String paymentId = generatePaymentId();
-        PaymentMethod selectedPaymentMethod = checkoutMethod == CheckoutMethod.CASH
-                ? PaymentMethod.CASH
-                : PaymentMethod.ONLINE;
+        PaymentMethod selectedPaymentMethod = PaymentMethod.ONLINE;
         PaymentTransactionStatus transactionStatus = PaymentTransactionStatus.PENDING;
         BigDecimal paymentAmount = resolvePaymentAmount(booking, paymentOption);
 
         PaymentTransaction paymentTransaction = PaymentTransaction.builder()
                 .booking(booking)
-                .provider(checkoutMethod == CheckoutMethod.CASH ? PaymentProvider.COUNTER : PaymentProvider.SEPAY)
+                .provider(PaymentProvider.SEPAY)
                 .transactionReference(paymentId)
                 .providerTransactionId(null)
                 .amount(paymentAmount)
@@ -108,7 +129,7 @@ public class PaymentCheckoutUseCaseService {
                 paymentOption.apiValue,
                 mapStatus(paymentTransaction.getStatus(), booking),
                 paymentTransaction.getAmount(),
-                buildPaymentUrl(paymentId, booking, checkoutMethod, paymentOption, paymentTransaction.getAmount()),
+                buildSePayPortalUrl(paymentId, paymentTransaction.getAmount()),
                 paymentTransaction.getCreatedAt(),
                 resolveExpiresAt(paymentTransaction.getCreatedAt()),
                 paymentTransaction.getPaidAt()
@@ -135,6 +156,35 @@ public class PaymentCheckoutUseCaseService {
                 paymentTransaction.getCreatedAt(),
                 resolveExpiresAt(paymentTransaction.getCreatedAt()),
                 paymentTransaction.getPaidAt()
+        );
+    }
+
+    public SePayCheckoutForm getSePayCheckoutForm(String paymentId, String customerEmail) {
+        if (paymentId == null || paymentId.trim().isBlank()) {
+            throw new IllegalArgumentException("paymentId khong duoc de trong");
+        }
+
+        PaymentTransaction paymentTransaction = paymentTransactionRepository
+                .findByTransactionReferenceAndBooking_Customer_Account_Email(paymentId.trim(), customerEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay giao dich thanh toan"));
+
+        if (paymentTransaction.getProvider() != PaymentProvider.SEPAY) {
+            throw new IllegalStateException("Giao dich nay khong phai cua SePay");
+        }
+
+        String checkoutUrl = blankToNull(sePayProperties.getCheckoutUrl());
+        if (checkoutUrl == null) {
+            throw new IllegalStateException("Chua cau hinh portal checkout SePay");
+        }
+
+        return new SePayCheckoutForm(
+                checkoutUrl,
+                buildSePayPortalFields(
+                        paymentTransaction.getTransactionReference(),
+                        paymentTransaction.getBooking(),
+                        resolvePaymentOption(paymentTransaction),
+                        paymentTransaction.getAmount()
+                )
         );
     }
 
@@ -181,12 +231,8 @@ public class PaymentCheckoutUseCaseService {
     }
 
     private void validateMethodForPaymentOption(CheckoutMethod checkoutMethod, PaymentOption paymentOption) {
-        if (paymentOption == PaymentOption.DEPOSIT && checkoutMethod == CheckoutMethod.CASH) {
-            throw new IllegalArgumentException("Dat coc chi ho tro thanh toan online");
-        }
-
-        if (paymentOption == PaymentOption.FULL && checkoutMethod != CheckoutMethod.CASH) {
-            throw new IllegalArgumentException("Thanh toan toan bo tam thoi chi ho tro tai quay");
+        if (checkoutMethod == CheckoutMethod.CASH) {
+            throw new IllegalArgumentException("Thanh toan tai quay khong duoc ho tro, vui long thanh toan online qua SePay");
         }
     }
 
@@ -194,96 +240,88 @@ public class PaymentCheckoutUseCaseService {
         return "PAY" + UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase();
     }
 
-    private String buildPaymentUrl(
-            String paymentId,
-            Booking booking,
-            CheckoutMethod method,
-            PaymentOption paymentOption,
-            BigDecimal amount
-    ) {
-        if (method != CheckoutMethod.CASH) {
-            return buildSePayPortalUrl(paymentId, booking, paymentOption, amount);
-        }
-
-        return "/payment/return"
-                + "?paymentId=" + encode(paymentId)
-                + "&bookingId=" + encode(booking.getBookingCode())
-                + "&backendBookingId=" + booking.getId()
-                + "&method=" + encode(method.apiValue)
-                + "&paymentOption=" + encode(paymentOption.apiValue)
-                + "&amount=" + encode(amount.stripTrailingZeros().toPlainString())
-                + "&status=pending";
-    }
-
     private String buildSePayPortalUrl(
             String paymentId,
-            Booking booking,
-            PaymentOption paymentOption,
             BigDecimal amount
     ) {
         String checkoutUrl = blankToNull(sePayProperties.getCheckoutUrl());
         if (checkoutUrl == null) {
-            throw new IllegalStateException("Chua cau hinh cong thanh toan SePay");
+            return buildVietQrUrl(paymentId, amount);
         }
 
-        Map<String, String> params = buildSePayPortalParams(paymentId, booking, paymentOption, amount);
-        if (checkoutUrl.contains("{")) {
-            String expandedUrl = checkoutUrl;
-            for (Map.Entry<String, String> entry : params.entrySet()) {
-                expandedUrl = expandedUrl.replace("{" + entry.getKey() + "}", encode(entry.getValue()));
-            }
-            return expandedUrl;
+        return "/api/payments/sepay/checkout/" + encode(paymentId);
+    }
+
+    private String buildVietQrUrl(String paymentId, BigDecimal amount) {
+        String bankAccount = blankToNull(sePayProperties.getQrBankAccount());
+        String bankCode = blankToNull(sePayProperties.getQrBankCode());
+        if (bankAccount == null || bankCode == null) {
+            throw new IllegalStateException("Chua cau hinh thong tin QR thanh toan SePay");
         }
 
-        StringBuilder url = new StringBuilder(checkoutUrl);
-        url.append(checkoutUrl.contains("?") ? '&' : '?');
+        StringBuilder url = new StringBuilder("https://vietqr.app/img");
+        url.append("?acc=").append(encode(bankAccount));
+        url.append("&bank=").append(encode(bankCode));
+        url.append("&amount=").append(encode(toVndInteger(amount)));
+        url.append("&des=").append(encode(paymentId));
 
-        boolean first = true;
-        for (Map.Entry<String, String> entry : params.entrySet()) {
-            if (!first) {
-                url.append('&');
-            }
-
-            url.append(entry.getKey()).append('=').append(encode(entry.getValue()));
-            first = false;
-        }
-
-        String signature = createSePayPortalSignature(params);
-        String signatureParam = blankToNull(sePayProperties.getPortalSignatureParam());
-        if (signature != null && signatureParam != null) {
-            url.append('&').append(signatureParam).append('=').append(encode(signature));
+        String template = blankToNull(sePayProperties.getQrTemplate());
+        if (template != null) {
+            url.append("&template=").append(encode(template));
         }
 
         return url.toString();
     }
 
-    private Map<String, String> buildSePayPortalParams(
+    private Map<String, String> buildSePayPortalFields(
             String paymentId,
             Booking booking,
             PaymentOption paymentOption,
             BigDecimal amount
     ) {
-        Map<String, String> params = new TreeMap<>();
-        putIfPresent(params, "merchantId", sePayProperties.getMerchantId());
-        putIfPresent(params, "operation", sePayProperties.getOperation());
-        putIfPresent(params, "method", sePayProperties.getMethod());
-        putIfPresent(params, "transactionType", sePayProperties.getTransactionType());
-        putIfPresent(params, "currency", resolveCurrency());
-        putIfPresent(params, "successUrl", resolveReturnUrl(sePayProperties.getSuccessUrl(), paymentId, booking, paymentOption, amount, "pending"));
-        putIfPresent(params, "errorUrl", resolveReturnUrl(sePayProperties.getErrorUrl(), paymentId, booking, paymentOption, amount, "failed"));
-        putIfPresent(params, "cancelUrl", resolveReturnUrl(sePayProperties.getCancelUrl(), paymentId, booking, paymentOption, amount, "cancelled"));
-        params.put("paymentId", paymentId);
-        params.put("orderCode", booking.getBookingCode());
-        params.put("bookingId", String.valueOf(booking.getId()));
-        params.put("amount", toVndInteger(amount));
-        params.put("description", paymentId);
-        params.put("paymentOption", paymentOption.apiValue);
-        return params;
+        Map<String, String> fields = new LinkedHashMap<>();
+        putIfPresent(fields, "operation", resolveOperation());
+        putIfPresent(fields, "payment_method", resolveSePayPaymentMethod());
+        fields.put("order_invoice_number", paymentId);
+        fields.put("order_amount", toVndInteger(amount));
+        fields.put("currency", resolveCurrency());
+        fields.put("order_description", paymentId);
+        putIfPresent(fields, "customer_id", resolveCustomerId(booking));
+        putIfPresent(fields, "success_url", resolveReturnUrl(sePayProperties.getSuccessUrl(), paymentId, booking, paymentOption, amount, "success"));
+        putIfPresent(fields, "error_url", resolveReturnUrl(sePayProperties.getErrorUrl(), paymentId, booking, paymentOption, amount, "failed"));
+        putIfPresent(fields, "cancel_url", resolveReturnUrl(sePayProperties.getCancelUrl(), paymentId, booking, paymentOption, amount, "cancelled"));
+
+        String merchantId = blankToNull(sePayProperties.getMerchantId());
+        if (merchantId == null) {
+            throw new IllegalStateException("Chua cau hinh merchant SePay");
+        }
+
+        fields.put("merchant", merchantId);
+        fields.put("signature", createSePayPortalSignature(fields));
+        return fields;
     }
 
     private String resolveCurrency() {
         String currency = blankToNull(sePayProperties.getCurrency());
         return currency == null ? "VND" : currency;
+    }
+
+    private String resolveOperation() {
+        String operation = blankToNull(sePayProperties.getOperation());
+        return operation == null ? "PURCHASE" : operation;
+    }
+
+    private String resolveSePayPaymentMethod() {
+        String method = blankToNull(sePayProperties.getMethod());
+        return method == null ? "BANK_TRANSFER" : method;
+    }
+
+    private String resolveCustomerId(Booking booking) {
+        if (booking == null || booking.getCustomer() == null || booking.getCustomer().getId() == null) {
+            return null;
+        }
+
+        return String.valueOf(booking.getCustomer().getId());
     }
 
     private String resolveReturnUrl(
@@ -333,16 +371,20 @@ public class PaymentCheckoutUseCaseService {
         }
     }
 
-    private String createSePayPortalSignature(Map<String, String> params) {
+    private String createSePayPortalSignature(Map<String, String> fields) {
         String secretKey = blankToNull(sePayProperties.getSecretKey());
         if (secretKey == null) {
-            return null;
+            throw new IllegalStateException("Chua cau hinh secret key SePay");
         }
 
         StringBuilder data = new StringBuilder();
-        for (Map.Entry<String, String> entry : params.entrySet()) {
+        for (Map.Entry<String, String> entry : fields.entrySet()) {
+            if (!SEPAY_SIGNED_FIELD_NAMES.contains(entry.getKey())) {
+                continue;
+            }
+
             if (!data.isEmpty()) {
-                data.append('&');
+                data.append(',');
             }
             data.append(entry.getKey()).append('=').append(entry.getValue());
         }
@@ -351,11 +393,7 @@ public class PaymentCheckoutUseCaseService {
             Mac hmac256 = Mac.getInstance("HmacSHA256");
             hmac256.init(new SecretKeySpec(secretKey.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
             byte[] bytes = hmac256.doFinal(data.toString().getBytes(StandardCharsets.UTF_8));
-            StringBuilder hash = new StringBuilder(bytes.length * 2);
-            for (byte value : bytes) {
-                hash.append(String.format("%02x", value));
-            }
-            return hash.toString();
+            return Base64.getEncoder().encodeToString(bytes);
         } catch (Exception exception) {
             throw new IllegalStateException("Cannot create SePay portal signature", exception);
         }

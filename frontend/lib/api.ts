@@ -5,7 +5,7 @@ const AUTH_PATH_PREFIX = '/api/auth/'
 const AUTH_SESSION_MARKER_KEY = 'bandroom_has_auth_session'
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || '',
   withCredentials: true,
 })
 

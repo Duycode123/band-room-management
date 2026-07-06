@@ -63,6 +63,7 @@ class PaymentWebhookServiceImplTest {
                 "{\"code\":\"PAY1\",\"transferType\":\"in\",\"transferAmount\":100000}",
                 null,
                 null,
+                null,
                 null
         );
 
@@ -78,6 +79,7 @@ class PaymentWebhookServiceImplTest {
         Map<String, Object> result = service.handleSepayWebhook(
                 "{\"code\":\"PAY1\",\"transferType\":\"in\",\"transferAmount\":100000}",
                 "Apikey wrong-secret",
+                null,
                 null,
                 null
         );
@@ -100,6 +102,7 @@ class PaymentWebhookServiceImplTest {
                         {"id":92704,"code":"PAY1","transferType":"in","transferAmount":100000}
                         """,
                 "Apikey super-secret",
+                null,
                 null,
                 null
         );
@@ -127,6 +130,7 @@ class PaymentWebhookServiceImplTest {
                         """,
                 null,
                 null,
+                null,
                 null
         );
 
@@ -151,7 +155,8 @@ class PaymentWebhookServiceImplTest {
                 body,
                 null,
                 signature,
-                timestamp
+                timestamp,
+                null
         );
 
         assertEquals(true, result.get("success"));
@@ -172,6 +177,7 @@ class PaymentWebhookServiceImplTest {
                         """,
                 null,
                 null,
+                null,
                 null
         );
 
@@ -179,6 +185,124 @@ class PaymentWebhookServiceImplTest {
         assertEquals(PaymentTransactionStatus.PENDING, transaction.getStatus());
         assertEquals(BookingStatus.PENDING_PAYMENT, transaction.getBooking().getStatus());
         verify(paymentTransactionRepository, never()).save(any());
+    }
+
+    @Test
+    void gatewayOrderPaidIpnMarksTransactionSucceededAndBookingPaid() {
+        PaymentTransaction transaction = pendingTransaction("PAY0123456789ABCDEF", new BigDecimal("50000.00"));
+        when(paymentTransactionRepository.findByTransactionReference("PAY0123456789ABCDEF"))
+                .thenReturn(Optional.of(transaction));
+
+        Map<String, Object> result = service.handleSepayWebhook(
+                gatewayIpnBody("ORDER_PAID", "PAY0123456789ABCDEF", "50000.00"),
+                null,
+                null,
+                null,
+                null
+        );
+
+        assertEquals(true, result.get("success"));
+        assertEquals("Confirm success", result.get("message"));
+        assertEquals(PaymentTransactionStatus.SUCCEEDED, transaction.getStatus());
+        assertEquals(BookingStatus.PAID, transaction.getBooking().getStatus());
+        assertEquals("68ba94ac80123", transaction.getProviderTransactionId());
+        verify(couponUsageTrackingService).recordPaidBookingUsage(transaction.getBooking());
+        verify(paymentTransactionRepository).save(transaction);
+    }
+
+    @Test
+    void gatewayIpnWithInsufficientAmountDoesNotConfirmBooking() {
+        PaymentTransaction transaction = pendingTransaction("PAY0123456789ABCDEF", new BigDecimal("50000.00"));
+        when(paymentTransactionRepository.findByTransactionReference("PAY0123456789ABCDEF"))
+                .thenReturn(Optional.of(transaction));
+
+        Map<String, Object> result = service.handleSepayWebhook(
+                gatewayIpnBody("ORDER_PAID", "PAY0123456789ABCDEF", "10000.00"),
+                null,
+                null,
+                null,
+                null
+        );
+
+        assertEquals(true, result.get("success"));
+        assertEquals("Payment amount did not match", result.get("message"));
+        assertEquals(PaymentTransactionStatus.PENDING, transaction.getStatus());
+        assertEquals(BookingStatus.PENDING_PAYMENT, transaction.getBooking().getStatus());
+        verify(paymentTransactionRepository, never()).save(any());
+    }
+
+    @Test
+    void gatewayVoidIpnIsAcknowledgedWithoutStateChanges() {
+        Map<String, Object> result = service.handleSepayWebhook(
+                gatewayIpnBody("TRANSACTION_VOID", "PAY0123456789ABCDEF", "50000.00"),
+                null,
+                null,
+                null,
+                null
+        );
+
+        assertEquals(true, result.get("success"));
+        assertEquals("Notification type ignored: TRANSACTION_VOID", result.get("message"));
+        verify(paymentTransactionRepository, never()).findByTransactionReference(any());
+        verify(paymentTransactionRepository, never()).save(any());
+    }
+
+    @Test
+    void gatewayIpnSecretKeyHeaderIsValidatedAgainstIpnSecret() {
+        sePayProperties.setIpnSecret("ipn-secret-1");
+
+        Map<String, Object> rejected = service.handleSepayWebhook(
+                gatewayIpnBody("ORDER_PAID", "PAY0123456789ABCDEF", "50000.00"),
+                null,
+                null,
+                null,
+                "wrong-secret"
+        );
+
+        assertEquals(false, rejected.get("success"));
+
+        PaymentTransaction transaction = pendingTransaction("PAY0123456789ABCDEF", new BigDecimal("50000.00"));
+        when(paymentTransactionRepository.findByTransactionReference("PAY0123456789ABCDEF"))
+                .thenReturn(Optional.of(transaction));
+
+        Map<String, Object> accepted = service.handleSepayWebhook(
+                gatewayIpnBody("ORDER_PAID", "PAY0123456789ABCDEF", "50000.00"),
+                null,
+                null,
+                null,
+                "ipn-secret-1"
+        );
+
+        assertEquals(true, accepted.get("success"));
+        assertEquals(PaymentTransactionStatus.SUCCEEDED, transaction.getStatus());
+    }
+
+    private String gatewayIpnBody(String notificationType, String invoiceNumber, String orderAmount) {
+        return """
+                {
+                  "timestamp": 1757058220,
+                  "notification_type": "%s",
+                  "order": {
+                    "id": "e2c195be-c721-47eb-b323-99ab24e52d85",
+                    "order_id": "NPSETVI00101000042R",
+                    "order_status": "CAPTURED",
+                    "order_currency": "VND",
+                    "order_amount": "%s",
+                    "order_invoice_number": "%s",
+                    "order_description": "%s"
+                  },
+                  "transaction": {
+                    "id": "384c66dd-41e6-4316-a544-b4141682595c",
+                    "payment_method": "BANK_TRANSFER",
+                    "transaction_id": "68ba94ac80123",
+                    "transaction_type": "PAYMENT",
+                    "transaction_date": "2026-07-06 10:00:15",
+                    "transaction_status": "APPROVED",
+                    "transaction_amount": "%s",
+                    "transaction_currency": "VND"
+                  }
+                }
+                """.formatted(notificationType, orderAmount, invoiceNumber, invoiceNumber, orderAmount);
     }
 
     private PaymentTransaction pendingTransaction(String reference, BigDecimal amount) {

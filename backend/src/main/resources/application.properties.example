@@ -27,6 +27,7 @@ server.port=8080
 # Keep false for local HTTP development; override to true behind HTTPS in production.
 app.cookie.secure=false
 app.frontend.base-url=${APP_FRONTEND_BASE_URL:http://localhost:3000}
+app.cors.allowed-origin-patterns=${APP_CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:3000,http://127.0.0.1:3000,https://*.ngrok-free.dev,https://*.ngrok-free.app}
 
 # ===== Cloudinary =====
 # Keep the API secret server-side only. The frontend uploads images through the backend.
@@ -48,10 +49,17 @@ payment.vnpay.currency-code=VND
 payment.vnpay.locale=vn
 
 # ===== SePay =====
-# Online deposit flow redirects customers to the SePay-hosted payment portal.
+# Online deposit flow redirects customers to the configured SePay/VietQR checkout URL.
 # Configure the SePay webhook URL as: ${APP_PUBLIC_BACKEND_URL}/api/payments/sepay/webhook
+# Payment Gateway IPN (dashboard: Payment Gateway -> Configuration -> IPN): choose auth type
+# SECRET_KEY and set the same value in SEPAY_IPN_SECRET; SePay then sends it as X-Secret-Key.
 # Prefer HMAC-SHA256 in production. API key is supported as a fallback for simpler setups.
+# If checkout-url is blank, backend builds a VietQR image URL from the bank settings below.
+# Sandbox portal: https://pay-sandbox.sepay.vn/v1/checkout/init | Production: https://pay.sepay.vn/v1/checkout/init
 payment.sepay.checkout-url=${SEPAY_CHECKOUT_URL:}
+payment.sepay.qr-bank-account=${SEPAY_QR_BANK_ACCOUNT:}
+payment.sepay.qr-bank-code=${SEPAY_QR_BANK_CODE:}
+payment.sepay.qr-template=${SEPAY_QR_TEMPLATE:compact}
 payment.sepay.merchant-id=${SEPAY_MERCHANT_ID:}
 payment.sepay.secret-key=${SEPAY_SECRET_KEY:}
 payment.sepay.success-url=${SEPAY_SUCCESS_URL:http://localhost:3000/payment/return}
