@@ -1,5 +1,6 @@
 import api from '@/lib/api'
-import type { BookingReview } from '@/lib/review-service'
+import type { BookingReview, RoomReviewStats } from '@/lib/review-service'
+import { buildRoomReviewStats } from '@/lib/review-service'
 
 type ApiResponse<T> = {
   success: boolean
@@ -17,6 +18,14 @@ type PagedResponse<T> = {
   last: boolean
 }
 
+type PublicReviewAdminResponse = {
+  id: number
+  responderRole: string
+  content: string
+  createdAt: string
+  updatedAt: string
+}
+
 type PublicReviewResponse = {
   id: number
   bookingId: number
@@ -25,7 +34,9 @@ type PublicReviewResponse = {
   roomName: string
   rating: number
   content: string
+  approved?: boolean
   createdAt: string
+  adminResponse?: PublicReviewAdminResponse | null
 }
 
 export type RoomReviewSummary = {
@@ -33,10 +44,21 @@ export type RoomReviewSummary = {
   reviewCount: number
 }
 
-async function fetchPublicReviewPage(page: number, size: number, roomId?: string) {
+export type PublicReviewQuery = {
+  roomId: string
+  page?: number
+  size?: number
+  rating?: number
+}
+
+async function fetchPublicReviewPage(page: number, size: number, roomId?: string, rating?: number) {
   const path = roomId ? `/api/reviews/rooms/${roomId}` : '/api/reviews'
   const response = await api.get<ApiResponse<PagedResponse<PublicReviewResponse>>>(path, {
-    params: { page, size },
+    params: {
+      page,
+      size,
+      rating,
+    },
   })
 
   return response.data.data
@@ -74,6 +96,16 @@ function mapReviewToUiReview(review: PublicReviewResponse): BookingReview {
     tags: [],
     images: [],
     createdAt: review.createdAt,
+    verified: Boolean(review.bookingId),
+    adminResponse: review.adminResponse
+      ? {
+          id: review.adminResponse.id,
+          responderRole: review.adminResponse.responderRole,
+          content: review.adminResponse.content,
+          createdAt: review.adminResponse.createdAt,
+          updatedAt: review.adminResponse.updatedAt,
+        }
+      : null,
   }
 }
 
@@ -104,4 +136,23 @@ export async function fetchRoomReviewSummaries() {
 export async function fetchPublicReviewsByRoomId(roomId: string) {
   const reviews = await fetchAllPublicReviews(roomId, 20)
   return reviews.map(mapReviewToUiReview)
+}
+
+export async function fetchRoomReviewStats(roomId: string): Promise<RoomReviewStats> {
+  const reviews = (await fetchAllPublicReviews(roomId, 100)).map(mapReviewToUiReview)
+  return buildRoomReviewStats(reviews)
+}
+
+export async function fetchPublicReviewsPage(query: PublicReviewQuery) {
+  const data = await fetchPublicReviewPage(query.page ?? 0, query.size ?? 5, query.roomId, query.rating)
+
+  return {
+    reviews: (data?.content ?? []).map(mapReviewToUiReview),
+    page: data?.page ?? 0,
+    size: data?.size ?? 5,
+    totalElements: data?.totalElements ?? 0,
+    totalPages: data?.totalPages ?? 0,
+    first: data?.first ?? true,
+    last: data?.last ?? true,
+  }
 }

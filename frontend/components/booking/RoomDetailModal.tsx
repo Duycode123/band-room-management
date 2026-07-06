@@ -1,20 +1,12 @@
 'use client'
 
 import Image from 'next/image'
-import { useEffect, useState } from 'react'
 import HomepageModalShell, { ModalCloseButton } from '@/components/booking/HomepageModalShell'
+import RoomReviewsSection from '@/components/booking/reviews/RoomReviewsSection'
 import {
   formatCurrency,
-  formatRelativeTime,
-  maskCustomerName,
   type BookingRoom,
 } from '@/components/booking/booking-data'
-import { fetchPublicReviewsByRoomId } from '@/lib/public-room-review-service'
-import {
-  getAverageReviewRating,
-  getRoomReviewsByRoomId,
-  type BookingReview,
-} from '@/lib/review-service'
 
 type RoomDetailModalProps = {
   room: BookingRoom | null
@@ -49,103 +41,10 @@ function getAvailabilityDescription(room: BookingRoom) {
   return 'Backend đang cho biết phòng đã kín lịch trong hôm nay. Bạn có thể chọn ngày khác để kiểm tra lại.'
 }
 
-function getAvatarInitial(customerName?: string) {
-  return customerName?.trim().charAt(0).toUpperCase() || 'K'
-}
-
-function renderRatingStars(rating: number) {
-  const filledStars = Math.max(0, Math.min(5, Math.round(rating)))
-
-  return Array.from({ length: 5 }, (_, index) => (
-    <span key={index} className={index < filledStars ? 'text-[#FF7518]' : 'text-[#D8D1C7]'}>
-      ★
-    </span>
-  ))
-}
-
-function ReviewItem({ review }: { review: BookingReview }) {
-  const customerName = review.customerName || 'Khách hàng'
-
-  return (
-    <article className="rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4">
-      <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#FFE8D6] font-display text-sm font-bold text-[#FF7518]">
-          {getAvatarInitial(customerName)}
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="font-display text-sm font-bold text-[#1A1C1E]">{maskCustomerName(customerName)}</p>
-            <span className="text-xs font-medium text-[#5C5348]">{formatRelativeTime(review.createdAt)}</span>
-          </div>
-          <div className="mt-1 flex text-xs" aria-label={`${review.rating} trên 5 sao`}>
-            {renderRatingStars(review.rating)}
-          </div>
-          <h4 className="mt-2 font-display text-sm font-bold text-[#1A1C1E]">{review.title}</h4>
-          <p className="mt-1 text-sm leading-6 text-[#5C5348]">{review.content}</p>
-          {review.tags && review.tags.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {review.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-full border border-[#FF7518]/25 bg-[#FFE8D6] px-2.5 py-1 text-[11px] font-semibold text-[#6B3200]"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
-          {review.images && review.images.length > 0 && (
-            <div className="mt-3 grid grid-cols-3 gap-2">
-              {review.images.map((image) => (
-                <img key={image.id} src={image.previewUrl} alt={image.name} className="h-16 w-full rounded-xl object-cover" />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </article>
-  )
-}
-
 export default function RoomDetailModal({ room, open, onClose, onBook }: RoomDetailModalProps) {
-  const [backendReviews, setBackendReviews] = useState<BookingReview[]>([])
-  const [isLoadingReviews, setIsLoadingReviews] = useState(false)
-
-  useEffect(() => {
-    if (!open || !room) return
-
-    let active = true
-    setIsLoadingReviews(true)
-
-    void fetchPublicReviewsByRoomId(room.id)
-      .then((reviews) => {
-        if (!active) return
-
-        setBackendReviews(reviews)
-      })
-      .catch(() => {
-        if (!active) return
-
-        setBackendReviews([])
-      })
-      .finally(() => {
-        if (!active) return
-
-        setIsLoadingReviews(false)
-      })
-
-    return () => {
-      active = false
-    }
-  }, [open, room])
-
   if (!open || !room) return null
 
   const availabilityLabel = getAvailabilityLabel(room)
-  const reviews = getRoomReviewsByRoomId(room.id, backendReviews)
-  const averageRating = getAverageReviewRating(reviews)
-  const visibleReviews = reviews.slice(0, 2)
-  const displayRating = reviews.length > 0 ? averageRating : room.rating
   const factualDetails = [
     { label: 'Loại phòng', value: room.type },
     { label: 'Vị trí', value: room.location },
@@ -211,7 +110,7 @@ export default function RoomDetailModal({ room, open, onClose, onBook }: RoomDet
                 <div>
                   <p className="font-display text-xs font-bold uppercase text-[#5C5348]">Rating</p>
                   <p className="mt-1 font-display text-xl font-bold text-[#1A1C1E]">
-                    {typeof displayRating === 'number' ? `${displayRating.toFixed(1)}/5` : 'Chưa có'}
+                    {typeof room.rating === 'number' ? `${room.rating.toFixed(1)}/5` : 'Chưa có'}
                   </p>
                 </div>
                 <div>
@@ -253,44 +152,7 @@ export default function RoomDetailModal({ room, open, onClose, onBook }: RoomDet
               </div>
             </section>
 
-            <section className="rounded-xl border border-[#E8E4DC] bg-white p-5 shadow-[0_12px_34px_rgba(26,28,30,0.06)]">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="font-display text-lg font-bold text-[#1A1C1E]">Đánh giá từ khách hàng</h3>
-                  <p className="mt-1 text-sm text-[#5C5348]">
-                    {isLoadingReviews
-                      ? 'Đang tải đánh giá từ backend'
-                      : reviews.length > 0
-                        ? `${reviews.length} đánh giá gần nhất`
-                        : 'Chưa có đánh giá'}
-                  </p>
-                </div>
-                {reviews.length > 0 && (
-                  <div className="shrink-0 text-right">
-                    <p className="font-display text-xl font-bold text-[#FF7518]">{averageRating.toFixed(1)}/5</p>
-                    <div className="mt-1 flex justify-end text-xs" aria-label={`${averageRating.toFixed(1)} trên 5 sao`}>
-                      {renderRatingStars(averageRating)}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {isLoadingReviews ? (
-                <div className="mt-4 rounded-2xl border border-dashed border-[#E8E4DC] bg-[#FAF8F4] p-4 text-sm leading-6 text-[#5C5348]">
-                  Đang đồng bộ đánh giá công khai từ backend...
-                </div>
-              ) : reviews.length > 0 ? (
-                <div className="mt-4 grid gap-3">
-                  {visibleReviews.map((review) => (
-                    <ReviewItem key={review.id} review={review} />
-                  ))}
-                </div>
-              ) : (
-                <div className="mt-4 rounded-2xl border border-dashed border-[#E8E4DC] bg-[#FAF8F4] p-4 text-sm leading-6 text-[#5C5348]">
-                  Phòng này chưa có đánh giá. Hãy là người đầu tiên trải nghiệm.
-                </div>
-              )}
-            </section>
+            <RoomReviewsSection roomId={room.id} />
           </div>
 
           <aside className="space-y-5">
