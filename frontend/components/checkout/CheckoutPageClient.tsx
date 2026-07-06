@@ -142,15 +142,11 @@ export default function CheckoutPageClient() {
   }, [searchParams])
 
   useEffect(() => {
-    if (paymentOption === 'deposit' && paymentMethod !== 'bank_transfer') {
+    // Cả đặt cọc lẫn thanh toán toàn bộ đều đi qua portal SePay bằng chuyển khoản.
+    if (paymentMethod !== 'bank_transfer') {
       setPaymentMethod('bank_transfer')
-      return
     }
-
-    if (paymentOption === 'full' && paymentMethod !== 'cash') {
-      setPaymentMethod('cash')
-    }
-  }, [paymentMethod, paymentOption])
+  }, [paymentMethod])
 
   const summary = useMemo(
     () => (booking ? calculateCheckoutSummary(booking, appliedDiscount) : null),
@@ -221,7 +217,13 @@ export default function CheckoutPageClient() {
         clearPendingBooking()
       }
 
-      router.push(session.paymentUrl)
+      if (session.paymentUrl.startsWith('/payment')) {
+        router.push(session.paymentUrl)
+      } else {
+        // Backend checkout endpoint (/api/...) or external gateway URL: needs a
+        // full document navigation so the Next.js rewrite proxy and cookies apply.
+        window.location.assign(session.paymentUrl)
+      }
     } catch (paymentSessionError) {
       setPaymentError(
         paymentSessionError instanceof Error
@@ -329,7 +331,7 @@ export default function CheckoutPageClient() {
                     <PaymentOptionButton
                       active={paymentOption === 'full'}
                       title="Thanh toán toàn bộ"
-                      description="Tạm thời đi theo hướng thanh toán tại quầy."
+                      description="Chuyển khoản toàn bộ qua portal SePay."
                       onClick={() => {
                         setPaymentOption('full')
                         setPaymentError('')
@@ -377,9 +379,7 @@ export default function CheckoutPageClient() {
               >
                 {isPaying
                   ? 'Đang tạo giao dịch...'
-                  : paymentOption === 'deposit'
-                    ? `Sang portal SePay ${formatCurrency(amountToPayNow)}`
-                    : 'Xác nhận thanh toán toàn bộ'}
+                  : `Sang portal SePay ${formatCurrency(amountToPayNow)}`}
               </button>
             </aside>
           </div>

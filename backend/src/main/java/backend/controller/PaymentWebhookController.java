@@ -33,13 +33,15 @@ public class PaymentWebhookController {
             @RequestBody String rawBody,
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorizationHeader,
             @RequestHeader(value = "X-SePay-Signature", required = false) String signatureHeader,
-            @RequestHeader(value = "X-SePay-Timestamp", required = false) String timestampHeader
+            @RequestHeader(value = "X-SePay-Timestamp", required = false) String timestampHeader,
+            @RequestHeader(value = "X-Secret-Key", required = false) String secretKeyHeader
     ) {
         Map<String, Object> response = paymentWebhookService.handleSepayWebhook(
                 rawBody,
                 authorizationHeader,
                 signatureHeader,
-                timestampHeader
+                timestampHeader,
+                secretKeyHeader
         );
 
         return ResponseEntity.status(resolveSepayStatus(response)).body(response);

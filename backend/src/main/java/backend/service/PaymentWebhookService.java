@@ -12,6 +12,7 @@ public interface PaymentWebhookService {
             String rawBody,
             String authorizationHeader,
             String signatureHeader,
-            String timestampHeader
+            String timestampHeader,
+            String secretKeyHeader
     );
 }

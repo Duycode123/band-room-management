@@ -119,9 +119,10 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
             String rawBody,
             String authorizationHeader,
             String signatureHeader,
-            String timestampHeader
+            String timestampHeader,
+            String secretKeyHeader
     ) {
-        if (!isSepayRequestAuthorized(rawBody, authorizationHeader, signatureHeader, timestampHeader)) {
+        if (!isSepayRequestAuthorized(rawBody, authorizationHeader, signatureHeader, timestampHeader, secretKeyHeader)) {
             return Map.of("success", false, "message", "Unauthorized webhook request");
         }
 
@@ -130,6 +131,10 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
             payload = parseSepayPayload(rawBody);
         } catch (IllegalArgumentException exception) {
             return Map.of("success", false, "message", "Invalid webhook payload");
+        }
+
+        if (isPaymentGatewayNotification(payload)) {
+            return handleSepayGatewayNotification(payload);
         }
 
         String providerTransactionId = firstText(payload, "id", "transactionId", "referenceCode");
@@ -189,6 +194,88 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
         }
 
         return Map.of("success", true, "message", "Confirm success");
+    }
+
+    /**
+     * SePay Payment Gateway IPN (Cấu hình tại: Payment Gateway → Configuration → IPN).
+     * Payload lồng nhau: { notification_type, order: {...}, transaction: {...} } —
+     * khác với webhook biến động số dư (payload phẳng) được xử lý ở nhánh cũ.
+     */
+    private boolean isPaymentGatewayNotification(Map<String, Object> payload) {
+        return payload.get("notification_type") != null && payload.get("order") instanceof Map;
+    }
+
+    private Map<String, Object> handleSepayGatewayNotification(Map<String, Object> payload) {
+        String notificationType = firstText(payload, "notification_type");
+        Map<String, Object> order = nestedMap(payload, "order");
+        Map<String, Object> gatewayTransaction = nestedMap(payload, "transaction");
+
+        if (!"ORDER_PAID".equalsIgnoreCase(notificationType)) {
+            // TRANSACTION_VOID và các loại khác: xác nhận đã nhận nhưng không đổi trạng thái.
+            return Map.of("success", true, "message", "Notification type ignored: " + notificationType);
+        }
+
+        String transactionReference = normalizeSepayReference(firstText(order, "order_invoice_number"));
+        if (isBlank(transactionReference)) {
+            return Map.of("success", true, "message", "No matching payment reference");
+        }
+
+        PaymentTransaction transaction = paymentTransactionRepository
+                .findByTransactionReference(transactionReference)
+                .orElse(null);
+
+        if (transaction == null) {
+            return Map.of("success", true, "message", "Transaction not found");
+        }
+
+        if (transaction.getProvider() != PaymentProvider.SEPAY) {
+            return Map.of("success", true, "message", "Transaction provider is not SePay");
+        }
+
+        if (transaction.getStatus() == PaymentTransactionStatus.SUCCEEDED) {
+            return Map.of("success", true, "message", "Transaction already confirmed");
+        }
+
+        if (transaction.getStatus() == PaymentTransactionStatus.FAILED
+                || transaction.getStatus() == PaymentTransactionStatus.CANCELLED) {
+            return Map.of("success", true, "message", "Transaction is already closed");
+        }
+
+        BigDecimal paidAmount = firstAmount(order, "order_amount");
+        if (paidAmount == null || transaction.getAmount() == null
+                || paidAmount.compareTo(transaction.getAmount().setScale(2, RoundingMode.HALF_UP)) < 0) {
+            return Map.of("success", true, "message", "Payment amount did not match");
+        }
+
+        String providerTransactionId = firstText(gatewayTransaction, "transaction_id", "id");
+        if (providerTransactionId == null) {
+            providerTransactionId = firstText(order, "order_id", "id");
+        }
+
+        transaction.setProviderTransactionId(blankToNull(providerTransactionId));
+        transaction.setResponseCode("SEPAY_SUCCESS");
+        transaction.setStatus(PaymentTransactionStatus.SUCCEEDED);
+        transaction.setPaidAt(parseSepayTransactionDate(firstText(gatewayTransaction, "transaction_date")));
+
+        Booking booking = transaction.getBooking();
+        if (booking.getStatus() == BookingStatus.PENDING_PAYMENT) {
+            booking.setStatus(BookingStatus.PAID);
+        }
+
+        couponUsageTrackingService.recordPaidBookingUsage(booking);
+        try {
+            paymentTransactionRepository.save(transaction);
+        } catch (DataIntegrityViolationException exception) {
+            return Map.of("success", true, "message", "Duplicate provider transaction");
+        }
+
+        return Map.of("success", true, "message", "Confirm success");
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> nestedMap(Map<String, Object> payload, String key) {
+        Object value = payload.get(key);
+        return value instanceof Map ? (Map<String, Object>) value : Map.of();
     }
 
     private boolean isValidSignature(Map<String, String> params) {
@@ -302,8 +389,16 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
             String rawBody,
             String authorizationHeader,
             String signatureHeader,
-            String timestampHeader
+            String timestampHeader,
+            String secretKeyHeader
     ) {
+        // Payment Gateway IPN với auth type SECRET_KEY gửi header X-Secret-Key;
+        // so khớp với payment.sepay.ipn-secret khi cả hai cùng có mặt.
+        String ipnSecret = blankToNull(sePayProperties.getIpnSecret());
+        if (ipnSecret != null && !isBlank(secretKeyHeader)) {
+            return constantTimeEquals(secretKeyHeader.trim(), ipnSecret);
+        }
+
         String hmacSecret = blankToNull(sePayProperties.getWebhookHmacSecret());
         if (hmacSecret != null) {
             return isValidSepayHmac(rawBody, signatureHeader, timestampHeader, hmacSecret);

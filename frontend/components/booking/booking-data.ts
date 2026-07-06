@@ -199,17 +199,7 @@ export const paymentMethods: PaymentMethod[] = [
   {
     id: 'bank_transfer',
     label: 'Chuyển khoản ngân hàng',
-    description: 'Quét mã để thanh toán',
-  },
-  {
-    id: 'e_wallet',
-    label: 'Ví điện tử',
-    description: 'Bạn sẽ được chuyển đến ví điện tử sau khi xác nhận đặt phòng.',
-  },
-  {
-    id: 'cash',
-    label: 'Thanh toán tại quầy',
-    description: 'Vui lòng thanh toán tại quầy khi đến nhận phòng.',
+    description: 'Thanh toán online qua portal SePay.',
   },
 ]
 
