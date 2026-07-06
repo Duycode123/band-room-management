@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import { useEffect, useMemo, useState } from 'react'
 import BookingQuickModal from '@/components/booking/BookingQuickModal'
+import RoomDetailModal from '@/components/booking/RoomDetailModal'
 import { formatCurrency } from '@/components/booking/booking-data'
 import {
   readQuickBookingDraft,
@@ -66,6 +67,7 @@ export default function RoomsPublicPage() {
   const [filters, setFilters] = useState<RoomFilters>(defaultFilters)
   const [rooms, setRooms] = useState<Room[]>([])
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null)
+  const [detailRoom, setDetailRoom] = useState<Room | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [catalogSource, setCatalogSource] = useState<'backend' | 'fallback'>('backend')
   const [quickBooking, setQuickBooking] = useState<QuickBookingState | null>(null)
@@ -236,7 +238,12 @@ export default function RoomsPublicPage() {
         ) : filteredRooms.length > 0 ? (
           <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {filteredRooms.map((room) => (
-              <RoomCard key={room.id} room={room} onBook={setSelectedRoom} />
+              <RoomCard
+                key={room.id}
+                room={room}
+                onBook={setSelectedRoom}
+                onViewDetail={setDetailRoom}
+              />
             ))}
           </div>
         ) : (
@@ -250,6 +257,17 @@ export default function RoomsPublicPage() {
       </section>
 
       <BandRoomFooter />
+      {detailRoom && (
+        <RoomDetailModal
+          room={detailRoom}
+          open
+          onClose={() => setDetailRoom(null)}
+          onBook={(room) => {
+            setDetailRoom(null)
+            setSelectedRoom(room)
+          }}
+        />
+      )}
       {selectedRoom && (
         <BookingQuickModal
           room={selectedRoom}
@@ -261,7 +279,15 @@ export default function RoomsPublicPage() {
   )
 }
 
-function RoomCard({ room, onBook }: { room: Room; onBook: (room: Room) => void }) {
+function RoomCard({
+  room,
+  onBook,
+  onViewDetail,
+}: {
+  room: Room
+  onBook: (room: Room) => void
+  onViewDetail: (room: Room) => void
+}) {
   const availabilityStatus = room.availabilityStatus ?? 'AVAILABLE'
   const imageSrc = room.image ?? '/images/band-room-hero.png'
   const canBookNow = availabilityStatus !== 'FULL_TODAY'
@@ -330,15 +356,20 @@ function RoomCard({ room, onBook }: { room: Room; onBook: (room: Room) => void }
           ))}
         </div>
 
-        <div className="mt-6 flex items-center justify-between border-t border-outline-variant pt-5">
+        <div className="mt-6 flex items-center justify-between gap-3 border-t border-outline-variant pt-5">
           <p className="text-sm text-on-surface-variant">{bookingHint}</p>
-          <button
-            type="button"
-            onClick={() => onBook(room)}
-            className={canBookNow ? 'btn-warm' : 'btn-secondary'}
-          >
-            {canBookNow ? 'Đặt phòng' : 'Chọn ngày khác'}
-          </button>
+          <div className="flex flex-wrap justify-end gap-2">
+            <button type="button" onClick={() => onViewDetail(room)} className="btn-secondary">
+              Chi tiết
+            </button>
+            <button
+              type="button"
+              onClick={() => onBook(room)}
+              className={canBookNow ? 'btn-warm' : 'btn-secondary'}
+            >
+              {canBookNow ? 'Đặt phòng' : 'Chọn ngày khác'}
+            </button>
+          </div>
         </div>
       </div>
     </article>

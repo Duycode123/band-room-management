@@ -4,6 +4,14 @@ export type ReviewImage = {
   previewUrl: string
 }
 
+export type ReviewAdminResponse = {
+  id: number
+  responderRole: string
+  content: string
+  createdAt: string
+  updatedAt: string
+}
+
 export type BookingReview = {
   id: string
   bookingId: string
@@ -15,6 +23,18 @@ export type BookingReview = {
   tags?: string[]
   images?: ReviewImage[]
   createdAt: string
+  verified?: boolean
+  adminResponse?: ReviewAdminResponse | null
+}
+
+export type ReviewSortOption = 'newest' | 'oldest' | 'rating_high' | 'rating_low'
+
+export type StarBreakdown = Record<1 | 2 | 3 | 4 | 5, number>
+
+export type RoomReviewStats = {
+  averageRating: number
+  totalCount: number
+  breakdown: StarBreakdown
 }
 
 export type ReviewDraft = {
@@ -41,6 +61,66 @@ export function getAverageReviewRating(reviews: Pick<BookingReview, 'rating'>[])
   if (reviews.length === 0) return 0
 
   return reviews.reduce((total, review) => total + review.rating, 0) / reviews.length
+}
+
+export function buildStarBreakdown(reviews: Pick<BookingReview, 'rating'>[]): StarBreakdown {
+  const breakdown: StarBreakdown = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+
+  reviews.forEach((review) => {
+    const star = Math.max(1, Math.min(5, Math.round(review.rating))) as keyof StarBreakdown
+    breakdown[star] += 1
+  })
+
+  return breakdown
+}
+
+export function buildRoomReviewStats(reviews: BookingReview[]): RoomReviewStats {
+  return {
+    averageRating: getAverageReviewRating(reviews),
+    totalCount: reviews.length,
+    breakdown: buildStarBreakdown(reviews),
+  }
+}
+
+export function sortReviews(reviews: BookingReview[], sortBy: ReviewSortOption) {
+  const sorted = [...reviews]
+
+  sorted.sort((firstReview, secondReview) => {
+    if (sortBy === 'rating_high') {
+      return secondReview.rating - firstReview.rating || Date.parse(secondReview.createdAt) - Date.parse(firstReview.createdAt)
+    }
+
+    if (sortBy === 'rating_low') {
+      return firstReview.rating - secondReview.rating || Date.parse(secondReview.createdAt) - Date.parse(firstReview.createdAt)
+    }
+
+    const timeDiff = Date.parse(firstReview.createdAt) - Date.parse(secondReview.createdAt)
+    return sortBy === 'oldest' ? timeDiff : -timeDiff
+  })
+
+  return sorted
+}
+
+export function filterReviewsByRating(reviews: BookingReview[], rating: number | 'all') {
+  if (rating === 'all') return reviews
+  return reviews.filter((review) => review.rating === rating)
+}
+
+export function paginateReviews<T>(items: T[], page: number, pageSize: number) {
+  const totalElements = items.length
+  const totalPages = Math.max(1, Math.ceil(totalElements / pageSize))
+  const safePage = Math.min(Math.max(page, 0), totalPages - 1)
+  const start = safePage * pageSize
+
+  return {
+    content: items.slice(start, start + pageSize),
+    page: safePage,
+    size: pageSize,
+    totalElements,
+    totalPages,
+    first: safePage === 0,
+    last: safePage >= totalPages - 1,
+  }
 }
 
 export function getRoomReviewsByRoomId(roomId: string, reviews: BookingReview[] = []) {
