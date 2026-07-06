@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import type { UserRole } from '@/lib/auth'
@@ -52,7 +51,6 @@ function getMenuItems(role: UserRole) {
 }
 
 export default function AccountMenu({ onNavigate, align = 'right' }: AccountMenuProps) {
-  const router = useRouter()
   const { user, logout } = useAuth()
   const [open, setOpen] = useState(false)
   const [profile, setProfile] = useState<CustomerProfile | null>(null)
@@ -121,10 +119,9 @@ export default function AccountMenu({ onNavigate, align = 'right' }: AccountMenu
 
     setIsLoggingOut(true)
     try {
-      await logout()
       setOpen(false)
       onNavigate?.()
-      router.replace('/')
+      await logout('/')
     } finally {
       setIsLoggingOut(false)
     }

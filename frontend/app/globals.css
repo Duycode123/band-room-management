@@ -78,6 +78,31 @@ body {
   font-family: var(--font-sans);
 }
 
+.panel-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(26, 28, 30, 0.22) transparent;
+}
+
+.panel-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.panel-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.panel-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(26, 28, 30, 0.18);
+}
+
+.panel-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 117, 24, 0.45);
+}
+
 .btn-warm {
   display: inline-flex;
   min-height: 44px;

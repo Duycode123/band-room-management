@@ -1,14 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useState, type ReactNode } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { getDisplayName, getInitials, getRoleLabel } from '@/lib/staff-profile'
 
 export function StaffSidebar() {
   const pathname = usePathname()
-  const router = useRouter()
   const { user, logout, isLoggingOut } = useAuth()
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false)
   const displayName = getDisplayName(user)
@@ -22,9 +21,8 @@ export function StaffSidebar() {
   ]
 
   const handleConfirmLogout = async () => {
-    await logout()
     setIsLogoutConfirmOpen(false)
-    router.replace('/login')
+    await logout('/login')
   }
 
   return (
