@@ -3,11 +3,42 @@
 import type { ReactNode } from 'react'
 import BandRoomHeader from '@/components/layout/BandRoomHeader'
 
-export function CustomerPageShell({ children }: { children: ReactNode }) {
+export function CustomerPageShell({
+  children,
+  contained = false,
+}: {
+  children: ReactNode
+  contained?: boolean
+}) {
   return (
-    <main className="min-h-screen bg-[#F5F2EC] text-[#1A1C1E]">
+    <main
+      className={
+        contained
+          ? 'relative flex h-[calc(100dvh-5rem)] flex-col overflow-hidden bg-brand-bgGray text-on-surface'
+          : 'relative min-h-screen bg-brand-bgGray text-on-surface'
+      }
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-[0.35]"
+        style={{
+          backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(26,28,30,0.04) 1px, transparent 0)',
+          backgroundSize: '28px 28px',
+        }}
+      />
+      <div className="pointer-events-none absolute -left-24 top-0 h-72 w-72 rounded-full bg-brand-orange/8 blur-3xl" aria-hidden />
       <BandRoomHeader />
-      <section className="mx-auto max-w-6xl px-6 py-8 sm:py-10">{children}</section>
+      <div className={contained ? 'relative flex min-h-0 flex-1 flex-col overflow-hidden' : 'relative overflow-x-hidden'}>
+        <section
+          className={
+            contained
+              ? 'mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col overflow-hidden px-5 py-6 sm:px-8 sm:py-8'
+              : 'mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-10'
+          }
+        >
+          {children}
+        </section>
+      </div>
     </main>
   )
 }
@@ -16,16 +47,29 @@ export function CustomerPageHeader({
   eyebrow = 'Band Room',
   title,
   description,
+  className = '',
 }: {
   eyebrow?: string
   title: string
   description: string
+  className?: string
 }) {
   return (
-    <div className="mb-6 rounded-[28px] border border-[#E8E4DC] bg-white p-6 shadow-[0_4px_24px_rgba(26,28,30,0.06)] md:p-8">
-      <p className="font-display text-sm font-bold uppercase tracking-[0.14em] text-[#FF7518]">{eyebrow}</p>
-      <h1 className="mt-3 font-display text-3xl font-bold tracking-tight text-[#1A1C1E]">{title}</h1>
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-[#5C5348]">{description}</p>
+    <div
+      className={[
+        'mb-6 overflow-hidden rounded-[28px] border border-outline-variant bg-white p-6 shadow-[var(--shadow-card)] md:p-8',
+        className,
+      ].join(' ')}
+    >
+      <div className="relative">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-brand-orange/10 blur-2xl"
+        />
+        <p className="relative font-display text-sm font-bold uppercase tracking-[0.14em] text-brand-orange">{eyebrow}</p>
+        <h1 className="relative mt-3 font-display text-3xl font-bold tracking-tight text-on-surface">{title}</h1>
+        <p className="relative mt-2 max-w-2xl text-sm leading-6 text-on-surface-variant">{description}</p>
+      </div>
     </div>
   )
 }
@@ -34,7 +78,7 @@ export function CustomerCard({ children, className = '' }: { children: ReactNode
   return (
     <section
       className={[
-        'rounded-[24px] border border-[#E8E4DC] bg-white p-6 shadow-[0_4px_24px_rgba(26,28,30,0.06)]',
+        'rounded-[24px] border border-outline-variant bg-white p-6 shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-elevated)]',
         className,
       ].join(' ')}
     >

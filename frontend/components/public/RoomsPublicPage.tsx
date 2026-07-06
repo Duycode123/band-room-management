@@ -121,6 +121,27 @@ export default function RoomsPublicPage() {
     }
   }, [rooms])
 
+  useEffect(() => {
+    if (isLoading || rooms.length === 0) return
+    if (shouldReopenQuickBooking(window.location.search)) return
+
+    const params = new URLSearchParams(window.location.search)
+    const roomId = params.get('roomId')
+    if (!roomId) return
+
+    const matchedRoom = rooms.find((room) => room.id === roomId)
+    if (!matchedRoom) return
+
+    const durationParam = params.get('duration')
+    setQuickBooking({
+      room: matchedRoom,
+      initialDate: params.get('date') ?? undefined,
+      initialStartTime: params.get('startTime') ?? undefined,
+      initialDuration: durationParam ? Number(durationParam) : undefined,
+    })
+    window.history.replaceState(window.history.state, '', '/rooms')
+  }, [isLoading, rooms])
+
   const updateFilter = <Key extends keyof RoomFilters>(key: Key, value: RoomFilters[Key]) => {
     setFilters((current) => ({ ...current, [key]: value }))
   }

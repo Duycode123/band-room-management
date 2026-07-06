@@ -7,7 +7,7 @@ import { clearStoredCustomerProfile } from '@/lib/customer-profile-service'
 interface AuthContextType {
   user: AuthUser | null
   login: (user: AuthUser) => void
-  logout: () => Promise<void>
+  logout: (redirectTo?: string) => Promise<void>
   isAuthenticated: boolean
   isLoading: boolean
   isLoggingOut: boolean
@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoggingOut(false)
   }
 
-  const logout = async () => {
+  const logout = async (redirectTo?: string) => {
     setIsLoggingOut(true)
     try {
       await logoutSession()
@@ -59,6 +59,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearClientUserCaches()
       setUser(null)
       setIsLoading(false)
+
+      if (redirectTo && typeof window !== 'undefined') {
+        window.location.assign(redirectTo)
+        return
+      }
+
       window.setTimeout(() => setIsLoggingOut(false), 500)
     }
   }

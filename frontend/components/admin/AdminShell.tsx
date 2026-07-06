@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import {
@@ -33,12 +33,10 @@ type AdminShellProps = {
 
 export default function AdminShell({ children }: AdminShellProps) {
   const pathname = usePathname()
-  const router = useRouter()
   const { logout } = useAuth()
 
   const handleLogout = async () => {
-    await logout()
-    router.push('/login')
+    await logout('/login')
   }
 
   return (
