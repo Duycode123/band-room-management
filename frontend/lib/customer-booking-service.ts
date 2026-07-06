@@ -227,11 +227,11 @@ export function canReviewBooking(booking: Pick<BookingHistoryItem, 'status' | 'c
 
 export function formatBookingStatus(status: CustomerBookingStatus) {
   const labels: Record<CustomerBookingStatus, string> = {
-    PENDING_PAYMENT: 'Cho thanh toan',
-    PAID: 'Da thanh toan',
-    CHECKED_IN: 'Da check-in',
-    COMPLETED: 'Hoan tat',
-    CANCELLED: 'Da huy',
+    PENDING_PAYMENT: 'Chờ thanh toán',
+    PAID: 'Đã thanh toán',
+    CHECKED_IN: 'Đã check-in',
+    COMPLETED: 'Hoàn tất',
+    CANCELLED: 'Đã hủy',
   }
 
   return labels[status]

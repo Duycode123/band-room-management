@@ -2,13 +2,12 @@
 
 import { useState } from 'react'
 import {
-  COUPON_TYPE_LABELS,
-  formatCouponDate,
-  formatCouponMoney,
+  formatCouponExpiry,
   formatCouponValue,
-} from '@/lib/admin/coupons/adminCouponApi'
+  DISCOUNT_TYPE_LABELS,
+} from '@/lib/admin/coupons/couponLabels'
 import type { AdminCoupon } from '@/lib/admin/coupons/types'
-import { CouponLifecycleBadge, CouponTypeBadge } from './CouponBadges'
+import { CouponExpiryBadge, CouponTypeBadge } from './CouponBadges'
 
 type CouponDetailPanelProps = {
   coupon: AdminCoupon | null
@@ -37,7 +36,7 @@ export default function CouponDetailPanel({
       await onDelete(coupon.couponId)
       onClose()
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Khong the xoa coupon.')
+      setMessage(error instanceof Error ? error.message : 'Không thể xóa coupon.')
       setConfirmDelete(false)
     } finally {
       setIsDeleting(false)
@@ -48,60 +47,61 @@ export default function CouponDetailPanel({
     <>
       <button
         type="button"
-        aria-label="Dong chi tiet"
+        aria-label="Đóng chi tiết"
         onClick={onClose}
         className="fixed inset-0 z-40 bg-inverse-surface/50 backdrop-blur-sm"
       />
 
       <aside className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l border-outline-variant bg-white shadow-[var(--shadow-elevated)] sm:max-w-lg">
-        <div className="shrink-0 border-b border-outline-variant bg-gradient-to-br from-brand-greenDark to-brand-greenLight px-5 pb-5 pt-5 text-white">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/25 bg-white/15 font-display text-xl font-bold text-brand-orange">
-                %
-              </div>
-              <div className="min-w-0">
+        <div className="relative shrink-0 bg-gradient-to-br from-brand-orange/20 via-brand-orange/5 to-brand-greenLight/20 px-5 pb-5 pt-5">
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-white/95" />
+          <div className="relative">
+            <div className="flex items-start justify-between gap-3">
+              <div>
                 <p className="font-display text-[10px] font-bold uppercase tracking-[0.15em] text-brand-orange">
                   CP-{String(coupon.couponId).padStart(4, '0')}
                 </p>
-                <h2 className="truncate font-display text-xl font-bold leading-tight">
-                  {coupon.code}
-                </h2>
+                <h2 className="font-display text-2xl font-bold leading-tight text-on-surface">{coupon.code}</h2>
               </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-outline-variant/80 bg-white/80 text-on-surface-variant backdrop-blur-sm hover:bg-white"
+              >
+                X
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-inverse-on-surface hover:bg-white/20"
-            >
-              X
-            </button>
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <CouponTypeBadge type={coupon.discountType} />
-            <CouponLifecycleBadge lifecycle={coupon.lifecycle} />
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <CouponTypeBadge type={coupon.type} size="md" />
+              <CouponExpiryBadge status={coupon.expiryStatus} size="md" />
+            </div>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
           <div className="grid gap-3 sm:grid-cols-2">
-            <MetricCard label="Ma coupon" value={coupon.code} />
-            <MetricCard label="Loai" value={COUPON_TYPE_LABELS[coupon.discountType]} />
-            <MetricCard label="Gia tri" value={formatCouponValue(coupon)} />
-            <MetricCard label="Don toi thieu" value={formatCouponMoney(coupon.minOrderValue)} />
-            <MetricCard label="Ngay het han" value={formatCouponDate(coupon.expiresAt)} />
-            <MetricCard label="ID backend" value={String(coupon.couponId)} />
+            <MetricCard label="Loại giảm" value={DISCOUNT_TYPE_LABELS[coupon.type]} />
+            <MetricCard label="Giá trị" value={formatCouponValue(coupon.type, coupon.value)} />
+            <MetricCard
+              label="Đơn tối thiểu"
+              value={
+                coupon.minOrderValue
+                  ? new Intl.NumberFormat('vi-VN', {
+                      style: 'currency',
+                      currency: 'VND',
+                      maximumFractionDigits: 0,
+                    }).format(coupon.minOrderValue)
+                  : 'Không yêu cầu'
+              }
+            />
+            <MetricCard label="Hết hạn" value={formatCouponExpiry(coupon.expiresAt)} />
           </div>
 
-          <section className="mt-5 rounded-2xl border border-outline-variant bg-surface-container-low/50 p-4">
-            <h3 className="font-display text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
-              Mapping BE
-            </h3>
-            <p className="mt-2 text-sm leading-relaxed text-on-surface-variant">
-              Form nay gui truc tiep cac field BE dang nhan: code, type, value, minOrderValue va expiresAt.
+          <Section title="Phạm vi áp dụng">
+            <p className="text-sm text-on-surface-variant">
+              Coupon hiện áp dụng cho <strong className="text-on-surface">tất cả phòng</strong> trong hệ thống.
             </p>
-          </section>
+          </Section>
 
           {message && (
             <p className="mt-4 rounded-2xl border border-error/30 bg-error-container/30 px-4 py-3 text-xs text-error">
@@ -114,7 +114,7 @@ export default function CouponDetailPanel({
           {confirmDelete ? (
             <div className="space-y-3">
               <p className="text-sm text-on-surface-variant">
-                Xac nhan xoa <strong className="text-on-surface">{coupon.code}</strong>?
+                Xác nhận xóa <strong className="text-on-surface">{coupon.code}</strong>?
               </p>
               <div className="flex gap-2">
                 <button
@@ -123,7 +123,7 @@ export default function CouponDetailPanel({
                   disabled={isDeleting}
                   className="flex-1 rounded-xl border border-outline py-2.5 font-display text-sm font-medium text-on-surface-variant hover:bg-white disabled:opacity-50"
                 >
-                  Huy
+                  Hủy
                 </button>
                 <button
                   type="button"
@@ -131,7 +131,7 @@ export default function CouponDetailPanel({
                   disabled={isDeleting}
                   className="flex-1 rounded-xl bg-error py-2.5 font-display text-sm font-medium text-white hover:bg-error/90 disabled:opacity-50"
                 >
-                  {isDeleting ? 'Dang xoa...' : 'Xoa coupon'}
+                  {isDeleting ? 'Đang xóa...' : 'Xóa coupon'}
                 </button>
               </div>
             </div>
@@ -142,14 +142,14 @@ export default function CouponDetailPanel({
                 onClick={() => onEdit(coupon)}
                 className="flex-1 rounded-xl bg-brand-orange py-2.5 font-display text-sm font-medium text-white shadow-md shadow-brand-orange/20 hover:bg-brand-orangeHover"
               >
-                Chinh sua
+                Chỉnh sửa
               </button>
               <button
                 type="button"
                 onClick={() => setConfirmDelete(true)}
                 className="flex-1 rounded-xl border border-error/30 py-2.5 font-display text-sm font-medium text-error hover:bg-error-container/30"
               >
-                Xoa
+                Xóa
               </button>
             </div>
           )}
@@ -159,11 +159,22 @@ export default function CouponDetailPanel({
   )
 }
 
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="mt-5">
+      <h3 className="mb-2 font-display text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
+        {title}
+      </h3>
+      {children}
+    </section>
+  )
+}
+
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-outline-variant bg-white p-3">
       <p className="text-[10px] font-medium uppercase tracking-wider text-on-surface-variant">{label}</p>
-      <p className="mt-1 break-words font-display text-base font-bold text-on-surface">{value}</p>
+      <p className="mt-1 font-display text-base font-bold text-on-surface">{value}</p>
     </div>
   )
 }

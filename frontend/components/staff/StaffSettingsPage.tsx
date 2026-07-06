@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
-import { useRouter } from 'next/navigation'
 import AuthGuard from '@/components/AuthGuard'
 import { StaffPageShell, Toast } from './StaffShared'
 import { useAuth } from '@/contexts/AuthContext'
@@ -46,7 +45,6 @@ const emptyPasswordForm = {
 }
 
 export default function StaffSettingsPage() {
-  const router = useRouter()
   const { user, login, logout } = useAuth()
   const [activeTab, setActiveTab] = useState<SettingsTab>('PROFILE')
   const [profile, setProfile] = useState<StaffProfile>(emptyProfile)
@@ -206,9 +204,8 @@ export default function StaffSettingsPage() {
       await changePassword(passwordForm)
       setPasswordForm(emptyPasswordForm)
       showToast('success', 'Đổi mật khẩu thành công. Vui lòng đăng nhập lại.')
-      await logout()
       clearStaffAuthCaches()
-      router.replace('/login')
+      await logout('/login')
     } catch (error) {
       showToast('error', error instanceof Error ? error.message : 'Không thể cập nhật mật khẩu.')
     } finally {
@@ -246,9 +243,8 @@ export default function StaffSettingsPage() {
   const handleLogout = async () => {
     setIsLoggingOut(true)
     try {
-      await logout()
       clearStaffAuthCaches()
-      router.replace('/login')
+      await logout('/login')
     } finally {
       setIsLoggingOut(false)
       setIsLogoutConfirmOpen(false)

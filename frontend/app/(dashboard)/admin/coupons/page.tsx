@@ -10,21 +10,23 @@ import { IconCoupons, IconPlus } from '@/components/admin/AdminIcons'
 import CouponDetailPanel from '@/components/admin/coupons/CouponDetailPanel'
 import CouponFiltersBar from '@/components/admin/coupons/CouponFiltersBar'
 import CouponFormModal from '@/components/admin/coupons/CouponFormModal'
+import CouponReportSection from '@/components/admin/coupons/CouponReportSection'
 import CouponTable from '@/components/admin/coupons/CouponTable'
 import {
   createAdminCoupon,
   deleteAdminCoupon,
   EMPTY_COUPON_FORM,
   fetchAdminCoupons,
-  toCouponFormData,
+  fetchCouponRooms,
+  toFormData,
   updateAdminCoupon,
 } from '@/lib/admin/coupons/adminCouponApi'
-import type { AdminCoupon, CouponFilters, CouponFormData } from '@/lib/admin/coupons/types'
+import type { AdminCoupon, CouponFilters, CouponFormData, CouponRoomOption } from '@/lib/admin/coupons/types'
 
 const DEFAULT_FILTERS: CouponFilters = {
   query: '',
-  discountType: 'ALL',
-  lifecycle: 'ALL',
+  type: 'ALL',
+  expiryStatus: 'ALL',
   sortBy: 'code',
   sortOrder: 'asc',
 }
@@ -40,7 +42,7 @@ export default function AdminCouponsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [selected, setSelected] = useState<AdminCoupon | null>(null)
   const [formModal, setFormModal] = useState<FormModalState>({ open: false })
-  const [deleteTarget, setDeleteTarget] = useState<AdminCoupon | null>(null)
+  const [rooms, setRooms] = useState<CouponRoomOption[]>([])
   const [toast, setToast] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -53,12 +55,12 @@ export default function AdminCouponsPage() {
       setErrorMessage('')
       setSelected((currentCoupon) => {
         if (!currentCoupon) return null
-        return data.find((coupon) => coupon.couponId === currentCoupon.couponId) ?? null
+        return data.find((item) => item.couponId === currentCoupon.couponId) ?? null
       })
     } catch (error) {
       setCoupons([])
       setSelected(null)
-      setErrorMessage(error instanceof Error ? error.message : 'Khong the tai danh sach coupon.')
+      setErrorMessage(error instanceof Error ? error.message : 'Không thể tải danh sách coupon.')
     } finally {
       setIsLoading(false)
     }
@@ -70,6 +72,26 @@ export default function AdminCouponsPage() {
   }, [loadCoupons])
 
   useEffect(() => {
+    let active = true
+
+    fetchCouponRooms()
+      .then((data) => {
+        if (active) {
+          setRooms(data)
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          setErrorMessage(error instanceof Error ? error.message : 'KhÃ´ng thá»ƒ táº£i danh sÃ¡ch phÃ²ng.')
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
     if (!toast) return
 
     const timer = setTimeout(() => setToast(''), 3500)
@@ -79,15 +101,16 @@ export default function AdminCouponsPage() {
   const stats = useMemo(() => {
     return {
       total: coupons.length,
-      active: coupons.filter((coupon) => coupon.lifecycle === 'ACTIVE').length,
-      noExpiry: coupons.filter((coupon) => coupon.lifecycle === 'NO_EXPIRY').length,
-      expired: coupons.filter((coupon) => coupon.lifecycle === 'EXPIRED').length,
+      active: coupons.filter((coupon) => coupon.expiryStatus === 'ACTIVE').length,
+      noExpiry: coupons.filter((coupon) => coupon.expiryStatus === 'NO_EXPIRY').length,
+      expired: coupons.filter((coupon) => coupon.expiryStatus === 'EXPIRED').length,
+      percentage: coupons.filter((coupon) => coupon.type === 'PERCENTAGE').length,
     }
   }, [coupons])
 
   const handleCreate = async (data: CouponFormData) => {
     await createAdminCoupon(data)
-    setToast('Tao coupon thanh cong.')
+    setToast('Tạo coupon thành công.')
     await loadCoupons()
   }
 
@@ -96,19 +119,18 @@ export default function AdminCouponsPage() {
 
     const updated = await updateAdminCoupon(formModal.couponId, data)
     if (!updated) {
-      throw new Error('Khong tim thay coupon.')
+      throw new Error('Không tìm thấy coupon.')
     }
 
-    setToast('Cap nhat coupon thanh cong.')
+    setToast('Cập nhật coupon thành công.')
     setSelected(updated)
     await loadCoupons()
   }
 
   const handleDelete = async (id: number) => {
     await deleteAdminCoupon(id)
-    setToast('Xoa coupon thanh cong.')
-    setSelected((currentCoupon) => (currentCoupon?.couponId === id ? null : currentCoupon))
-    setDeleteTarget(null)
+    setToast('Xóa coupon thành công.')
+    setSelected(null)
     await loadCoupons()
   }
 
@@ -117,10 +139,10 @@ export default function AdminCouponsPage() {
       <AdminShell>
         <AdminPageHeader
           eyebrow="Coupon"
-          title="Quan ly coupon"
-          description="CRUD coupon admin dang map truc tiep voi backend /api/admin/coupons."
+          title="Quản lý mã giảm giá"
+          description="Tạo, chỉnh sửa coupon và theo dõi hiệu quả sử dụng."
           breadcrumbs={[
-            { label: 'Tong quan', href: '/admin/dashboard' },
+            { label: 'Tổng quan', href: '/admin/dashboard' },
             { label: 'Coupon' },
           ]}
           actions={
@@ -146,61 +168,48 @@ export default function AdminCouponsPage() {
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <AdminStatCard
-              label="Ket qua loc"
+              label="Kết quả lọc"
               value={stats.total}
-              hint="Coupon hien thi"
+              hint="Coupon hiển thị"
               icon={<IconCoupons className="h-5 w-5" />}
             />
             <AdminStatCard
-              label="Dang hieu luc"
+              label="Đang hiệu lực"
               value={stats.active}
-              hint="Chua qua ngay het han"
+              hint="Có thể sử dụng"
               accent="secondary"
               icon={<span className="text-base">OK</span>}
             />
             <AdminStatCard
-              label="Khong het han"
-              value={stats.noExpiry}
-              hint="expiresAt dang trong"
-              accent="tertiary"
-              icon={<span className="text-base">--</span>}
-            />
-            <AdminStatCard
-              label="Da het han"
+              label="Hết hạn"
               value={stats.expired}
-              hint="Can gia han hoac xoa"
+              hint="Không còn dùng được"
               accent="primary"
               icon={<span className="text-base">!</span>}
             />
+            <AdminStatCard
+              label="Loại phần trăm"
+              value={stats.percentage}
+              hint="Số coupon giảm theo % (không phải mức %)"
+              accent="tertiary"
+              icon={<span className="text-base">%</span>}
+            />
           </div>
+
+          <CouponReportSection />
 
           <CouponFiltersBar filters={filters} onChange={setFilters} resultCount={coupons.length} />
 
           <section>
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="font-display text-lg font-bold text-on-surface">Danh sach coupon</h2>
-                <p className="text-xs text-on-surface-variant">
-                  Backend ho tro code, type, value, minOrderValue va expiresAt.
-                </p>
-              </div>
-              <p className="text-xs text-on-surface-variant">Chon "Chi tiet" de xem mapping</p>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="font-display text-lg font-bold text-on-surface">Danh sách coupon</h2>
+              <p className="text-xs text-on-surface-variant">Nhấn thẻ để xem chi tiết</p>
             </div>
-
             <CouponTable
               coupons={coupons}
               isLoading={isLoading}
               selectedId={selected?.couponId ?? null}
               onSelect={setSelected}
-              onEdit={(coupon) =>
-                setFormModal({
-                  open: true,
-                  mode: 'edit',
-                  couponId: coupon.couponId,
-                  data: toCouponFormData(coupon),
-                })
-              }
-              onDelete={setDeleteTarget}
             />
           </section>
         </div>
@@ -209,12 +218,7 @@ export default function AdminCouponsPage() {
           coupon={selected}
           onClose={() => setSelected(null)}
           onEdit={(coupon) =>
-            setFormModal({
-              open: true,
-              mode: 'edit',
-              couponId: coupon.couponId,
-              data: toCouponFormData(coupon),
-            })
+            setFormModal({ open: true, mode: 'edit', couponId: coupon.couponId, data: toFormData(coupon) })
           }
           onDelete={handleDelete}
         />
@@ -223,45 +227,10 @@ export default function AdminCouponsPage() {
           open={formModal.open}
           mode={formModal.open ? formModal.mode : 'create'}
           initialData={formModal.open ? formModal.data : EMPTY_COUPON_FORM}
+          rooms={rooms}
           onClose={() => setFormModal({ open: false })}
           onSubmit={formModal.open && formModal.mode === 'edit' ? handleUpdate : handleCreate}
         />
-
-        {deleteTarget && (
-          <>
-            <button
-              type="button"
-              aria-label="Dong xac nhan xoa"
-              onClick={() => setDeleteTarget(null)}
-              className="fixed inset-0 z-50 bg-inverse-surface/50 backdrop-blur-sm"
-            />
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              <div className="w-full max-w-md rounded-3xl border border-outline-variant bg-white p-5 shadow-[var(--shadow-elevated)]">
-                <p className="font-display text-lg font-bold text-on-surface">Xoa coupon?</p>
-                <p className="mt-2 text-sm text-on-surface-variant">
-                  Xac nhan xoa <strong className="text-on-surface">{deleteTarget.code}</strong>. Backend se tu
-                  choi neu coupon da duoc ap dung cho booking.
-                </p>
-                <div className="mt-5 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setDeleteTarget(null)}
-                    className="flex-1 rounded-xl border border-outline py-2.5 font-display text-sm font-medium text-on-surface-variant hover:bg-surface-container-low"
-                  >
-                    Huy
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleDelete(deleteTarget.couponId)}
-                    className="flex-1 rounded-xl bg-error py-2.5 font-display text-sm font-medium text-white hover:bg-error/90"
-                  >
-                    Xoa coupon
-                  </button>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
       </AdminShell>
     </AuthGuard>
   )

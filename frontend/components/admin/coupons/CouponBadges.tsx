@@ -1,43 +1,46 @@
 import {
-  COUPON_LIFECYCLE_LABELS,
-  COUPON_TYPE_LABELS,
-} from '@/lib/admin/coupons/adminCouponApi'
-import type { CouponDiscountType, CouponLifecycle } from '@/lib/admin/coupons/types'
+  COUPON_EXPIRY_STATUS_LABELS,
+  DISCOUNT_TYPE_LABELS,
+} from '@/lib/admin/coupons/couponLabels'
+import type { CouponExpiryStatus, DiscountType } from '@/lib/admin/coupons/types'
 
-type BadgeProps = {
-  children: React.ReactNode
-  className: string
+type BadgeSize = 'sm' | 'md'
+
+const sizeClass: Record<BadgeSize, string> = {
+  sm: 'px-2 py-0.5 text-[10px]',
+  md: 'px-2.5 py-1 text-xs',
 }
 
-function Badge({ children, className }: BadgeProps) {
+export function CouponTypeBadge({ type, size = 'sm' }: { type: DiscountType; size?: BadgeSize }) {
   return (
     <span
       className={[
-        'inline-flex items-center rounded-full px-2.5 py-1 font-display text-[11px] font-semibold',
-        className,
+        'inline-flex rounded-full bg-primary-container/50 font-display font-semibold uppercase tracking-wide text-brand-orange',
+        sizeClass[size],
       ].join(' ')}
     >
-      {children}
+      {DISCOUNT_TYPE_LABELS[type]}
     </span>
   )
 }
 
-export function CouponTypeBadge({ type }: { type: CouponDiscountType }) {
-  const className =
-    type === 'PERCENTAGE'
-      ? 'bg-primary-container text-on-primary-container'
-      : 'bg-tertiary-container text-on-tertiary-container'
-
-  return <Badge className={className}>{COUPON_TYPE_LABELS[type]}</Badge>
-}
-
-export function CouponLifecycleBadge({ lifecycle }: { lifecycle: CouponLifecycle }) {
-  const className =
-    lifecycle === 'ACTIVE'
-      ? 'bg-secondary-container text-secondary'
-      : lifecycle === 'EXPIRED'
-        ? 'bg-error-container/60 text-error'
+export function CouponExpiryBadge({
+  status,
+  size = 'sm',
+}: {
+  status: CouponExpiryStatus
+  size?: BadgeSize
+}) {
+  const tone =
+    status === 'ACTIVE'
+      ? 'bg-secondary-container/60 text-secondary'
+      : status === 'EXPIRED'
+        ? 'bg-error-container/50 text-error'
         : 'bg-surface-container text-on-surface-variant'
 
-  return <Badge className={className}>{COUPON_LIFECYCLE_LABELS[lifecycle]}</Badge>
+  return (
+    <span className={['inline-flex rounded-full font-display font-semibold', tone, sizeClass[size]].join(' ')}>
+      {COUPON_EXPIRY_STATUS_LABELS[status]}
+    </span>
+  )
 }

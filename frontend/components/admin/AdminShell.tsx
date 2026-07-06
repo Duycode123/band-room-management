@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import {
@@ -12,6 +12,7 @@ import {
   IconEquipment,
   IconLogout,
   IconReports,
+  IconReviews,
   IconRooms,
   type AdminNavItem,
 } from './AdminIcons'
@@ -19,6 +20,8 @@ import {
 const NAV_ITEMS: AdminNavItem[] = [
   { href: '/admin/dashboard', label: 'Tổng quan', icon: <IconDashboard className="h-5 w-5" /> },
   { href: '/admin/bookings', label: 'Đơn đặt phòng', icon: <IconBookings className="h-5 w-5" /> },
+  { href: '/admin/coupons', label: 'Mã giảm giá', icon: <IconCoupons className="h-5 w-5" /> },
+  { href: '/admin/reviews', label: 'Đánh giá', icon: <IconReviews className="h-5 w-5" /> },
   { href: '/admin/equipment', label: 'Thiết bị', icon: <IconEquipment className="h-5 w-5" /> },
   { href: '/admin/coupons', label: 'Coupon', icon: <IconCoupons className="h-5 w-5" /> },
   { href: '/admin/rooms', label: 'Phòng tập', icon: <IconRooms className="h-5 w-5" /> },
@@ -31,12 +34,10 @@ type AdminShellProps = {
 
 export default function AdminShell({ children }: AdminShellProps) {
   const pathname = usePathname()
-  const router = useRouter()
   const { logout } = useAuth()
 
   const handleLogout = async () => {
-    await logout()
-    router.push('/login')
+    await logout('/login')
   }
 
   return (

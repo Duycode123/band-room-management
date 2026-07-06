@@ -2,15 +2,20 @@
 
 import { useEffect, useState } from 'react'
 import {
-  COUPON_TYPE_LABELS,
+  DISCOUNT_TYPE_LABELS,
+  DISCOUNT_TYPE_OPTIONS,
+} from '@/lib/admin/coupons/couponLabels'
+import {
+  previewCouponDiscount,
   validateCouponForm,
 } from '@/lib/admin/coupons/adminCouponApi'
-import type { CouponFormData } from '@/lib/admin/coupons/types'
+import type { CouponFormData, CouponRoomOption } from '@/lib/admin/coupons/types'
 
 type CouponFormModalProps = {
   open: boolean
   mode: 'create' | 'edit'
   initialData: CouponFormData
+  rooms: CouponRoomOption[]
   onClose: () => void
   onSubmit: (data: CouponFormData) => Promise<void>
 }
@@ -25,6 +30,7 @@ export default function CouponFormModal({
   open,
   mode,
   initialData,
+  rooms,
   onClose,
   onSubmit,
 }: CouponFormModalProps) {
@@ -32,6 +38,9 @@ export default function CouponFormModal({
   const [errors, setErrors] = useState<Partial<Record<keyof CouponFormData, string>>>({})
   const [isSaving, setIsSaving] = useState(false)
   const [serverError, setServerError] = useState('')
+  const [previewMessage, setPreviewMessage] = useState('')
+  const [previewDiscount, setPreviewDiscount] = useState<number | null>(null)
+  const [isPreviewing, setIsPreviewing] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -39,11 +48,70 @@ export default function CouponFormModal({
     setForm(initialData)
     setErrors({})
     setServerError('')
+    setPreviewMessage('')
+    setPreviewDiscount(null)
   }, [initialData, open])
 
   if (!open) return null
 
   const set = (patch: Partial<CouponFormData>) => setForm((currentForm) => ({ ...currentForm, ...patch }))
+
+  const toggleRoom = (roomId: number) => {
+    setForm((currentForm) => {
+      if (currentForm.roomIds.length === 0) {
+        return {
+          ...currentForm,
+          roomIds: rooms.map((room) => room.roomId).filter((id) => id !== roomId),
+        }
+      }
+
+      const selected = new Set(currentForm.roomIds)
+      if (selected.has(roomId)) {
+        selected.delete(roomId)
+      } else {
+        selected.add(roomId)
+      }
+
+      const nextRoomIds = Array.from(selected)
+      if (nextRoomIds.length === rooms.length) {
+        return { ...currentForm, roomIds: [] }
+      }
+
+      return { ...currentForm, roomIds: nextRoomIds }
+    })
+  }
+
+  const handlePreview = async () => {
+    const orderAmount = Number(form.previewOrderAmount)
+    const validationErrors = validateCouponForm(form)
+
+    if (validationErrors.code || validationErrors.previewOrderAmount) {
+      setErrors((currentErrors) => ({
+        ...currentErrors,
+        code: validationErrors.code,
+        previewOrderAmount: validationErrors.previewOrderAmount,
+      }))
+      return
+    }
+
+    setIsPreviewing(true)
+    setPreviewMessage('')
+    setPreviewDiscount(null)
+
+    try {
+      const result = await previewCouponDiscount(form.code, orderAmount)
+      if (result.valid) {
+        setPreviewDiscount(result.discountAmount ?? 0)
+        setPreviewMessage(result.message)
+      } else {
+        setPreviewMessage(result.message)
+      }
+    } catch (error) {
+      setPreviewMessage(error instanceof Error ? error.message : 'Không thể xem trước giảm giá.')
+    } finally {
+      setIsPreviewing(false)
+    }
+  }
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -62,17 +130,19 @@ export default function CouponFormModal({
       await onSubmit(form)
       onClose()
     } catch (error) {
-      setServerError(error instanceof Error ? error.message : 'Khong the luu coupon.')
+      setServerError(error instanceof Error ? error.message : 'Không thể lưu coupon.')
     } finally {
       setIsSaving(false)
     }
   }
 
+  const allRoomsSelected = form.roomIds.length === 0
+
   return (
     <>
       <button
         type="button"
-        aria-label="Dong form"
+        aria-label="Đóng form"
         onClick={onClose}
         className="fixed inset-0 z-50 bg-inverse-surface/50 backdrop-blur-sm"
       />
@@ -82,25 +152,26 @@ export default function CouponFormModal({
           role="dialog"
           aria-modal="true"
           aria-labelledby="coupon-form-title"
-          className="flex max-h-[92vh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl border border-outline-variant bg-white shadow-[var(--shadow-elevated)] sm:rounded-3xl"
+          className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl border border-outline-variant bg-white shadow-[var(--shadow-elevated)] sm:rounded-3xl"
         >
-          <header className="border-b border-outline-variant bg-gradient-to-r from-brand-greenDark to-brand-greenLight px-6 py-5 text-white">
-            <p className="font-display text-[10px] font-medium uppercase tracking-[0.15em] text-brand-orange">
-              {mode === 'create' ? 'Them moi' : 'Chinh sua'}
+          <header className="relative overflow-hidden border-b border-outline-variant bg-gradient-to-r from-brand-greenDark to-brand-greenLight px-6 py-5 text-white">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-brand-orange/20 blur-2xl"
+            />
+            <p className="relative font-display text-[10px] font-medium uppercase tracking-[0.15em] text-brand-orange">
+              {mode === 'create' ? 'Thêm mới' : 'Chỉnh sửa'}
             </p>
-            <h2 id="coupon-form-title" className="font-display text-xl font-bold">
-              {mode === 'create' ? 'Tao coupon moi' : 'Cap nhat coupon'}
+            <h2 id="coupon-form-title" className="relative font-display text-xl font-bold">
+              {mode === 'create' ? 'Tạo coupon mới' : 'Cập nhật coupon'}
             </h2>
-            <p className="mt-1 text-xs text-inverse-on-surface/80">
-              Dong bo truc tiep voi API /api/admin/coupons cua backend.
-            </p>
           </header>
 
           <form onSubmit={(event) => void handleSubmit(event)} className="flex flex-1 flex-col overflow-hidden">
             <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
               <label className="block">
                 <span className={labelClass}>
-                  Ma coupon <span className="text-error">*</span>
+                  Mã coupon <span className="text-error">*</span>
                 </span>
                 <input
                   type="text"
@@ -115,40 +186,41 @@ export default function CouponFormModal({
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
                   <span className={labelClass}>
-                    Loai coupon <span className="text-error">*</span>
+                    Loại giảm <span className="text-error">*</span>
                   </span>
                   <select
-                    value={form.discountType}
-                    onChange={(event) =>
-                      set({ discountType: event.target.value as CouponFormData['discountType'] })
-                    }
+                    value={form.type}
+                    onChange={(event) => set({ type: event.target.value as CouponFormData['type'] })}
                     className={inputClass}
                   >
-                    <option value="PERCENTAGE">{COUPON_TYPE_LABELS.PERCENTAGE}</option>
-                    <option value="FIXED_AMOUNT">{COUPON_TYPE_LABELS.FIXED_AMOUNT}</option>
+                    {DISCOUNT_TYPE_OPTIONS.map((type) => (
+                      <option key={type} value={type}>
+                        {DISCOUNT_TYPE_LABELS[type]}
+                      </option>
+                    ))}
                   </select>
                 </label>
 
                 <label className="block">
                   <span className={labelClass}>
-                    Gia tri <span className="text-error">*</span>
+                    Giá trị <span className="text-error">*</span>
                   </span>
                   <input
                     type="number"
-                    min="0.01"
-                    step={form.discountType === 'PERCENTAGE' ? '0.01' : '1000'}
-                    value={form.discountValue}
-                    onChange={(event) => set({ discountValue: event.target.value })}
+                    min="0"
+                    step="0.01"
+                    value={form.value}
+                    onChange={(event) => set({ value: event.target.value })}
                     className={inputClass}
-                    placeholder={form.discountType === 'PERCENTAGE' ? '10' : '50000'}
+                    placeholder={form.type === 'PERCENTAGE' ? '10' : '50000'}
                   />
-                  {errors.discountValue && <p className="mt-1 text-xs text-error">{errors.discountValue}</p>}
+                  {errors.value && <p className="mt-1 text-xs text-error">{errors.value}</p>}
                 </label>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
-                  <span className={labelClass}>Don toi thieu</span>
+                  <span className={labelClass}>Đơn tối thiểu (VND)</span>
                   <input
                     type="number"
                     min="0"
@@ -156,13 +228,13 @@ export default function CouponFormModal({
                     value={form.minOrderValue}
                     onChange={(event) => set({ minOrderValue: event.target.value })}
                     className={inputClass}
-                    placeholder="Bo trong neu khong yeu cau"
+                    placeholder="100000"
                   />
                   {errors.minOrderValue && <p className="mt-1 text-xs text-error">{errors.minOrderValue}</p>}
                 </label>
 
                 <label className="block">
-                  <span className={labelClass}>Ngay het han</span>
+                  <span className={labelClass}>Ngày hết hạn</span>
                   <input
                     type="date"
                     value={form.expiresAt}
@@ -171,6 +243,91 @@ export default function CouponFormModal({
                   />
                 </label>
               </div>
+
+              <section className="rounded-2xl border border-outline-variant bg-surface-container-low/40 p-4">
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-display text-sm font-bold text-on-surface">Phòng áp dụng</h3>
+                    <p className="mt-1 text-xs text-on-surface-variant">
+                      Không chọn phòng = áp dụng toàn bộ phòng. Backend hiện lưu coupon toàn hệ thống; phần chọn phòng
+                      giúp ghi nhận phạm vi dự kiến trên UI.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => set({ roomIds: allRoomsSelected ? rooms.map((room) => room.roomId) : [] })}
+                    className="shrink-0 rounded-lg border border-outline px-3 py-1.5 font-display text-xs font-medium text-brand-orange hover:bg-white"
+                  >
+                    {allRoomsSelected ? 'Chọn tất cả' : 'Bỏ chọn hết'}
+                  </button>
+                </div>
+
+                <div className="grid max-h-40 gap-2 overflow-y-auto sm:grid-cols-2">
+                  {rooms.map((room) => {
+                    const checked = allRoomsSelected || form.roomIds.includes(room.roomId)
+
+                    return (
+                      <label
+                        key={room.roomId}
+                        className="flex cursor-pointer items-center gap-2 rounded-xl border border-outline-variant bg-white px-3 py-2 text-sm text-on-surface hover:border-brand-orange/40"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleRoom(room.roomId)}
+                          className="h-4 w-4 rounded border-outline text-brand-orange focus:ring-brand-orange"
+                        />
+                        <span className="line-clamp-1">{room.roomName}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-brand-orange/20 bg-primary-container/20 p-4">
+                <h3 className="font-display text-sm font-bold text-on-surface">Xem trước giảm giá</h3>
+                <p className="mt-1 text-xs text-on-surface-variant">
+                  Kiểm tra nhanh coupon với giá trị đơn mẫu qua API validate.
+                </p>
+
+                <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+                  <input
+                    type="number"
+                    min="0"
+                    step="1000"
+                    value={form.previewOrderAmount}
+                    onChange={(event) => set({ previewOrderAmount: event.target.value })}
+                    className={inputClass}
+                    placeholder="500000"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handlePreview()}
+                    disabled={isPreviewing}
+                    className="h-11 shrink-0 rounded-xl border border-brand-orange bg-white px-4 font-display text-sm font-medium text-brand-orange hover:bg-primary-container/30 disabled:opacity-50"
+                  >
+                    {isPreviewing ? 'Đang kiểm tra...' : 'Xem trước'}
+                  </button>
+                </div>
+                {errors.previewOrderAmount && (
+                  <p className="mt-1 text-xs text-error">{errors.previewOrderAmount}</p>
+                )}
+                {previewMessage && (
+                  <p className="mt-3 rounded-xl border border-outline-variant bg-white px-3 py-2 text-xs text-on-surface-variant">
+                    {previewMessage}
+                    {previewDiscount != null && previewDiscount > 0 && (
+                      <span className="mt-1 block font-semibold text-brand-orange">
+                        Giảm{' '}
+                        {new Intl.NumberFormat('vi-VN', {
+                          style: 'currency',
+                          currency: 'VND',
+                          maximumFractionDigits: 0,
+                        }).format(previewDiscount)}
+                      </span>
+                    )}
+                  </p>
+                )}
+              </section>
 
               {serverError && (
                 <p className="rounded-xl border border-error/30 bg-error-container/30 px-3 py-2.5 text-xs text-error">
@@ -186,14 +343,14 @@ export default function CouponFormModal({
                 disabled={isSaving}
                 className="rounded-xl border border-outline px-5 py-2.5 font-display text-sm font-medium text-on-surface-variant hover:bg-white disabled:opacity-50"
               >
-                Huy
+                Hủy
               </button>
               <button
                 type="submit"
                 disabled={isSaving}
                 className="rounded-xl bg-brand-orange px-5 py-2.5 font-display text-sm font-medium text-white shadow-md shadow-brand-orange/20 hover:bg-brand-orangeHover disabled:opacity-50"
               >
-                {isSaving ? 'Dang luu...' : 'Luu coupon'}
+                {isSaving ? 'Đang lưu...' : 'Lưu coupon'}
               </button>
             </footer>
           </form>
