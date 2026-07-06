@@ -6,7 +6,10 @@ const projectRoot = dirname(fileURLToPath(import.meta.url))
 const backendApiUrl = process.env.BACKEND_API_URL || 'http://localhost:8080'
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ['bannister-phosphate-marine.ngrok-free.dev'],
+  allowedDevOrigins: [
+    'bannister-phosphate-marine.ngrok-free.dev',
+    'emcee-alumni-customer.ngrok-free.dev',
+  ],
   images: {
     remotePatterns: [
       {

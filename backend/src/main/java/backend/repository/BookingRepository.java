@@ -66,4 +66,28 @@ public interface BookingRepository extends JpaRepository<Booking, Integer>, JpaS
             @Param("pendingStatus") BookingStatus pendingStatus,
             @Param("cutoff") LocalDateTime cutoff
     );
+
+    @Query("""
+            select b.room.id as roomId,
+                   count(b.id) as upcomingBookingCount,
+                   min(b.startTime) as nextStartTime
+            from Booking b
+            where b.status <> :cancelledStatus
+              and b.endTime > :fromTime
+              and b.startTime < :toTime
+            group by b.room.id
+            """)
+    List<RoomUpcomingBookingStatsProjection> findUpcomingRoomBookingStats(
+            @Param("fromTime") LocalDateTime fromTime,
+            @Param("toTime") LocalDateTime toTime,
+            @Param("cancelledStatus") BookingStatus cancelledStatus
+    );
+
+    interface RoomUpcomingBookingStatsProjection {
+        Integer getRoomId();
+
+        Long getUpcomingBookingCount();
+
+        LocalDateTime getNextStartTime();
+    }
 }
