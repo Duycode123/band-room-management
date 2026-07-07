@@ -257,6 +257,7 @@ export function mapBackendRoomToBookingRoom(room: BackendRoom, index = 0): Booki
     nextAvailableSlot: availability.nextAvailableSlot,
     isAvailable: availability.isAvailable,
     nextAvailableTime: availability.nextAvailableTime,
+    operationalStatus: room.status ?? 'AVAILABLE',
     note: getStatusNote(room.status),
   }
 }

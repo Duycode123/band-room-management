@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 import BookingQuickModal from '@/components/booking/BookingQuickModal'
 import RoomDetailModal from '@/components/booking/RoomDetailModal'
 import { formatCurrency } from '@/components/booking/booking-data'
+import { BOOKING_SLOT_TIMES, getTodayKey } from '@/components/booking/booking-time-utils'
 import {
   readQuickBookingDraft,
   shouldReopenQuickBooking,
@@ -12,6 +13,8 @@ import {
 import BandRoomFooter from '@/components/layout/BandRoomFooter'
 import BandRoomHeader from '@/components/layout/BandRoomHeader'
 import { fetchPublicBookingRoomCatalog } from '@/lib/booking-room-service'
+import { fetchAvailableSlots } from '@/lib/booking/bookingApi'
+import type { TimeSlot } from '@/lib/booking/types'
 import {
   filterRooms,
   getAvailabilityLabel,
@@ -55,6 +58,10 @@ const defaultFilters: RoomFilters = {
 
 const roomsQuickBookingReturnPath = '/rooms?reopenQuickBooking=1'
 
+type RoomBookingStatus = 'AVAILABLE_NOW' | 'AVAILABLE_OTHER_TIME' | 'UNAVAILABLE'
+
+type RoomSlotsById = Record<string, TimeSlot[] | undefined>
+
 type QuickBookingState = {
   room: Room
   initialDate?: string
@@ -71,6 +78,7 @@ export default function RoomsPublicPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [catalogSource, setCatalogSource] = useState<'backend' | 'fallback'>('backend')
   const [quickBooking, setQuickBooking] = useState<QuickBookingState | null>(null)
+  const [todaySlotsByRoomId, setTodaySlotsByRoomId] = useState<RoomSlotsById>({})
   const filteredRooms = useMemo(() => filterRooms(rooms, filters), [rooms, filters])
 
   useEffect(() => {
@@ -91,6 +99,38 @@ export default function RoomsPublicPage() {
       isMounted = false
     }
   }, [])
+
+  useEffect(() => {
+    if (rooms.length === 0) {
+      setTodaySlotsByRoomId({})
+      return
+    }
+
+    let isMounted = true
+    const todayKey = getTodayKey()
+
+    void Promise.all(
+      rooms.map(async (room) => {
+        if (isRoomTemporarilyUnavailable(room) || !/^\d+$/.test(room.id)) {
+          return [room.id, undefined] as const
+        }
+
+        try {
+          const slots = await fetchAvailableSlots(room.id, todayKey)
+          return [room.id, slots] as const
+        } catch {
+          return [room.id, undefined] as const
+        }
+      }),
+    ).then((entries) => {
+      if (!isMounted) return
+      setTodaySlotsByRoomId(Object.fromEntries(entries))
+    })
+
+    return () => {
+      isMounted = false
+    }
+  }, [rooms])
 
   useEffect(() => {
     if (!shouldReopenQuickBooking(window.location.search)) return
@@ -257,11 +297,12 @@ export default function RoomsPublicPage() {
             </p>
           </div>
         ) : filteredRooms.length > 0 ? (
-          <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {filteredRooms.map((room) => (
               <RoomCard
                 key={room.id}
                 room={room}
+                todaySlots={todaySlotsByRoomId[room.id]}
                 onBook={setSelectedRoom}
                 onViewDetail={setDetailRoom}
               />
@@ -302,24 +343,39 @@ export default function RoomsPublicPage() {
 
 function RoomCard({
   room,
+  todaySlots,
   onBook,
   onViewDetail,
 }: {
   room: Room
+  todaySlots?: TimeSlot[]
   onBook: (room: Room) => void
   onViewDetail: (room: Room) => void
 }) {
   const availabilityStatus = room.availabilityStatus ?? 'AVAILABLE'
   const imageSrc = room.image ?? '/images/band-room-hero.png'
-  const canBookNow = availabilityStatus !== 'FULL_TODAY'
-  const bookingBadge = canBookNow ? 'Có thể đặt ngay' : 'Chọn ngày khác'
-  const bookingHint = canBookNow ? room.nextAvailableSlot ?? 'Có khung giờ phù hợp' : 'Không có khung giờ hiện tại'
+  const now = new Date()
+  const bookingStatus = getRoomBookingStatus(room, now, todaySlots)
+  const canBookNow = bookingStatus === 'AVAILABLE_NOW'
+  const isUnavailable = bookingStatus === 'UNAVAILABLE'
+  const nextAvailableSlotToday = getNextAvailableSlotToday(room, now, todaySlots)
+  const bookingBadge = canBookNow ? 'Có thể đặt ngay' : isUnavailable ? 'Tạm ngưng' : 'Chọn ngày khác'
+  const bookingHint = canBookNow
+    ? `Hôm nay, ${nextAvailableSlotToday}`
+    : isUnavailable
+      ? 'Phòng đang tạm ngưng nhận lịch'
+      : 'Không có khung giờ còn đặt được hôm nay'
 
   return (
     <article
+      onClick={() => onViewDetail(room)}
       className={[
-        'group overflow-hidden rounded-3xl border bg-white shadow-[var(--shadow-card)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_48px_rgba(26,28,30,0.12)]',
-        canBookNow ? 'border-[#FF7518]/25' : 'border-outline-variant bg-surface-container-low opacity-75',
+        'group flex h-full w-full cursor-pointer flex-col overflow-hidden rounded-3xl border bg-white shadow-[var(--shadow-card)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_48px_rgba(26,28,30,0.12)]',
+        canBookNow
+          ? 'border-[#FF7518]/25'
+          : isUnavailable
+            ? 'border-outline-variant bg-surface-container-low opacity-60'
+            : 'border-outline-variant bg-surface-container-low opacity-80',
       ].join(' ')}
     >
       <div className="relative aspect-[16/10] overflow-hidden bg-surface-container">
@@ -334,10 +390,10 @@ function RoomCard({
         <span
           className={[
             'absolute left-4 top-4 rounded-full border px-3 py-1 font-display text-xs font-bold',
-            getAvailabilityClassName(availabilityStatus),
+            getAvailabilityClassName(availabilityStatus, isUnavailable),
           ].join(' ')}
         >
-          {getAvailabilityLabel(availabilityStatus)}
+          {isUnavailable ? 'Tạm ngưng' : getAvailabilityLabel(availabilityStatus)}
         </span>
         <span
           className={[
@@ -356,7 +412,7 @@ function RoomCard({
         )}
       </div>
 
-      <div className="p-6">
+      <div className="flex flex-1 flex-col px-5 pb-4 pt-5 sm:px-6 sm:pb-4 sm:pt-6">
         <p className="font-display text-xs font-bold uppercase text-brand-orange">{room.categoryLabel}</p>
         <h2 className="mt-2 font-display text-2xl font-bold text-on-surface">{room.name}</h2>
         <p className="mt-2 line-clamp-2 text-sm leading-6 text-on-surface-variant">{room.description}</p>
@@ -366,7 +422,7 @@ function RoomCard({
           <InfoPill label="Giá" value={`${formatCurrency(room.pricePerHour)} / giờ`} />
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-4 flex flex-wrap gap-2 pb-4">
           {room.equipments.slice(0, 3).map((equipment) => (
             <span
               key={equipment}
@@ -377,18 +433,32 @@ function RoomCard({
           ))}
         </div>
 
-        <div className="mt-6 flex items-center justify-between gap-3 border-t border-outline-variant pt-5">
+        <div className="mt-auto flex items-center justify-between gap-3 border-t border-outline-variant pt-4">
           <p className="text-sm text-on-surface-variant">{bookingHint}</p>
-          <div className="flex flex-wrap justify-end gap-2">
-            <button type="button" onClick={() => onViewDetail(room)} className="btn-secondary">
+          <div
+            className="flex flex-wrap justify-end gap-2"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                onViewDetail(room)
+              }}
+              className="btn-secondary"
+            >
               Chi tiết
             </button>
             <button
               type="button"
-              onClick={() => onBook(room)}
+              onClick={(event) => {
+                event.stopPropagation()
+                onBook(room)
+              }}
+              disabled={isUnavailable}
               className={canBookNow ? 'btn-warm' : 'btn-secondary'}
             >
-              {canBookNow ? 'Đặt phòng' : 'Chọn ngày khác'}
+              {canBookNow ? 'Đặt phòng' : isUnavailable ? 'Tạm ngưng' : 'Chọn ngày khác'}
             </button>
           </div>
         </div>
@@ -440,7 +510,75 @@ function InfoPill({ label, value }: { label: string; value: string }) {
   )
 }
 
-function getAvailabilityClassName(status: RoomAvailabilityStatus) {
+function isSlotInFuture(slot: string | undefined, now: Date) {
+  if (!slot) return false
+
+  const [hourValue, minuteValue] = slot.split(':').map(Number)
+  if (!Number.isFinite(hourValue) || !Number.isFinite(minuteValue)) return false
+
+  const slotDate = new Date(now)
+  slotDate.setHours(hourValue, minuteValue, 0, 0)
+
+  if (slot === '24:00') {
+    slotDate.setDate(slotDate.getDate() + 1)
+    slotDate.setHours(0, 0, 0, 0)
+  }
+
+  return slotDate.getTime() > now.getTime()
+}
+
+function getAvailableFutureSlotsToday(room: Room, now: Date, todaySlots?: TimeSlot[]) {
+  if (todaySlots) {
+    return todaySlots.filter((slot) => isAvailableSlot(slot) && isSlotInFuture(slot.start, now))
+  }
+
+  if (!room.isAvailable || room.availabilityStatus === 'FULL_TODAY' || (room.remainingSlots ?? 0) <= 0) {
+    return []
+  }
+
+  const nextSlot = getNextAvailableSlotToday(room, now)
+  if (nextSlot) return [nextSlot]
+
+  return BOOKING_SLOT_TIMES.filter((slot) => isSlotInFuture(slot, now)).slice(0, room.remainingSlots)
+}
+
+function getNextAvailableSlotToday(room: Room, now: Date, todaySlots?: TimeSlot[]) {
+  const futureAvailableSlot = todaySlots?.find((slot) => isAvailableSlot(slot) && isSlotInFuture(slot.start, now))
+  if (futureAvailableSlot) return futureAvailableSlot.start
+
+  const slotFromTime = room.nextAvailableTime?.match(/^(\d{2}:\d{2})$/)?.[1]
+  if (slotFromTime && isSlotInFuture(slotFromTime, now)) {
+    return slotFromTime
+  }
+
+  const slotFromLabel = room.nextAvailableSlot?.match(/^Hôm nay,\s*(\d{2}:\d{2})$/)?.[1]
+  if (slotFromLabel && isSlotInFuture(slotFromLabel, now)) {
+    return slotFromLabel
+  }
+
+  if (room.isAvailable && room.availabilityStatus !== 'FULL_TODAY' && (room.remainingSlots ?? 0) > 0) {
+    return BOOKING_SLOT_TIMES.find((slot) => isSlotInFuture(slot, now))
+  }
+
+  return undefined
+}
+
+function getRoomBookingStatus(room: Room, now: Date, todaySlots?: TimeSlot[]): RoomBookingStatus {
+  if (isRoomTemporarilyUnavailable(room)) return 'UNAVAILABLE'
+
+  return getAvailableFutureSlotsToday(room, now, todaySlots).length > 0 ? 'AVAILABLE_NOW' : 'AVAILABLE_OTHER_TIME'
+}
+
+function isRoomTemporarilyUnavailable(room: Room) {
+  return ['MAINTENANCE', 'INACTIVE', 'UNAVAILABLE', 'DISABLED', 'CLOSED'].includes(room.operationalStatus ?? '')
+}
+
+function isAvailableSlot(slot: TimeSlot) {
+  return slot.status === 'available' && (slot as TimeSlot & { canSelect?: boolean }).canSelect !== false
+}
+
+function getAvailabilityClassName(status: RoomAvailabilityStatus, isUnavailable = false) {
+  if (isUnavailable) return 'border-white/20 bg-white/90 text-on-surface-variant'
   if (status === 'FULL_TODAY') return 'border-outline bg-white/95 text-on-surface'
   if (status === 'ALMOST_FULL') return 'border-[#FF7518]/35 bg-[#FFF2E8] text-[#9A4A08]'
   return 'border-secondary-container/50 bg-[#E8F5EC] text-secondary'

@@ -2,6 +2,7 @@ import type { PracticeRoom } from '@/lib/booking/types'
 
 export type RoomCategory = 'standard' | 'band' | 'recording' | 'premium'
 export type RoomAvailabilityStatus = 'AVAILABLE' | 'ALMOST_FULL' | 'FULL_TODAY'
+export type RoomOperationalStatus = 'AVAILABLE' | 'IN_USE' | 'MAINTENANCE' | 'INACTIVE' | 'UNAVAILABLE' | 'DISABLED' | 'CLOSED'
 
 export type RoomCategoryOption = {
   id: RoomCategory
@@ -37,6 +38,7 @@ export type BookingRoom = {
   isAvailable: boolean
   availabilityKnown?: boolean
   nextAvailableTime?: string
+  operationalStatus?: RoomOperationalStatus
   note?: string
 }
 
@@ -191,6 +193,7 @@ export function mapPracticeRoomToBookingRoom(
     isAvailable: availabilitySummary?.isAvailable ?? false,
     availabilityKnown: Boolean(availabilitySummary),
     nextAvailableTime: availabilitySummary?.nextAvailableTime,
+    operationalStatus: room.status,
     note: undefined,
   }
 }
