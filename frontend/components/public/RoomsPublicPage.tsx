@@ -5,13 +5,12 @@ import { useEffect, useMemo, useState } from 'react'
 import BookingQuickModal from '@/components/booking/BookingQuickModal'
 import RoomDetailModal from '@/components/booking/RoomDetailModal'
 import { formatCurrency } from '@/components/booking/booking-data'
+import RoomCatalogSkeleton from '@/components/public/RoomCatalogSkeleton'
 import {
   readQuickBookingDraft,
   shouldReopenQuickBooking,
 } from '@/components/booking/quick-booking-draft'
-import BandRoomFooter from '@/components/layout/BandRoomFooter'
-import BandRoomHeader from '@/components/layout/BandRoomHeader'
-import { fetchPublicBookingRoomCatalog } from '@/lib/booking-room-service'
+import { usePublicRoomCatalog } from '@/hooks/usePublicRoomCatalog'
 import {
   filterRooms,
   getAvailabilityLabel,
@@ -65,32 +64,11 @@ type QuickBookingState = {
 
 export default function RoomsPublicPage() {
   const [filters, setFilters] = useState<RoomFilters>(defaultFilters)
-  const [rooms, setRooms] = useState<Room[]>([])
+  const { rooms, source: catalogSource, isLoading, isRefreshing } = usePublicRoomCatalog()
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null)
   const [detailRoom, setDetailRoom] = useState<Room | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [catalogSource, setCatalogSource] = useState<'backend' | 'fallback'>('backend')
   const [quickBooking, setQuickBooking] = useState<QuickBookingState | null>(null)
   const filteredRooms = useMemo(() => filterRooms(rooms, filters), [rooms, filters])
-
-  useEffect(() => {
-    let isMounted = true
-
-    void fetchPublicBookingRoomCatalog()
-      .then(({ rooms: catalogRooms, source }) => {
-        if (!isMounted) return
-        setRooms(catalogRooms)
-        setCatalogSource(source)
-      })
-      .finally(() => {
-        if (!isMounted) return
-        setIsLoading(false)
-      })
-
-    return () => {
-      isMounted = false
-    }
-  }, [])
 
   useEffect(() => {
     if (!shouldReopenQuickBooking(window.location.search)) return
@@ -148,7 +126,6 @@ export default function RoomsPublicPage() {
 
   return (
     <main className="min-h-screen bg-brand-bgGray text-on-surface">
-      <BandRoomHeader />
 
       <section className="relative overflow-hidden border-b border-outline-variant bg-secondary text-white">
         <Image
@@ -235,13 +212,17 @@ export default function RoomsPublicPage() {
 
         <div className="mt-8 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
           <div>
-            <p className="font-display text-xl font-bold text-on-surface">{filteredRooms.length} phòng phù hợp</p>
+            <p className="font-display text-xl font-bold text-on-surface">
+              {isLoading ? 'Đang tải phòng...' : `${filteredRooms.length} phòng phù hợp`}
+            </p>
             <p className="mt-1 text-sm text-on-surface-variant">
               {isLoading
-                ? 'Đang đồng bộ danh sách phòng từ backend...'
+                ? 'Đang tải danh sách phòng...'
                 : catalogSource === 'backend'
-                  ? 'Danh sách phòng đang được lấy từ backend.'
-                  : 'Không lấy được backend, đang hiển thị dữ liệu fallback.'}
+                  ? isRefreshing
+                    ? 'Đang cập nhật dữ liệu mới nhất...'
+                    : 'Danh sách phòng từ hệ thống Band Room.'
+                  : 'Không kết nối được backend, đang hiển thị dữ liệu dự phòng.'}
             </p>
           </div>
           <button type="button" onClick={() => setFilters(defaultFilters)} className="btn-secondary">
@@ -250,12 +231,7 @@ export default function RoomsPublicPage() {
         </div>
 
         {isLoading ? (
-          <div className="mt-8 rounded-3xl border border-outline-variant bg-white px-6 py-16 text-center shadow-[var(--shadow-card)]">
-            <p className="font-display text-2xl font-bold text-on-surface">Đang tải danh sách phòng</p>
-            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-on-surface-variant">
-              Hệ thống đang lấy dữ liệu phòng tập mới nhất từ backend.
-            </p>
-          </div>
+          <RoomCatalogSkeleton />
         ) : filteredRooms.length > 0 ? (
           <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {filteredRooms.map((room) => (
@@ -277,7 +253,6 @@ export default function RoomsPublicPage() {
         )}
       </section>
 
-      <BandRoomFooter />
       {detailRoom && (
         <RoomDetailModal
           room={detailRoom}

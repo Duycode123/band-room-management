@@ -5,7 +5,6 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
-import BandRoomHeader from '@/components/layout/BandRoomHeader'
 import {
   DEFAULT_BOOKING_DATE,
   DEFAULT_START_TIME,
@@ -182,7 +181,6 @@ export default function BookingConfirmationClient() {
 
   return (
     <main className="min-h-screen bg-[#F5F2EC] text-[#1A1C1E]">
-      <BandRoomHeader />
 
       <section className="mx-auto max-w-7xl px-6 py-8">
         <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-end">
