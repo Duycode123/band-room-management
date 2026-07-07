@@ -82,6 +82,7 @@ next-env.d.ts
 *.rar
 
 # Local tunneling tools
+.tools/
 tools/ngrok/
 backend/src/main/resources/application.properties
 task.md
