@@ -67,6 +67,7 @@ Core model/entity classes currently present in backend source:
 - `database/migrations/20260703_add_email_verification_to_account.sql`
 - `database/migrations/20260703_add_account_avatar_url.sql`
 - `database/migrations/20260706_add_deposit_paid_and_payment_timeout.sql`
+- `database/migrations/20260707_widen_payment_response_code.sql`
 - `database/sample-data/seed_rooms_and_equipment.sql`
 - `database/sample-data/seed_bookings_and_reviews.sql`
 - `database/schema-target-en.dbml`
@@ -187,6 +188,7 @@ If the change is part of the Vietnamese-to-English rename:
 - Review moderation keeps `approved = false` by default until an admin approves the review.
 - Each review can have at most one admin response stored in `review_response`.
 - Payment and booking timeout behavior should stay aligned with booking-expiry logic in the backend. Checkout sessions expire after `app.booking.payment-expiration-seconds` seconds by default (`300`), cancelling both the pending `payment_transaction` and its still-pending booking.
+- `payment_transaction.response_code` is `varchar(50)` and stores application-level outcome codes (`PAYMENT_TIMEOUT`, `PAYMENT_SESSION_REPLACED`, `SEPAY_SUCCESS`, `SEPAY_ORDER_FAILED`, `SEPAY_TRANSACTION_VOID`, VNPay numeric codes). Keep new codes within 50 characters.
 - Enum-backed statuses deserve explicit documentation because they affect filters, transitions, and reporting.
 - `booking_status.DEPOSIT_PAID` means the customer paid only the online deposit. Full online payment still uses `PAID`.
 - `payment_provider` now includes `COUNTER` for pay-at-counter checkout sessions alongside online providers such as `VNPAY`.

@@ -466,24 +466,26 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
             String timestampHeader,
             String secretKeyHeader
     ) {
-        // Payment Gateway IPN với auth type SECRET_KEY gửi header X-Secret-Key;
-        // so khớp với payment.sepay.ipn-secret khi cả hai cùng có mặt.
         String ipnSecret = blankToNull(sePayProperties.getIpnSecret());
-        if (ipnSecret != null && !isBlank(secretKeyHeader)) {
-            return constantTimeEquals(secretKeyHeader.trim(), ipnSecret);
-        }
-
         String hmacSecret = blankToNull(sePayProperties.getWebhookHmacSecret());
-        if (hmacSecret != null) {
-            return isValidSepayHmac(rawBody, signatureHeader, timestampHeader, hmacSecret);
+
+        // Payment Gateway IPN với auth type SECRET_KEY gửi header X-Secret-Key và
+        // không kèm cặp header HMAC, nên chỉ so khớp với payment.sepay.ipn-secret;
+        // không được rơi xuống nhánh HMAC vì sẽ chặn nhầm mọi IPN thật.
+        if (!isBlank(secretKeyHeader)) {
+            return ipnSecret != null && constantTimeEquals(secretKeyHeader.trim(), ipnSecret);
         }
 
-        String expectedSecret = sePayProperties.getIpnSecret();
+        // Webhook biến động số dư ký HMAC qua X-SePay-Signature/X-SePay-Timestamp.
+        if (!isBlank(signatureHeader) || !isBlank(timestampHeader)) {
+            return hmacSecret != null
+                    && isValidSepayHmac(rawBody, signatureHeader, timestampHeader, hmacSecret);
+        }
 
         // No secret configured (local/dev): keep the webhook open so the flow can be
         // exercised without a real SePay account. Production should set
-        // payment.sepay.webhook-hmac-secret, or at least payment.sepay.ipn-secret.
-        if (isBlank(expectedSecret)) {
+        // payment.sepay.ipn-secret and/or payment.sepay.webhook-hmac-secret.
+        if (ipnSecret == null && hmacSecret == null) {
             return true;
         }
 
@@ -499,7 +501,7 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
             presented = presented.substring("Bearer ".length()).trim();
         }
 
-        return constantTimeEquals(presented, expectedSecret.trim());
+        return ipnSecret != null && constantTimeEquals(presented, ipnSecret);
     }
 
     private boolean isValidSepayHmac(

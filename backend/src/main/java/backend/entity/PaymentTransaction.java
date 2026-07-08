@@ -59,7 +59,7 @@ public class PaymentTransaction {
     @Column(name = "status", nullable = false, columnDefinition = "payment_transaction_status")
     private PaymentTransactionStatus status;
 
-    @Column(name = "response_code", length = 20)
+    @Column(name = "response_code", length = 50)
     private String responseCode;
 
     @Column(name = "paid_at")
