@@ -10,6 +10,7 @@ import {
   IconCoupons,
   IconDashboard,
   IconEquipment,
+  IconIncidentReports,
   IconLogout,
   IconReports,
   IconReviews,
@@ -25,6 +26,7 @@ const NAV_ITEMS: AdminNavItem[] = [
   { href: '/admin/reviews', label: 'Đánh giá', icon: <IconReviews className="h-5 w-5" /> },
   { href: '/admin/equipment', label: 'Thiết bị', icon: <IconEquipment className="h-5 w-5" /> },
   { href: '/admin/rooms', label: 'Phòng tập', icon: <IconRooms className="h-5 w-5" /> },
+  { href: '/admin/incident-reports', label: 'Báo cáo sự cố', icon: <IconIncidentReports className="h-5 w-5" /> },
   { href: '/admin/reports', label: 'Báo cáo', icon: <IconReports className="h-5 w-5" /> },
 ]
 
