@@ -395,6 +395,7 @@ function IncidentDetailDrawer({
   }, [report])
 
   if (!report) return null
+  const evidenceImages = report.evidenceImages ?? []
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -461,9 +462,9 @@ function IncidentDetailDrawer({
           </DetailSection>
 
           <DetailSection title="Ảnh minh chứng">
-            {report.evidenceImages.length > 0 ? (
+            {evidenceImages.length > 0 ? (
               <div className="grid gap-3 sm:grid-cols-2">
-                {report.evidenceImages.map((image) => (
+                {evidenceImages.map((image) => (
                   <img
                     key={image}
                     src={image}

@@ -4,6 +4,7 @@ import {
   mapBackendRoomToAdminRoom,
   mapRoomTypeToAdminOption,
 } from '@/lib/room-mappers'
+import api from '@/lib/api'
 import {
   createRoom,
   deleteRoom,
@@ -21,6 +22,21 @@ import type {
   RoomFormErrors,
   RoomStatus,
 } from './types'
+
+type ApiResponse<T> = {
+  success: boolean
+  message: string
+  data: T
+}
+
+type BackendRoomRevenueSummary = {
+  roomId: number
+  revenue: number | string
+}
+
+type BackendRevenueUsageReport = {
+  rooms?: BackendRoomRevenueSummary[]
+}
 
 function pickRoomType(data: RoomFormData, roomTypes: AdminRoomTypeOption[]) {
   if (data.roomTypeId) {
@@ -84,11 +100,35 @@ export async function getAdminRoomTypes(): Promise<AdminRoomTypeOption[]> {
 
 export async function getAdminRooms(): Promise<AdminRoom[]> {
   try {
-    const rooms = await fetchRooms()
-    return rooms.map((room, index) => mapBackendRoomToAdminRoom(room, index))
+    const [rooms, currentMonthRevenueByRoomId] = await Promise.all([
+      fetchRooms(),
+      fetchCurrentMonthRoomRevenueById().catch(() => new Map<number, number>()),
+    ])
+
+    return rooms.map((room, index) =>
+      mapBackendRoomToAdminRoom(room, index, currentMonthRevenueByRoomId.get(room.id) ?? 0),
+    )
   } catch (error) {
     throw new Error(getRoomApiErrorMessage(error, 'Không thể tải danh sách phòng từ backend.'))
   }
+}
+
+async function fetchCurrentMonthRoomRevenueById() {
+  const range = getCurrentMonthRange()
+  const response = await api.get<ApiResponse<BackendRevenueUsageReport>>('/api/admin/reports/revenue-usage', {
+    params: {
+      startDate: range.startDate,
+      endDate: range.endDate,
+      bucket: 'DAY',
+    },
+  })
+
+  return new Map(
+    (response.data.data.rooms ?? []).map((room) => [
+      room.roomId,
+      parseAmount(room.revenue),
+    ]),
+  )
 }
 
 export async function createAdminRoom(data: RoomFormData): Promise<AdminRoom> {
@@ -190,6 +230,27 @@ export async function uploadAdminRoomImage(file: File) {
 function normalizeOptionalImageUrl(imageUrl: string) {
   const normalized = imageUrl.trim()
   return normalized ? normalized : null
+}
+
+function getCurrentMonthRange() {
+  const now = new Date()
+  const start = new Date(now.getFullYear(), now.getMonth(), 1)
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+
+  return {
+    startDate: toDateKey(start),
+    endDate: toDateKey(end),
+  }
+}
+
+function toDateKey(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+function parseAmount(value: number | string | null | undefined) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
 }
 
 export function getDefaultRoomForm(roomTypes: AdminRoomTypeOption[] = []): RoomFormData {
