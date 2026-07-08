@@ -4,6 +4,7 @@ import {
   mapBackendRoomToBookingRoom,
 } from '@/lib/room-mappers'
 import { fetchRoom, fetchRooms } from '@/lib/rooms-api'
+import { fetchRoomReviewSummaries } from '@/lib/public-room-review-service'
 
 export type PublicBookingRoomCatalog = {
   rooms: BookingRoom[]
@@ -12,9 +13,15 @@ export type PublicBookingRoomCatalog = {
 
 export async function fetchPublicBookingRoomCatalog(): Promise<PublicBookingRoomCatalog> {
   try {
-    const rooms = await fetchRooms()
+    const [rooms, reviewSummaries] = await Promise.all([
+      fetchRooms(),
+      fetchRoomReviewSummaries().catch(() => new Map()),
+    ])
+
     return {
-      rooms: rooms.map((room, index) => mapBackendRoomToBookingRoom(room, index)),
+      rooms: rooms.map((room, index) =>
+        mapBackendRoomToBookingRoom(room, index, reviewSummaries.get(String(room.id))),
+      ),
       source: 'backend',
     }
   } catch {
@@ -37,8 +44,12 @@ export async function resolveBookingRoom(roomId: string | null, catalog: Booking
   if (!roomId) return null
 
   try {
-    const room = await fetchRoom(roomId)
-    return room ? mapBackendRoomToBookingRoom(room) : null
+    const [room, reviewSummaries] = await Promise.all([
+      fetchRoom(roomId),
+      fetchRoomReviewSummaries().catch(() => new Map()),
+    ])
+
+    return room ? mapBackendRoomToBookingRoom(room, 0, reviewSummaries.get(String(room.id))) : null
   } catch {
     return findBookingRoom(roomId)
   }

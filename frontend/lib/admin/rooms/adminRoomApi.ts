@@ -5,6 +5,7 @@ import {
   mapRoomTypeToAdminOption,
 } from '@/lib/room-mappers'
 import api from '@/lib/api'
+import { fetchRoomReviewSummaries } from '@/lib/public-room-review-service'
 import {
   createRoom,
   deleteRoom,
@@ -100,13 +101,19 @@ export async function getAdminRoomTypes(): Promise<AdminRoomTypeOption[]> {
 
 export async function getAdminRooms(): Promise<AdminRoom[]> {
   try {
-    const [rooms, currentMonthRevenueByRoomId] = await Promise.all([
+    const [rooms, currentMonthRevenueByRoomId, reviewSummaries] = await Promise.all([
       fetchRooms(),
       fetchCurrentMonthRoomRevenueById().catch(() => new Map<number, number>()),
+      fetchRoomReviewSummaries().catch(() => new Map()),
     ])
 
     return rooms.map((room, index) =>
-      mapBackendRoomToAdminRoom(room, index, currentMonthRevenueByRoomId.get(room.id) ?? 0),
+      mapBackendRoomToAdminRoom(
+        room,
+        index,
+        currentMonthRevenueByRoomId.get(room.id) ?? 0,
+        reviewSummaries.get(String(room.id)),
+      ),
     )
   } catch (error) {
     throw new Error(getRoomApiErrorMessage(error, 'Không thể tải danh sách phòng từ backend.'))
