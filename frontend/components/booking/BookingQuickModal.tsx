@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import BookingSchedulePicker from '@/components/booking/BookingSchedulePicker'
 import HomepageModalShell from '@/components/booking/HomepageModalShell'
 import {
+  clearQuickBookingDraft,
   getQuickBookingRestoreHref,
   saveQuickBookingDraft,
   type QuickBookingSourceRoute,
@@ -57,6 +58,12 @@ export default function BookingQuickModal({
   const [error, setError] = useState('')
 
   const roomSubtotal = useMemo(() => getRoomSubtotal(room, duration), [room, duration])
+  const restoreHref = getQuickBookingRestoreHref(sourceRoute)
+
+  const handleClose = () => {
+    clearQuickBookingDraft()
+    onClose()
+  }
 
   useEffect(() => {
     if (!open) return
@@ -93,6 +100,38 @@ export default function BookingQuickModal({
       return
     }
 
+    if (!isAuthenticated) {
+      saveQuickBookingDraft({
+        sourceRoute,
+        selectedRoom: room,
+        room,
+        selectedDate: date,
+        selectedSlot: {
+          startTime,
+          endTime,
+        },
+        selectedTimeRange: {
+          startTime,
+          endTime,
+        },
+        selectedSlots,
+        selectedStartTime: startTime,
+        selectedEndTime: endTime,
+        selectedDuration: duration,
+        customerNote: note,
+        totalPrice: roomSubtotal,
+        currentStep: 'confirmation',
+        timestamp: Date.now(),
+        initialDate: date,
+        initialStartTime: startTime,
+        initialDuration: duration,
+        initialNote: note,
+        returnPath: restoreHref,
+      })
+      router.push(`/login?returnUrl=${encodeURIComponent(restoreHref)}`)
+      return
+    }
+
     const params = new URLSearchParams({
       roomId: room.id,
       date,
@@ -101,7 +140,7 @@ export default function BookingQuickModal({
       duration: String(duration),
       slots: selectedSlots.join(','),
       note,
-      returnTo: returnPath ?? getQuickBookingRestoreHref(sourceRoute),
+      returnTo: returnPath ?? restoreHref,
     })
 
     if (isApiBackedBookingRoom(room)) {
@@ -126,7 +165,7 @@ export default function BookingQuickModal({
   return (
     <HomepageModalShell
       open={open}
-      onClose={onClose}
+      onClose={handleClose}
       labelledBy="quick-booking-title"
       eyebrow="Đặt phòng"
       title="Xác nhận nhanh"
@@ -138,7 +177,7 @@ export default function BookingQuickModal({
         <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="h-12 rounded-2xl border border-[#C9C2B6] bg-transparent font-display font-semibold text-[#1A1C1E] transition hover:bg-[#FAF8F4]"
           >
             Hủy
