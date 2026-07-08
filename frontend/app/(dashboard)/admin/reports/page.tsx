@@ -10,12 +10,12 @@ export default function AdminReportsPage() {
     <AuthGuard allowedRoles={['ADMIN']}>
       <AdminShell>
         <AdminPageHeader
-          eyebrow="Phan tich"
-          title="Bao cao doanh thu va su dung phong"
-          description="Theo doi doanh thu, so don va tan suat su dung phong theo khoang thoi gian ban chon."
+          eyebrow="Phân tích"
+          title="Báo cáo doanh thu và sử dụng phòng"
+          description="Theo dõi doanh thu, số đơn và tần suất sử dụng phòng theo khoảng thời gian bạn chọn."
           breadcrumbs={[
-            { label: 'Tong quan', href: '/admin/dashboard' },
-            { label: 'Bao cao' },
+            { label: 'Tổng quan', href: '/admin/dashboard' },
+            { label: 'Báo cáo' },
           ]}
         />
 

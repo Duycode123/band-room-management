@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
-import BandRoomHeader from '@/components/layout/BandRoomHeader'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   fetchCurrentUser,
@@ -199,7 +198,6 @@ export default function CustomerProfileClient() {
 
   return (
     <main className="min-h-screen bg-[#F5F2EC] text-[#1A1C1E]">
-      <BandRoomHeader />
 
       <section className="mx-auto max-w-6xl px-6 py-8">
         <div className="rounded-[28px] border border-[#E8E4DC] bg-white p-6 shadow-[0_4px_24px_rgba(26,28,30,0.06)] md:p-8">
@@ -246,7 +244,7 @@ export default function CustomerProfileClient() {
                   className="block w-full text-sm text-[#5C5348] file:mr-3 file:rounded-2xl file:border-0 file:bg-[#FF7518] file:px-4 file:py-2.5 file:font-display file:text-sm file:font-semibold file:text-white hover:file:bg-[#E6640F] disabled:cursor-not-allowed disabled:opacity-60"
                 />
                 <p className="mt-2 text-xs text-[#5C5348]">
-                  {isUploadingAvatar ? 'Dang tai anh len Cloudinary...' : 'Chap nhan file anh toi da 5MB. Link anh se duoc luu vao database.'}
+                  {isUploadingAvatar ? 'Đang tải ảnh lên Cloudinary...' : 'Chấp nhận file ảnh tối đa 5MB. Link ảnh sẽ được lưu vào database.'}
                 </p>
               </FormField>
 
@@ -303,7 +301,7 @@ export default function CustomerProfileClient() {
               Thông tin này được dùng để xác nhận lịch đặt phòng và liên hệ khi cần.
             </p>
             <div className="mt-5 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4 text-sm text-[#5C5348]">
-              Avatar moi se duoc upload len Cloudinary qua backend, sau do link anh duoc luu vao database account.avatar_url.
+              Avatar mới sẽ được upload lên Cloudinary qua backend, sau đó link ảnh được lưu vào database account.avatar_url.
             </div>
           </aside>
         </div>

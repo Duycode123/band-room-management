@@ -105,15 +105,15 @@ export function validateEquipmentForm(data: EquipmentFormData): EquipmentFormErr
   const name = data.equipmentName.trim()
 
   if (!data.roomId || data.roomId < 1) {
-    errors.roomId = 'Vui long chon phong cho thiet bi.'
+    errors.roomId = 'Vui lòng chọn phòng cho thiết bị.'
   }
 
   if (name.length < 2 || name.length > 100) {
-    errors.equipmentName = 'Ten thiet bi phai tu 2 den 100 ky tu.'
+    errors.equipmentName = 'Tên thiết bị phải từ 2 đến 100 ký tự.'
   }
 
   if (data.notes.length > 1000) {
-    errors.notes = 'Ghi chu toi da 1000 ky tu.'
+    errors.notes = 'Ghi chú tối đa 1000 ký tự.'
   }
 
   return errors
@@ -127,11 +127,11 @@ export async function fetchEquipmentRooms(): Promise<EquipmentRoomOption[]> {
     return rooms
       .map((room) => ({
         roomId: room.id,
-        roomName: normalizeText(room.roomName) || `Phong ${room.id}`,
+        roomName: normalizeText(room.roomName) || `Phòng ${room.id}`,
       }))
       .sort((firstRoom, secondRoom) => firstRoom.roomName.localeCompare(secondRoom.roomName, 'vi'))
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the tai danh sach phong.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể tải danh sách phòng.'))
   }
 }
 
@@ -146,14 +146,14 @@ export async function fetchAdminEquipment(filters: EquipmentFilters): Promise<Ad
 
     return applyClientFilters((response.data.data ?? []).map(mapBackendEquipment), filters)
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the tai danh sach thiet bi.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể tải danh sách thiết bị.'))
   }
 }
 
 export async function createAdminEquipment(data: EquipmentFormData): Promise<AdminEquipment> {
   const errors = validateEquipmentForm(data)
   if (Object.keys(errors).length > 0) {
-    throw new Error(Object.values(errors)[0] || 'Du lieu thiet bi khong hop le.')
+    throw new Error(Object.values(errors)[0] || 'Dữ liệu thiết bị không hợp lệ.')
   }
 
   try {
@@ -167,7 +167,7 @@ export async function createAdminEquipment(data: EquipmentFormData): Promise<Adm
 
     return mapBackendEquipment(response.data.data)
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the tao thiet bi.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể tạo thiết bị.'))
   }
 }
 
@@ -177,7 +177,7 @@ export async function updateAdminEquipment(
 ): Promise<AdminEquipment | null> {
   const errors = validateEquipmentForm(data)
   if (Object.keys(errors).length > 0) {
-    throw new Error(Object.values(errors)[0] || 'Du lieu thiet bi khong hop le.')
+    throw new Error(Object.values(errors)[0] || 'Dữ liệu thiết bị không hợp lệ.')
   }
 
   try {
@@ -191,7 +191,7 @@ export async function updateAdminEquipment(
 
     return mapBackendEquipment(response.data.data)
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the cap nhat thiet bi.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể cập nhật thiết bị.'))
   }
 }
 
@@ -199,7 +199,7 @@ export async function deleteAdminEquipment(id: number): Promise<void> {
   try {
     await api.delete(`/api/admin/equipment/${id}`)
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the xoa thiet bi.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể xóa thiết bị.'))
   }
 }
 

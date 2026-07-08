@@ -85,7 +85,7 @@ export default function LoginPage() {
             onClick={() => router.push(`/verify-email?email=${encodeURIComponent(formData.identifier.trim())}`)}
             className="mb-4 w-full cursor-pointer rounded-lg border border-brand-orange px-4 py-2.5 font-display text-sm font-semibold text-brand-orange transition-colors hover:bg-brand-orange/5"
           >
-            Gui lai email xac thuc
+            Gửi lại email xác thực
           </button>
         )}
 

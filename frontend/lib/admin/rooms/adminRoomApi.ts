@@ -47,27 +47,27 @@ export function validateRoomForm(data: RoomFormData): RoomFormErrors {
   const name = data.name.trim()
 
   if (name.length < 2 || name.length > 100) {
-    errors.name = 'Ten phong phai tu 2-100 ky tu.'
+    errors.name = 'Tên phòng phải từ 2-100 ký tự.'
   }
 
   if (!data.roomTypeId && !data.category) {
-    errors.category = 'Vui long chon hang phong.'
+    errors.category = 'Vui lòng chọn hạng phòng.'
   }
 
   if (!data.status) {
-    errors.status = 'Vui long chon trang thai.'
+    errors.status = 'Vui lòng chọn trạng thái.'
   }
 
   if (!Number.isFinite(data.capacity) || data.capacity < 1 || data.capacity > 100) {
-    errors.capacity = 'Suc chua phai nam trong khoang 1-100 nguoi.'
+    errors.capacity = 'Sức chứa phải nằm trong khoảng 1-100 người.'
   }
 
   if (data.description.length > 500) {
-    errors.description = 'Mo ta toi da 500 ky tu.'
+    errors.description = 'Mô tả tối đa 500 ký tự.'
   }
 
   if (data.image.trim() && !/^https?:\/\/.+/i.test(data.image.trim())) {
-    errors.image = 'URL anh phai la link http hoac https.'
+    errors.image = 'URL ảnh phải là link http hoặc https.'
   }
 
   return errors
@@ -78,7 +78,7 @@ export async function getAdminRoomTypes(): Promise<AdminRoomTypeOption[]> {
     const roomTypes = await fetchRoomTypes()
     return roomTypes.map(mapRoomTypeToAdminOption)
   } catch (error) {
-    throw new Error(getRoomApiErrorMessage(error, 'Khong the tai hang phong tu backend.'))
+    throw new Error(getRoomApiErrorMessage(error, 'Không thể tải hạng phòng từ backend.'))
   }
 }
 
@@ -87,7 +87,7 @@ export async function getAdminRooms(): Promise<AdminRoom[]> {
     const rooms = await fetchRooms()
     return rooms.map((room, index) => mapBackendRoomToAdminRoom(room, index))
   } catch (error) {
-    throw new Error(getRoomApiErrorMessage(error, 'Khong the tai danh sach phong tu backend.'))
+    throw new Error(getRoomApiErrorMessage(error, 'Không thể tải danh sách phòng từ backend.'))
   }
 }
 
@@ -101,7 +101,7 @@ export async function createAdminRoom(data: RoomFormData): Promise<AdminRoom> {
   const roomType = pickRoomType(data, roomTypes)
 
   if (!roomType) {
-    throw new Error('Backend chua co hang phong. Vui long tao hang phong truoc khi them phong.')
+    throw new Error('Backend chưa có hạng phòng. Vui lòng tạo hạng phòng trước khi thêm phòng.')
   }
 
   try {
@@ -115,7 +115,7 @@ export async function createAdminRoom(data: RoomFormData): Promise<AdminRoom> {
 
     return mapBackendRoomToAdminRoom(room)
   } catch (error) {
-    throw new Error(getRoomApiErrorMessage(error, 'Khong the them phong tren backend.'))
+    throw new Error(getRoomApiErrorMessage(error, 'Không thể thêm phòng trên backend.'))
   }
 }
 
@@ -129,7 +129,7 @@ export async function updateAdminRoom(id: string, data: RoomFormData): Promise<A
   const roomType = pickRoomType(data, roomTypes)
 
   if (!roomType) {
-    throw new Error('Backend chua co hang phong de cap nhat.')
+    throw new Error('Backend chưa có hạng phòng để cập nhật.')
   }
 
   try {
@@ -143,7 +143,7 @@ export async function updateAdminRoom(id: string, data: RoomFormData): Promise<A
 
     return mapBackendRoomToAdminRoom(room)
   } catch (error) {
-    throw new Error(getRoomApiErrorMessage(error, 'Khong the cap nhat phong tren backend.'))
+    throw new Error(getRoomApiErrorMessage(error, 'Không thể cập nhật phòng trên backend.'))
   }
 }
 
@@ -151,7 +151,7 @@ export async function deleteAdminRoom(id: string): Promise<void> {
   try {
     await deleteRoom(id)
   } catch (error) {
-    throw new Error(getRoomApiErrorMessage(error, 'Khong the xoa phong tren backend.'))
+    throw new Error(getRoomApiErrorMessage(error, 'Không thể xóa phòng trên backend.'))
   }
 }
 
@@ -160,7 +160,7 @@ export async function updateRoomStatus(id: string, status: RoomStatus): Promise<
     const room = await updateRoomOperationalStatus(id, mapAdminStatusToBackendStatus(status))
     return mapBackendRoomToAdminRoom(room)
   } catch (error) {
-    throw new Error(getRoomApiErrorMessage(error, 'Khong the doi trang thai phong.'))
+    throw new Error(getRoomApiErrorMessage(error, 'Không thể đổi trạng thái phòng.'))
   }
 }
 
@@ -183,7 +183,7 @@ export async function uploadAdminRoomImage(file: File) {
   try {
     return await uploadRoomImage(file)
   } catch (error) {
-    throw new Error(getRoomApiErrorMessage(error, 'Khong the tai anh phong len Cloudinary.'))
+    throw new Error(getRoomApiErrorMessage(error, 'Không thể tải ảnh phòng lên Cloudinary.'))
   }
 }
 

@@ -24,7 +24,7 @@ export default function AdminReportsOverview({ className }: AdminReportsOverview
   const loadReport = useCallback(async () => {
     if (!dateRange.startDate || !dateRange.endDate || dateRange.startDate > dateRange.endDate) {
       setReport(null)
-      setErrorMessage('Khoang thoi gian khong hop le.')
+      setErrorMessage('Khoảng thời gian không hợp lệ.')
       setIsLoading(false)
       return
     }
@@ -37,7 +37,7 @@ export default function AdminReportsOverview({ className }: AdminReportsOverview
       setErrorMessage('')
     } catch (error) {
       setReport(null)
-      setErrorMessage(error instanceof Error ? error.message : 'Khong the tai bao cao.')
+      setErrorMessage(error instanceof Error ? error.message : 'Không thể tải báo cáo.')
     } finally {
       setIsLoading(false)
     }
@@ -64,28 +64,28 @@ export default function AdminReportsOverview({ className }: AdminReportsOverview
 
       <div className="grid gap-4 xl:grid-cols-3">
         <AdminStatCard
-          label="Tong doanh thu"
+          label="Tổng doanh thu"
           value={isLoading ? '...' : formatAdminPrice(report?.totalRevenue ?? 0)}
-          hint="Chi tinh cac don da thanh toan thanh cong trong ky"
+          hint="Chỉ tính các đơn đã thanh toán thành công trong kỳ"
           accent="primary"
           icon={<IconReports className="h-5 w-5" />}
         />
         <AdminStatCard
-          label="Tong don dat"
+          label="Tổng đơn đặt"
           value={isLoading ? '...' : report?.totalOrders ?? 0}
-          hint="Khong tinh don chua thanh toan hoac da huy"
+          hint="Không tính đơn chưa thanh toán hoặc đã hủy"
           accent="secondary"
           icon={<IconBookings className="h-5 w-5" />}
         />
         <AdminStatCard
-          label="Phong dan dau"
+          label="Phòng dẫn đầu"
           value={isLoading ? '...' : topRoom?.roomName ?? '-'}
           hint={
             isLoading
-              ? 'Dang tong hop'
+              ? 'Đang tổng hợp'
               : topRoom
-                ? `${topRoom.orderCount} luot dat thanh cong`
-                : 'Chua co phong noi bat trong ky'
+                ? `${topRoom.orderCount} lượt đặt thành công`
+                : 'Chưa có phòng nổi bật trong kỳ'
           }
           accent="tertiary"
           icon={<IconRooms className="h-5 w-5" />}
@@ -93,30 +93,30 @@ export default function AdminReportsOverview({ className }: AdminReportsOverview
       </div>
 
       <ReportsChartPanel
-        title="Doanh thu theo ngay"
-        description="Di chuot vao tung diem de xem doanh thu va so don cua ngay do."
+        title="Doanh thu theo ngày"
+        description="Di chuột vào từng điểm để xem doanh thu và số đơn của ngày đó."
         isLoading={isLoading}
         isEmpty={!isLoading && !hasRevenue}
-        emptyTitle="Chua co doanh thu trong ky"
-        emptyDescription="Chua ghi nhan don thanh toan thanh cong trong khoang thoi gian nay."
+        emptyTitle="Chưa có doanh thu trong kỳ"
+        emptyDescription="Chưa ghi nhận đơn thanh toán thành công trong khoảng thời gian này."
       >
         {report && <RevenueLineChart data={report.dailyRevenue} />}
       </ReportsChartPanel>
 
       <ReportsChartPanel
-        title="Tan suat su dung phong"
-        description="Top phong duoc dat nhieu nhat trong khoang thoi gian da chon."
+        title="Tần suất sử dụng phòng"
+        description="Top phòng được đặt nhiều nhất trong khoảng thời gian đã chọn."
         isLoading={isLoading}
         isEmpty={!isLoading && report?.topRooms.length === 0}
-        emptyTitle="Chua co du lieu phong"
-        emptyDescription="Chua co luot dat thanh cong nao de xep hang phong trong ky nay."
+        emptyTitle="Chưa có dữ liệu phòng"
+        emptyDescription="Chưa có lượt đặt thành công nào để xếp hạng phòng trong kỳ này."
       >
         {report && report.topRooms.length > 0 && <TopRoomsBarChart data={report.topRooms} />}
       </ReportsChartPanel>
 
       {!isLoading && !errorMessage && !hasOrders && (
         <div className="rounded-xl border border-outline-variant bg-surface-container-low/60 px-4 py-3 text-sm text-on-surface-variant">
-          Khong co don dat phong nao trong khoang thoi gian da chon.
+          Không có đơn đặt phòng nào trong khoảng thời gian đã chọn.
         </div>
       )}
     </div>

@@ -42,7 +42,7 @@ export default function AdminBookingsPage() {
     } catch (error) {
       setBookings([])
       setSelected(null)
-      setErrorMessage(error instanceof Error ? error.message : 'Khong the tai danh sach booking.')
+      setErrorMessage(error instanceof Error ? error.message : 'Không thể tải danh sách booking.')
     } finally {
       setIsLoading(false)
     }
@@ -76,17 +76,17 @@ export default function AdminBookingsPage() {
         setSelected(detail)
       }
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Khong the tai chi tiet booking.')
+      setErrorMessage(error instanceof Error ? error.message : 'Không thể tải chi tiết booking.')
     }
   }, [])
 
   const handleStatusChange = async (bookingId: number, status: BookingStatus) => {
     const updated = await updateAdminBookingStatus(bookingId, status)
     if (!updated) {
-      throw new Error('Khong tim thay booking can cap nhat.')
+      throw new Error('Không tìm thấy booking cần cập nhật.')
     }
 
-    setToast('Cap nhat trang thai booking thanh cong.')
+    setToast('Cập nhật trạng thái booking thành công.')
     await loadBookings()
     setSelected(updated)
   }
@@ -95,11 +95,11 @@ export default function AdminBookingsPage() {
     <AuthGuard allowedRoles={['ADMIN']}>
       <AdminShell>
         <AdminPageHeader
-          eyebrow="Don dat phong"
-          title="Quan ly booking"
-          description="Theo doi don dat, trang thai thanh toan va thong tin khach hang."
+          eyebrow="Đơn đặt phòng"
+          title="Quản lý booking"
+          description="Theo dõi đơn đặt, trạng thái thanh toán và thông tin khách hàng."
           breadcrumbs={[
-            { label: 'Tong quan', href: '/admin/dashboard' },
+            { label: 'Tổng quan', href: '/admin/dashboard' },
             { label: 'Booking' },
           ]}
         />
@@ -115,18 +115,18 @@ export default function AdminBookingsPage() {
 
           <div className="grid gap-4 sm:grid-cols-3">
             <AdminStatCard
-              label="Ket qua loc"
+              label="Kết quả lọc"
               value={stats.total}
               icon={<IconBookings className="h-5 w-5" />}
             />
             <AdminStatCard
-              label="Dang su dung"
+              label="Đang sử dụng"
               value={stats.active}
               accent="secondary"
               icon={<span className="text-base">O</span>}
             />
             <AdminStatCard
-              label="Cho thanh toan"
+              label="Chờ thanh toán"
               value={stats.pending}
               accent="tertiary"
               icon={<span className="text-base">...</span>}

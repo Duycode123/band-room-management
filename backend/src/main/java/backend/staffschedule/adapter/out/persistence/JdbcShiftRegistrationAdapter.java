@@ -37,7 +37,14 @@ public class JdbcShiftRegistrationAdapter implements
                 WHERE LOWER(account.email) = LOWER(?)
                 """;
 
-        return jdbcTemplate.query(sql, (rs, rowNum) -> rs.getInt("id"), email).stream().findFirst();
+        Optional<Integer> existingStaffId = jdbcTemplate.query(sql, (rs, rowNum) -> rs.getInt("id"), email)
+                .stream()
+                .findFirst();
+        if (existingStaffId.isPresent()) {
+            return existingStaffId;
+        }
+
+        return createMissingStaffProfileForStaffAccount(email);
     }
 
     @Override
@@ -254,10 +261,18 @@ public class JdbcShiftRegistrationAdapter implements
     public void createAssignedShift(Integer staffId, LocalDate workDate, LocalTime startTime, LocalTime endTime) {
         String sql = """
                 INSERT INTO shift (staff_id, date, start_time, end_time, status)
-                VALUES (?, ?, ?, ?, CAST('ASSIGNED' AS shift_status))
+                SELECT ?, ?, ?, ?, CAST('ASSIGNED' AS shift_status)
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM shift
+                    WHERE staff_id = ?
+                      AND date = ?
+                      AND start_time = ?
+                      AND end_time = ?
+                )
                 """;
 
-        jdbcTemplate.update(sql, staffId, workDate, startTime, endTime);
+        jdbcTemplate.update(sql, staffId, workDate, startTime, endTime, staffId, workDate, startTime, endTime);
     }
 
     private ShiftRegistration mapRegistration(ResultSet rs, int rowNum) throws SQLException {
@@ -280,6 +295,44 @@ public class JdbcShiftRegistrationAdapter implements
 
     private Timestamp timestamp(LocalDateTime value) {
         return value == null ? null : Timestamp.valueOf(value);
+    }
+
+    private Optional<Integer> createMissingStaffProfileForStaffAccount(String email) {
+        String sql = """
+                INSERT INTO staff (account_id, full_name, email)
+                SELECT account.id,
+                       COALESCE(NULLIF(split_part(account.email, '@', 1), ''), account.email),
+                       account.email
+                FROM account
+                WHERE LOWER(account.email) = LOWER(?)
+                  AND account.role = 'STAFF'
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM staff
+                      WHERE staff.account_id = account.id
+                  )
+                RETURNING id
+                """;
+
+        Optional<Integer> insertedStaffId = jdbcTemplate.query(sql, (rs, rowNum) -> rs.getInt("id"), email)
+                .stream()
+                .findFirst();
+        if (insertedStaffId.isPresent()) {
+            return insertedStaffId;
+        }
+
+        return jdbcTemplate.query(
+                        """
+                        SELECT staff.id
+                        FROM staff
+                        JOIN account ON account.id = staff.account_id
+                        WHERE LOWER(account.email) = LOWER(?)
+                        """,
+                        (rs, rowNum) -> rs.getInt("id"),
+                        email
+                )
+                .stream()
+                .findFirst();
     }
 
     private LocalDateTime localDateTime(ResultSet rs, String columnName) throws SQLException {

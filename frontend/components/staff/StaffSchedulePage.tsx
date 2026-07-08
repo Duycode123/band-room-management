@@ -7,10 +7,14 @@ import {
   checkInCurrentShift,
   checkOutCurrentShift,
   fetchCurrentAttendance,
+  fetchMyShiftRegistrations,
   fetchShiftBookings,
   fetchStaffSchedule,
+  submitShiftRegistrations,
+  type ShiftRegistrationSlot,
   type StaffAttendanceRecord,
   type StaffScheduleShift,
+  type StaffShiftRegistration,
   type StaffShiftBooking,
 } from '@/lib/staff-schedule-service'
 
@@ -18,6 +22,7 @@ type ShiftStatus = 'EMPTY' | 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED'
 type AttendanceStatus = 'NOT_STARTED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'NO_SHIFT'
 type DayKey = 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT' | 'SUN'
 type ShiftName = 'Ca sáng' | 'Ca chiều' | 'Ca tối'
+type ScheduleView = 'CURRENT_WEEK' | 'NEXT_WEEK'
 type VerificationStatus = 'IDLE' | 'CHECKING' | 'VALID' | 'INVALID' | 'BLOCKED'
 type ConditionStatus = 'PASSED' | 'FAILED' | 'CHECKING'
 
@@ -71,6 +76,10 @@ type StatusMeta = {
   className: string
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback
+}
+
 const STUDIO_LOCATION = {
   name: 'BandHub Studio',
   address: '123 Âu Cơ, Tân Bình',
@@ -100,8 +109,11 @@ const DAY_META: Record<DayKey, { label: string; longLabel: string }> = {
 export default function StaffSchedulePage() {
   const [now, setNow] = useState(() => new Date())
   const [schedule, setSchedule] = useState<StaffScheduleShift[]>([])
+  const [nextWeekSchedule, setNextWeekSchedule] = useState<StaffScheduleShift[]>([])
   const [currentAttendance, setCurrentAttendance] = useState<StaffAttendanceRecord | null>(null)
+  const [scheduleView, setScheduleView] = useState<ScheduleView>('CURRENT_WEEK')
   const [isLoadingSchedule, setIsLoadingSchedule] = useState(true)
+  const [isLoadingNextWeekSchedule, setIsLoadingNextWeekSchedule] = useState(true)
   const [pageError, setPageError] = useState('')
   const [isAttendanceOpen, setIsAttendanceOpen] = useState(false)
   const [locationStatus, setLocationStatus] = useState<VerificationStatus>('IDLE')
@@ -109,6 +121,12 @@ export default function StaffSchedulePage() {
   const [attendanceError, setAttendanceError] = useState('')
   const [isAttendanceLoading, setIsAttendanceLoading] = useState(false)
   const [shiftDetail, setShiftDetail] = useState<ShiftDetailState | null>(null)
+  const [isRegistrationOpen, setIsRegistrationOpen] = useState(false)
+  const [registrations, setRegistrations] = useState<StaffShiftRegistration[]>([])
+  const [selectedRegistrationSlots, setSelectedRegistrationSlots] = useState<ShiftRegistrationSlot[]>([])
+  const [isLoadingRegistrations, setIsLoadingRegistrations] = useState(false)
+  const [isSubmittingRegistrations, setIsSubmittingRegistrations] = useState(false)
+  const [registrationError, setRegistrationError] = useState('')
   const [toast, setToast] = useState<string | null>(null)
 
   useEffect(() => {
@@ -123,6 +141,11 @@ export default function StaffSchedulePage() {
   }, [toast])
 
   const weekDays = useMemo(() => getWeekDays(now), [now.getFullYear(), now.getMonth(), now.getDate()])
+  const nextWeekDays = useMemo(() => {
+    const nextWeekDate = new Date(now)
+    nextWeekDate.setDate(now.getDate() + 7)
+    return getWeekDays(nextWeekDate)
+  }, [now.getFullYear(), now.getMonth(), now.getDate()])
   const weekRange = useMemo(
     () => ({
       fromDate: weekDays[0]?.isoDate ?? '',
@@ -130,36 +153,100 @@ export default function StaffSchedulePage() {
     }),
     [weekDays],
   )
-
-  const loadSchedule = useCallback(async () => {
+  const nextWeekRange = useMemo(
+    () => ({
+      fromDate: nextWeekDays[0]?.isoDate ?? '',
+      toDate: nextWeekDays[nextWeekDays.length - 1]?.isoDate ?? '',
+    }),
+    [nextWeekDays],
+  )
+  const loadSchedule = useCallback(async (showLoading = true) => {
     if (!weekRange.fromDate || !weekRange.toDate) return
 
-    setIsLoadingSchedule(true)
+    if (showLoading) {
+      setIsLoadingSchedule(true)
+      setIsLoadingNextWeekSchedule(true)
+    }
     try {
-      const [nextSchedule, nextAttendance] = await Promise.all([
+      const [currentScheduleResult, nextScheduleResult, attendanceResult] = await Promise.allSettled([
         fetchStaffSchedule(weekRange.fromDate, weekRange.toDate),
+        nextWeekRange.fromDate && nextWeekRange.toDate
+          ? fetchStaffSchedule(nextWeekRange.fromDate, nextWeekRange.toDate)
+          : Promise.resolve([]),
         fetchCurrentAttendance(),
       ])
 
-      setSchedule(nextSchedule)
-      setCurrentAttendance(nextAttendance)
-      setPageError('')
-    } catch (error) {
-      setSchedule([])
-      setCurrentAttendance(null)
-      setPageError(error instanceof Error ? error.message : 'Không thể tải lịch làm việc.')
+      const nextErrors: string[] = []
+      if (currentScheduleResult.status === 'fulfilled') {
+        setSchedule(currentScheduleResult.value)
+      } else {
+        nextErrors.push(`Lịch tuần này: ${getErrorMessage(currentScheduleResult.reason, 'Không thể tải lịch tuần này.')}`)
+      }
+      if (nextScheduleResult.status === 'fulfilled') {
+        setNextWeekSchedule(nextScheduleResult.value)
+      } else {
+        nextErrors.push(`Lịch tuần tới: ${getErrorMessage(nextScheduleResult.reason, 'Không thể tải lịch tuần tới.')}`)
+      }
+      if (attendanceResult.status === 'fulfilled') {
+        setCurrentAttendance(attendanceResult.value)
+      } else {
+        setCurrentAttendance(null)
+        nextErrors.push(`Chấm công: ${getErrorMessage(attendanceResult.reason, 'Không thể tải dữ liệu chấm công.')}`)
+      }
+      setPageError(nextErrors.join(' '))
     } finally {
-      setIsLoadingSchedule(false)
+      if (showLoading) {
+        setIsLoadingSchedule(false)
+        setIsLoadingNextWeekSchedule(false)
+      }
     }
-  }, [weekRange.fromDate, weekRange.toDate])
+  }, [nextWeekRange.fromDate, nextWeekRange.toDate, weekRange.fromDate, weekRange.toDate])
 
   useEffect(() => {
-    void loadSchedule()
+    void loadSchedule(true)
   }, [loadSchedule])
+
+  useEffect(() => {
+    const refreshTimer = window.setInterval(() => {
+      void loadSchedule(false)
+    }, 20000)
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void loadSchedule(false)
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      window.clearInterval(refreshTimer)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [loadSchedule])
+
+  const loadRegistrations = useCallback(async () => {
+    if (!nextWeekRange.fromDate || !nextWeekRange.toDate) return
+
+    setIsLoadingRegistrations(true)
+    try {
+      const nextRegistrations = await fetchMyShiftRegistrations(nextWeekRange.fromDate, nextWeekRange.toDate)
+      setRegistrations(nextRegistrations)
+      setRegistrationError('')
+    } catch (error) {
+      setRegistrations([])
+      setRegistrationError(error instanceof Error ? error.message : 'Khong the tai danh sach dang ky ca lam.')
+    } finally {
+      setIsLoadingRegistrations(false)
+    }
+  }, [nextWeekRange.fromDate, nextWeekRange.toDate])
 
   const shiftCells = useMemo(
     () => schedule.map((shift) => mapShiftToCell(shift, currentAttendance)).sort(compareShiftCells),
     [currentAttendance, schedule],
+  )
+  const nextWeekShiftCells = useMemo(
+    () => nextWeekSchedule.map((shift) => mapShiftToCell(shift, null)).sort(compareShiftCells),
+    [nextWeekSchedule],
   )
 
   const shiftMap = useMemo(() => {
@@ -168,6 +255,40 @@ export default function StaffSchedulePage() {
       return acc
     }, {})
   }, [shiftCells])
+  const nextWeekShiftMap = useMemo(() => {
+    return nextWeekShiftCells.reduce<Record<string, StaffShiftCell>>((acc, cell) => {
+      acc[getCellKey(cell.dayKey, cell.shiftName)] = cell
+      return acc
+    }, {})
+  }, [nextWeekShiftCells])
+  const registrationMap = useMemo(() => {
+    return registrations.reduce<Record<string, StaffShiftRegistration>>((acc, registration) => {
+      acc[getSlotKey(registration.workDate, registration.startTime, registration.endTime)] = registration
+      return acc
+    }, {})
+  }, [registrations])
+  const selectedRegistrationSlotKeys = useMemo(() => {
+    return new Set(selectedRegistrationSlots.map((slot) => getSlotKey(slot.workDate, slot.startTime, slot.endTime)))
+  }, [selectedRegistrationSlots])
+  const activeWeekDays = scheduleView === 'CURRENT_WEEK' ? weekDays : nextWeekDays
+  const activeWeekRange = scheduleView === 'CURRENT_WEEK' ? weekRange : nextWeekRange
+  const activeShiftCells = scheduleView === 'CURRENT_WEEK' ? shiftCells : nextWeekShiftCells
+  const activeShiftMap = scheduleView === 'CURRENT_WEEK' ? shiftMap : nextWeekShiftMap
+  const isLoadingActiveSchedule = scheduleView === 'CURRENT_WEEK' ? isLoadingSchedule : isLoadingNextWeekSchedule
+  const activeScheduleCopy =
+    scheduleView === 'CURRENT_WEEK'
+      ? {
+          title: 'Lịch tuần này',
+          description: 'Ca làm chính thức trong tuần hiện tại.',
+          emptyTitle: 'Chưa có ca làm việc trong tuần này',
+          emptyDescription: 'Lịch sẽ tự cập nhật khi admin xếp ca cho tài khoản staff hiện tại.',
+        }
+      : {
+          title: 'Lịch tuần tới',
+          description: 'Ca đã được admin duyệt cho tuần kế tiếp.',
+          emptyTitle: 'Chưa có ca làm việc tuần tới',
+          emptyDescription: 'Khi admin duyệt đăng ký ca tuần tới, lịch sẽ tự hiện ở đây.',
+        }
 
   useEffect(() => {
     if (!shiftDetail) return
@@ -195,13 +316,43 @@ export default function StaffSchedulePage() {
     [currentAttendance, currentShift],
   )
 
-  const handleRefresh = async () => {
-    await loadSchedule()
-    setToast('Đã đồng bộ lại lịch làm việc từ backend.')
+  const handleRegisterShift = () => {
+    setSelectedRegistrationSlots([])
+    setRegistrationError('')
+    setIsRegistrationOpen(true)
+    void loadRegistrations()
   }
 
-  const handleRegisterShift = () => {
-    setToast('Backend chưa có API đăng ký ca làm việc. Tạm thời chỉ đồng bộ lịch đã phân công.')
+  const handleToggleRegistrationSlot = (slot: ShiftRegistrationSlot) => {
+    const slotKey = getSlotKey(slot.workDate, slot.startTime, slot.endTime)
+
+    setSelectedRegistrationSlots((currentSlots) => {
+      if (currentSlots.some((currentSlot) => getSlotKey(currentSlot.workDate, currentSlot.startTime, currentSlot.endTime) === slotKey)) {
+        return currentSlots.filter((currentSlot) => getSlotKey(currentSlot.workDate, currentSlot.startTime, currentSlot.endTime) !== slotKey)
+      }
+
+      return [...currentSlots, slot]
+    })
+  }
+
+  const handleSubmitRegistrations = async () => {
+    if (selectedRegistrationSlots.length === 0) {
+      setRegistrationError('Vui lòng chọn ít nhất một ca làm.')
+      return
+    }
+
+    setIsSubmittingRegistrations(true)
+    setRegistrationError('')
+    try {
+      await submitShiftRegistrations(selectedRegistrationSlots)
+      setSelectedRegistrationSlots([])
+      await loadRegistrations()
+      setToast('Đã gửi đăng ký ca làm. Vui lòng chờ admin duyệt.')
+    } catch (error) {
+      setRegistrationError(error instanceof Error ? error.message : 'Không thể đăng ký ca làm.')
+    } finally {
+      setIsSubmittingRegistrations(false)
+    }
   }
 
   const handleVerifyLocation = async () => {
@@ -339,7 +490,7 @@ export default function StaffSchedulePage() {
     <AuthGuard allowedRoles={['STAFF']}>
       <StaffPageShell>
         <section className="space-y-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
             <div>
               <p className="font-display text-sm font-bold uppercase tracking-wide text-brand-orange">
                 Staff workspace
@@ -347,9 +498,48 @@ export default function StaffSchedulePage() {
               <h1 className="font-display text-3xl font-bold tracking-tight text-on-surface sm:text-4xl">
                 Lịch làm việc
               </h1>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <div className="inline-flex rounded-full border border-outline-variant bg-white p-1 shadow-[var(--band-shadow-card)]">
+                  <button
+                    type="button"
+                    onClick={() => setScheduleView('CURRENT_WEEK')}
+                    className={[
+                      'h-10 rounded-full px-4 font-display text-sm font-bold transition',
+                      scheduleView === 'CURRENT_WEEK'
+                        ? 'bg-surface-container text-on-surface'
+                        : 'text-on-surface-variant hover:text-brand-orange',
+                    ].join(' ')}
+                  >
+                    Tuần hiện tại
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setScheduleView('NEXT_WEEK')}
+                    className={[
+                      'h-10 rounded-full px-4 font-display text-sm font-bold transition',
+                      scheduleView === 'NEXT_WEEK'
+                        ? 'bg-surface-container text-on-surface'
+                        : 'text-on-surface-variant hover:text-brand-orange',
+                    ].join(' ')}
+                  >
+                    Tuần tới
+                  </button>
+                </div>
+                <span className="text-sm font-semibold text-on-surface-variant">
+                  {formatShortDate(activeWeekRange.fromDate)} - {formatShortDate(activeWeekRange.toDate)}
+                </span>
+              </div>
             </div>
 
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleRegisterShift}
+                className="inline-flex min-h-12 items-center gap-2 rounded-full bg-[#C91F2E] px-6 font-display text-sm font-bold text-white shadow-[0_12px_26px_rgba(201,31,46,0.22)] transition hover:bg-[#A91724]"
+              >
+                Đăng ký ca làm việc
+                <IconCalendarPlus />
+              </button>
               <button
                 type="button"
                 onClick={() => {
@@ -362,22 +552,6 @@ export default function StaffSchedulePage() {
               >
                 Điểm danh
                 <IconCalendarCheck />
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleRefresh()}
-                className="inline-flex min-h-12 items-center gap-2 rounded-full border border-outline-variant bg-white px-6 font-display text-sm font-bold text-on-surface shadow-[var(--band-shadow-card)] transition hover:border-brand-orange/40 hover:text-brand-orange"
-              >
-                Làm mới
-                <IconRefresh />
-              </button>
-              <button
-                type="button"
-                onClick={handleRegisterShift}
-                className="inline-flex min-h-12 items-center gap-2 rounded-full bg-[#C91F2E] px-6 font-display text-sm font-bold text-white shadow-[0_12px_26px_rgba(201,31,46,0.22)] transition hover:bg-[#A91724]"
-              >
-                Đăng ký ca làm việc
-                <IconCalendarPlus />
               </button>
             </div>
           </div>
@@ -410,82 +584,17 @@ export default function StaffSchedulePage() {
             />
           </div>
 
-          <div className="border border-outline-variant bg-white p-4 shadow-[var(--band-shadow-card)] sm:p-7">
-            {isLoadingSchedule ? (
-              <div className="rounded-xl border border-dashed border-outline-variant bg-surface-container-low px-4 py-10 text-center text-sm text-on-surface-variant">
-                Đang tải lịch làm việc...
-              </div>
-            ) : shiftCells.length === 0 ? (
-              <EmptyState
-                title="Chưa có ca làm việc trong tuần này"
-                description="Backend chưa trả về ca nào cho tài khoản staff hiện tại."
-                actionLabel="Đồng bộ lại"
-                onAction={() => void handleRefresh()}
-              />
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[1120px] border-collapse text-left">
-                  <thead>
-                    <tr>
-                      <th className="h-14 w-[170px] border border-[#C9D3E1] bg-white" />
-                      {weekDays.map((day) => (
-                        <th
-                          key={day.key}
-                          className="h-14 border border-[#C9D3E1] bg-white text-center font-display text-lg font-medium text-[#1F2937]"
-                        >
-                          <div>{day.label}</div>
-                          <div className="mt-1 text-xs font-semibold text-on-surface-variant">{day.shortDate}</div>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {SHIFT_ROWS.map((row) => (
-                      <tr key={row.name}>
-                        <th className="h-[220px] w-[170px] border border-[#C9D3E1] bg-white px-3 align-middle sm:px-4">
-                          <div>
-                            <p className="font-display text-xl font-medium text-on-surface">{row.name}</p>
-                            <span className="mt-2 inline-flex rounded-full bg-[#E3E9F1] px-3 py-1 font-display text-sm font-bold text-[#253044]">
-                              {row.startTime} - {row.endTime}
-                            </span>
-                          </div>
-                        </th>
-                        {weekDays.map((day) => {
-                          const cell = shiftMap[getCellKey(day.key, row.name)] ?? createEmptyCell(day, row)
-                          const meta = getShiftStatusMeta(cell.status)
-
-                          return (
-                            <td
-                              key={`${day.key}-${row.name}`}
-                              className={[
-                                'h-[220px] border border-[#C9D3E1] align-middle',
-                                cell.status === 'EMPTY' ? 'bg-[#F7F8FA]' : 'bg-white',
-                              ].join(' ')}
-                            >
-                              <button
-                                type="button"
-                                onClick={() => void openShiftDetails(cell)}
-                                className="flex h-full w-full items-center justify-center p-4 text-center transition hover:bg-primary-container/30 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-orange"
-                              >
-                                <span
-                                  className={[
-                                    'inline-flex rounded-full px-4 py-2 font-display text-sm font-bold',
-                                    meta.className,
-                                  ].join(' ')}
-                                >
-                                  {meta.label}
-                                </span>
-                              </button>
-                            </td>
-                          )
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+          <ScheduleGrid
+            title={activeScheduleCopy.title}
+            description={activeScheduleCopy.description}
+            weekDays={activeWeekDays}
+            shiftCells={activeShiftCells}
+            shiftMap={activeShiftMap}
+            isLoading={isLoadingActiveSchedule}
+            emptyTitle={activeScheduleCopy.emptyTitle}
+            emptyDescription={activeScheduleCopy.emptyDescription}
+            onOpenShiftDetails={openShiftDetails}
+          />
         </section>
 
         {isAttendanceOpen && (
@@ -508,6 +617,25 @@ export default function StaffSchedulePage() {
           />
         )}
 
+        {isRegistrationOpen && (
+          <ShiftRegistrationModal
+            weekDays={nextWeekDays}
+            shiftRows={SHIFT_ROWS}
+            registrationMap={registrationMap}
+            selectedSlotKeys={selectedRegistrationSlotKeys}
+            isLoading={isLoadingRegistrations}
+            isSubmitting={isSubmittingRegistrations}
+            error={registrationError}
+            onToggleSlot={handleToggleRegistrationSlot}
+            onSubmit={handleSubmitRegistrations}
+            onClose={() => {
+              setIsRegistrationOpen(false)
+              setSelectedRegistrationSlots([])
+              setRegistrationError('')
+            }}
+          />
+        )}
+
         {shiftDetail && (
           <ShiftDetailModal
             detail={shiftDetail}
@@ -519,6 +647,248 @@ export default function StaffSchedulePage() {
         {toast && <Toast message={toast} />}
       </StaffPageShell>
     </AuthGuard>
+  )
+}
+
+function ScheduleGrid({
+  title,
+  description,
+  weekDays,
+  shiftCells,
+  shiftMap,
+  isLoading,
+  emptyTitle,
+  emptyDescription,
+  onOpenShiftDetails,
+}: {
+  title: string
+  description: string
+  weekDays: WeekDay[]
+  shiftCells: StaffShiftCell[]
+  shiftMap: Record<string, StaffShiftCell>
+  isLoading: boolean
+  emptyTitle: string
+  emptyDescription: string
+  onOpenShiftDetails: (cell: StaffShiftCell) => void
+}) {
+  return (
+    <section className="border border-outline-variant bg-white p-4 shadow-[var(--band-shadow-card)] sm:p-7">
+      <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="font-display text-xl font-bold text-on-surface">{title}</h2>
+          <p className="mt-1 text-sm text-on-surface-variant">{description}</p>
+        </div>
+        <span className="text-xs font-semibold text-on-surface-variant">
+          {weekDays[0] ? formatShortDate(weekDays[0].isoDate) : ''} - {weekDays[weekDays.length - 1] ? formatShortDate(weekDays[weekDays.length - 1].isoDate) : ''}
+        </span>
+      </div>
+
+      {isLoading ? (
+        <div className="rounded-xl border border-dashed border-outline-variant bg-surface-container-low px-4 py-10 text-center text-sm text-on-surface-variant">
+          Đang tải lịch làm việc...
+        </div>
+      ) : shiftCells.length === 0 ? (
+        <EmptyState title={emptyTitle} description={emptyDescription} />
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1120px] border-collapse text-left">
+            <thead>
+              <tr>
+                <th className="h-14 w-[170px] border border-[#C9D3E1] bg-white" />
+                {weekDays.map((day) => (
+                  <th
+                    key={day.key}
+                    className="h-14 border border-[#C9D3E1] bg-white text-center font-display text-lg font-medium text-[#1F2937]"
+                  >
+                    <div>{day.label}</div>
+                    <div className="mt-1 text-xs font-semibold text-on-surface-variant">{day.shortDate}</div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {SHIFT_ROWS.map((row) => (
+                <tr key={row.name}>
+                  <th className="h-[220px] w-[170px] border border-[#C9D3E1] bg-white px-3 align-middle sm:px-4">
+                    <div>
+                      <p className="font-display text-xl font-medium text-on-surface">{row.name}</p>
+                      <span className="mt-2 inline-flex rounded-full bg-[#E3E9F1] px-3 py-1 font-display text-sm font-bold text-[#253044]">
+                        {row.startTime} - {row.endTime}
+                      </span>
+                    </div>
+                  </th>
+                  {weekDays.map((day) => {
+                    const cell = shiftMap[getCellKey(day.key, row.name)] ?? createEmptyCell(day, row)
+                    const meta = getShiftStatusMeta(cell.status)
+
+                    return (
+                      <td
+                        key={`${day.key}-${row.name}`}
+                        className={[
+                          'h-[220px] border border-[#C9D3E1] align-middle',
+                          cell.status === 'EMPTY' ? 'bg-[#F7F8FA]' : 'bg-white',
+                        ].join(' ')}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => void onOpenShiftDetails(cell)}
+                          className="flex h-full w-full items-center justify-center p-4 text-center transition hover:bg-primary-container/30 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-orange"
+                        >
+                          <span
+                            className={[
+                              'inline-flex rounded-full px-4 py-2 font-display text-sm font-bold',
+                              meta.className,
+                            ].join(' ')}
+                          >
+                            {meta.label}
+                          </span>
+                        </button>
+                      </td>
+                    )
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  )
+}
+
+function ShiftRegistrationModal({
+  weekDays,
+  shiftRows,
+  registrationMap,
+  selectedSlotKeys,
+  isLoading,
+  isSubmitting,
+  error,
+  onToggleSlot,
+  onSubmit,
+  onClose,
+}: {
+  weekDays: WeekDay[]
+  shiftRows: ShiftRow[]
+  registrationMap: Record<string, StaffShiftRegistration>
+  selectedSlotKeys: Set<string>
+  isLoading: boolean
+  isSubmitting: boolean
+  error: string
+  onToggleSlot: (slot: ShiftRegistrationSlot) => void
+  onSubmit: () => void
+  onClose: () => void
+}) {
+  const selectedCount = selectedSlotKeys.size
+
+  return (
+    <ModalFrame
+      title="Đăng ký ca làm việc"
+      description="Chọn ca làm cho tuần tới. Các ca được gửi ở trạng thái chờ admin duyệt."
+      onClose={onClose}
+      size="lg"
+    >
+      <div className="space-y-4">
+        <div className="rounded-xl border border-outline-variant bg-white p-4">
+          <div>
+            <p className="font-display text-base font-bold text-on-surface">Tuần đăng ký</p>
+            <p className="mt-1 text-sm text-on-surface-variant">
+              {weekDays[0] ? formatDateForHeader(weekDays[0].isoDate) : ''} - {weekDays[weekDays.length - 1] ? formatDateForHeader(weekDays[weekDays.length - 1].isoDate) : ''}
+            </p>
+            <p className="mt-2 text-xs font-semibold text-on-surface-variant">
+              {isLoading ? 'Đang tự tải danh sách đăng ký...' : 'Danh sách đăng ký được tải tự động khi mở cửa sổ này.'}
+            </p>
+          </div>
+        </div>
+
+        {error && (
+          <div className="rounded-xl border border-error-container bg-error-container px-4 py-3 text-sm font-semibold text-on-error-container">
+            {error}
+          </div>
+        )}
+
+        <div className="overflow-x-auto rounded-xl border border-outline-variant bg-white">
+          <table className="w-full min-w-[920px] border-collapse text-left">
+            <thead>
+              <tr>
+                <th className="h-12 w-[150px] border border-[#C9D3E1] bg-white px-3 text-sm font-bold text-on-surface-variant">
+                  Ca
+                </th>
+                {weekDays.map((day) => (
+                  <th key={day.key} className="h-12 border border-[#C9D3E1] bg-white px-3 text-center font-display text-sm font-bold text-on-surface">
+                    <div>{day.label}</div>
+                    <div className="mt-1 text-xs font-semibold text-on-surface-variant">{day.shortDate}</div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {shiftRows.map((row) => (
+                <tr key={row.name}>
+                  <th className="h-[130px] border border-[#C9D3E1] bg-white px-3 align-middle">
+                    <p className="font-display text-base font-bold text-on-surface">{row.name}</p>
+                    <p className="mt-1 text-xs font-semibold text-on-surface-variant">{row.startTime} - {row.endTime}</p>
+                  </th>
+                  {weekDays.map((day) => {
+                    const slot: ShiftRegistrationSlot = {
+                      workDate: day.isoDate,
+                      startTime: row.startTime,
+                      endTime: row.endTime,
+                    }
+                    const slotKey = getSlotKey(slot.workDate, slot.startTime, slot.endTime)
+                    const registration = registrationMap[slotKey]
+                    const isSelected = selectedSlotKeys.has(slotKey)
+                    const isBlocked = Boolean(registration && registration.status !== 'REJECTED')
+                    const meta = registration ? getRegistrationStatusMeta(registration.status) : null
+
+                    return (
+                      <td key={`${day.key}-${row.name}`} className="h-[130px] border border-[#C9D3E1] bg-[#FDFBF8] p-2 align-middle">
+                        <button
+                          type="button"
+                          onClick={() => onToggleSlot(slot)}
+                          disabled={isBlocked || isLoading || isSubmitting}
+                          className={[
+                            'flex h-full w-full flex-col items-center justify-center gap-2 rounded-xl border px-3 text-center transition',
+                            isSelected
+                              ? 'border-brand-orange bg-primary-container text-on-primary-container'
+                              : 'border-outline-variant bg-white text-on-surface hover:border-brand-orange/50',
+                            isBlocked ? 'cursor-not-allowed opacity-75 hover:border-outline-variant' : '',
+                          ].join(' ')}
+                        >
+                          <span className="font-display text-sm font-bold">
+                            {isSelected ? 'Đã chọn' : meta?.label ?? 'Có thể đăng ký'}
+                          </span>
+                          {registration?.rejectionReason && (
+                            <span className="line-clamp-2 text-xs text-on-surface-variant">{registration.rejectionReason}</span>
+                          )}
+                        </button>
+                      </td>
+                    )
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-semibold text-on-surface-variant">Đã chọn {selectedCount} ca.</p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+            <button type="button" onClick={onClose} className="btn-secondary" disabled={isSubmitting}>
+              Hủy
+            </button>
+            <button
+              type="button"
+              onClick={onSubmit}
+              disabled={selectedCount === 0 || isSubmitting || isLoading}
+              className="btn-warm disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isSubmitting ? 'Đang gửi...' : 'Gửi đăng ký'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </ModalFrame>
   )
 }
 
@@ -884,6 +1254,16 @@ function getShiftStatusMeta(status: ShiftStatus): StatusMeta {
   return meta[status]
 }
 
+function getRegistrationStatusMeta(status: StaffShiftRegistration['status']): StatusMeta {
+  const meta: Record<StaffShiftRegistration['status'], StatusMeta> = {
+    PENDING: { label: 'Chờ duyệt', className: 'bg-[#FEF3C7] text-[#92400E]' },
+    APPROVED: { label: 'Đã duyệt', className: 'bg-[#E8F5EC] text-secondary' },
+    REJECTED: { label: 'Đã từ chối', className: 'bg-error-container text-on-error-container' },
+  }
+
+  return meta[status]
+}
+
 function getAttendanceStatusMeta(status: AttendanceStatus): StatusMeta {
   const meta: Record<AttendanceStatus, StatusMeta> = {
     NOT_STARTED: { label: 'Chưa check-in', className: 'bg-primary-container text-on-primary-container' },
@@ -1004,6 +1384,10 @@ function getCellKey(dayKey: DayKey, shiftName: ShiftName) {
   return `${dayKey}-${shiftName}`
 }
 
+function getSlotKey(workDate: string, startTime: string, endTime: string) {
+  return `${workDate}-${normalizeTime(startTime)}-${normalizeTime(endTime)}`
+}
+
 function inferShiftName(startTime: string, endTime: string): ShiftName {
   const normalizedStart = normalizeTime(startTime)
   const normalizedEnd = normalizeTime(endTime)
@@ -1036,6 +1420,13 @@ function formatTimeFromIso(value: string) {
 function formatDateForHeader(dateKey: string) {
   return new Intl.DateTimeFormat('vi-VN', {
     weekday: 'long',
+    day: '2-digit',
+    month: '2-digit',
+  }).format(parseDate(dateKey))
+}
+
+function formatShortDate(dateKey: string) {
+  return new Intl.DateTimeFormat('vi-VN', {
     day: '2-digit',
     month: '2-digit',
   }).format(parseDate(dateKey))
@@ -1216,20 +1607,6 @@ function IconCalendarPlus() {
         strokeLinecap="round"
       />
       <path d="M12 12v5M9.5 14.5h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-function IconRefresh() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden="true">
-      <path
-        d="M20 5v5h-5M4 19v-5h5M6.9 9A7 7 0 0 1 19 10m-1.9 5A7 7 0 0 1 5 14"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
     </svg>
   )
 }

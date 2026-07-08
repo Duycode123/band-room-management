@@ -1,6 +1,6 @@
 import axios from 'axios'
 import api from '@/lib/api'
-import { validateDiscountCode } from '@/lib/discount-service'
+import { validateDiscountCode, type DiscountValidationResult } from '@/lib/discount-service'
 import type { ReportDateRange } from '@/lib/admin/reportsTypes'
 import type {
   AdminCoupon,
@@ -245,6 +245,79 @@ export function validateCouponForm(data: CouponFormData): CouponFormErrors {
   }
 
   return errors
+}
+
+function formatVnd(amount: number) {
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    maximumFractionDigits: 0,
+  }).format(amount)
+}
+
+export function validateCouponPreview(data: CouponFormData): CouponFormErrors {
+  const errors: CouponFormErrors = {}
+  const code = data.code.trim().toUpperCase()
+  const value = Number(data.value)
+  const orderAmount = Number(data.previewOrderAmount)
+
+  if (!code) {
+    errors.code = 'Vui lòng nhập mã coupon.'
+  } else if (code.length < 3 || code.length > 32) {
+    errors.code = 'Mã coupon phải từ 3 đến 32 ký tự.'
+  }
+
+  if (!Number.isFinite(value) || value <= 0) {
+    errors.value = 'Giá trị giảm phải lớn hơn 0.'
+  } else if (data.type === 'PERCENTAGE' && value > 100) {
+    errors.value = 'Giảm phần trăm không được vượt quá 100%.'
+  }
+
+  if (!Number.isFinite(orderAmount) || orderAmount <= 0) {
+    errors.previewOrderAmount = 'Giá trị đơn xem trước phải lớn hơn 0.'
+  }
+
+  return errors
+}
+
+export function previewCouponFromForm(data: CouponFormData, orderAmount: number): DiscountValidationResult {
+  const code = data.code.trim().toUpperCase()
+  const value = Number(data.value)
+  const minOrderValue = data.minOrderValue.trim() ? Number(data.minOrderValue) : 0
+
+  if (data.expiresAt) {
+    const expiryDate = new Date(`${data.expiresAt}T00:00:00`)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    if (expiryDate < today) {
+      return {
+        valid: false,
+        code,
+        message: 'Coupon đã hết hạn theo ngày đã chọn.',
+      }
+    }
+  }
+
+  if (Number.isFinite(minOrderValue) && minOrderValue > 0 && orderAmount < minOrderValue) {
+    return {
+      valid: false,
+      code,
+      message: `Đơn hàng chưa đạt giá trị tối thiểu ${formatVnd(minOrderValue)}.`,
+    }
+  }
+
+  const rawDiscount =
+    data.type === 'PERCENTAGE' ? (orderAmount * value) / 100 : value
+  const discountAmount = Math.round(Math.min(rawDiscount, orderAmount) * 100) / 100
+  const payableAmount = Math.max(orderAmount - discountAmount, 0)
+
+  return {
+    valid: true,
+    code,
+    discountAmount,
+    message: `Xem trước theo form — khách trả khoảng ${formatVnd(payableAmount)}.`,
+  }
 }
 
 export async function fetchCouponRooms(): Promise<CouponRoomOption[]> {

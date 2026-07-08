@@ -103,7 +103,7 @@ export default function TopRoomsBarChart({ data }: TopRoomsBarChartProps) {
           {tooltip.room.roomTypeName && (
             <p className="mt-1 text-on-surface-variant">{tooltip.room.roomTypeName}</p>
           )}
-          <p className="text-brand-orange">{tooltip.room.orderCount} luot dat thanh cong</p>
+          <p className="text-brand-orange">{tooltip.room.orderCount} lượt đặt thành công</p>
         </div>
       )}
     </div>

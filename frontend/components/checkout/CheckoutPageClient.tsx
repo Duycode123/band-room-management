@@ -7,7 +7,6 @@ import CheckoutBookingInfo from '@/components/checkout/CheckoutBookingInfo'
 import CheckoutCouponInput from '@/components/checkout/CheckoutCouponInput'
 import CheckoutPaymentMethods from '@/components/checkout/CheckoutPaymentMethods'
 import CheckoutSummary from '@/components/checkout/CheckoutSummary'
-import BandRoomHeader from '@/components/layout/BandRoomHeader'
 import {
   calculateCheckoutSummary,
   formatCurrency,
@@ -237,7 +236,6 @@ export default function CheckoutPageClient() {
 
   return (
     <main className="min-h-screen bg-[#F5F2EC] text-[#1A1C1E]">
-      <BandRoomHeader />
 
       <section className="mx-auto max-w-7xl px-6 py-8">
         <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-end">

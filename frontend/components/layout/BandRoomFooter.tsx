@@ -9,6 +9,9 @@ import {
   footerExploreLinks,
   footerLegalLinks,
   footerSupportLinks,
+  getHomeSectionIdFromHref,
+  isHomepageAnchorHref,
+  scrollToHomeSection,
   scrollToPageTop,
   shouldScrollToTop,
 } from '@/lib/site-nav'
@@ -26,6 +29,13 @@ export default function BandRoomFooter() {
   }
 
   const handleNavLinkClick = (event: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (pathname === '/' && isHomepageAnchorHref(href)) {
+      event.preventDefault()
+      const sectionId = getHomeSectionIdFromHref(href)
+      if (sectionId) scrollToHomeSection(sectionId)
+      return
+    }
+
     if (!shouldScrollToTop(pathname, href)) return
 
     event.preventDefault()

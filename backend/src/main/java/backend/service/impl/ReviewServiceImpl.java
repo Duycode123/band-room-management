@@ -62,7 +62,7 @@ public class ReviewServiceImpl implements ReviewService {
                 .booking(booking)
                 .rating(request.getRating())
                 .content(request.getContent().trim())
-                .approved(false)
+                .approved(true)
                 .build();
 
         try {

@@ -34,7 +34,7 @@ export default function EquipmentDetailPanel({
       await onDelete(equipment.equipmentId)
       onClose()
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Khong the xoa thiet bi.')
+      setMessage(error instanceof Error ? error.message : 'Không thể xóa thiết bị.')
       setConfirmDelete(false)
     } finally {
       setIsDeleting(false)
@@ -45,7 +45,7 @@ export default function EquipmentDetailPanel({
     <>
       <button
         type="button"
-        aria-label="Dong chi tiet"
+        aria-label="Đóng chi tiết"
         onClick={onClose}
         className="fixed inset-0 z-40 bg-inverse-surface/50 backdrop-blur-sm"
       />
@@ -87,17 +87,17 @@ export default function EquipmentDetailPanel({
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
           <div className="grid gap-3 sm:grid-cols-2">
-            <MetricCard label="Ma thiet bi" value={`EQ-${String(equipment.equipmentId).padStart(4, '0')}`} />
-            <MetricCard label="Phong" value={equipment.roomName} />
-            <MetricCard label="Loai" value={EQUIPMENT_TYPE_LABELS[equipment.equipmentType]} />
-            <MetricCard label="Trang thai" value={equipment.status} />
+            <MetricCard label="Mã thiết bị" value={`EQ-${String(equipment.equipmentId).padStart(4, '0')}`} />
+            <MetricCard label="Phòng" value={equipment.roomName} />
+            <MetricCard label="Loại" value={EQUIPMENT_TYPE_LABELS[equipment.equipmentType]} />
+            <MetricCard label="Trạng thái" value={equipment.status} />
           </div>
 
-          <Section title="Ghi chu">
+          <Section title="Ghi chú">
             {equipment.notes ? (
               <p className="text-sm leading-relaxed text-on-surface-variant">{equipment.notes}</p>
             ) : (
-              <p className="text-sm italic text-on-surface-variant">Chua co ghi chu cho thiet bi nay.</p>
+              <p className="text-sm italic text-on-surface-variant">Chưa có ghi chú cho thiết bị này.</p>
             )}
           </Section>
 
@@ -112,7 +112,7 @@ export default function EquipmentDetailPanel({
           {confirmDelete ? (
             <div className="space-y-3">
               <p className="text-sm text-on-surface-variant">
-                Xac nhan xoa <strong className="text-on-surface">{equipment.equipmentName}</strong>?
+                Xác nhận xóa <strong className="text-on-surface">{equipment.equipmentName}</strong>?
               </p>
               <div className="flex gap-2">
                 <button
@@ -121,7 +121,7 @@ export default function EquipmentDetailPanel({
                   disabled={isDeleting}
                   className="flex-1 rounded-xl border border-outline py-2.5 font-display text-sm font-medium text-on-surface-variant hover:bg-white disabled:opacity-50"
                 >
-                  Huy
+                  Hủy
                 </button>
                 <button
                   type="button"
@@ -129,7 +129,7 @@ export default function EquipmentDetailPanel({
                   disabled={isDeleting}
                   className="flex-1 rounded-xl bg-error py-2.5 font-display text-sm font-medium text-white hover:bg-error/90 disabled:opacity-50"
                 >
-                  {isDeleting ? 'Dang xoa...' : 'Xoa thiet bi'}
+                  {isDeleting ? 'Đang xóa...' : 'Xóa thiết bị'}
                 </button>
               </div>
             </div>
@@ -140,14 +140,14 @@ export default function EquipmentDetailPanel({
                 onClick={() => onEdit(equipment)}
                 className="flex-1 rounded-xl bg-brand-orange py-2.5 font-display text-sm font-medium text-white shadow-md shadow-brand-orange/20 hover:bg-brand-orangeHover"
               >
-                Chinh sua
+                Chỉnh sửa
               </button>
               <button
                 type="button"
                 onClick={() => setConfirmDelete(true)}
                 className="flex-1 rounded-xl border border-error/30 py-2.5 font-display text-sm font-medium text-error hover:bg-error-container/30"
               >
-                Xoa
+                Xóa
               </button>
             </div>
           )}

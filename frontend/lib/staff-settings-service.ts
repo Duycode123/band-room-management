@@ -128,7 +128,7 @@ export async function uploadMyAvatar(file: File, fallback?: AuthUser | null) {
     const response = await api.post<Partial<StaffProfile & AuthUser>>('/api/users/me/avatar', formData)
     return normalizeProfile(response.data, fallback)
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the tai anh dai dien len. Vui long thu lai.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể tải ảnh đại diện lên. Vui lòng thử lại.'))
   }
 }
 

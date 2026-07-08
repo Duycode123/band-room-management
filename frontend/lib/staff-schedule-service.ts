@@ -40,6 +40,27 @@ export type StaffAttendanceRecord = {
   status: BackendAttendanceStatus
 }
 
+export type ShiftRegistrationStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+
+export type ShiftRegistrationSlot = {
+  workDate: string
+  startTime: string
+  endTime: string
+}
+
+export type StaffShiftRegistration = ShiftRegistrationSlot & {
+  id: number
+  staffId: number
+  staffName?: string | null
+  staffEmail?: string | null
+  status: ShiftRegistrationStatus
+  reviewedByAccountId?: number | null
+  reviewedAt?: string | null
+  rejectionReason?: string | null
+  createdAt?: string | null
+  updatedAt?: string | null
+}
+
 function getApiErrorMessage(error: unknown, fallback: string) {
   if (axios.isAxiosError<ApiErrorResponse>(error)) {
     return error.response?.data?.message || fallback
@@ -60,6 +81,33 @@ export async function fetchStaffSchedule(fromDate: string, toDate: string): Prom
     return response.data.data ?? []
   } catch (error) {
     throw new Error(getApiErrorMessage(error, 'Không thể tải lịch làm việc.'))
+  }
+}
+
+export async function fetchMyShiftRegistrations(fromDate: string, toDate: string): Promise<StaffShiftRegistration[]> {
+  try {
+    const response = await api.get<ApiResponse<StaffShiftRegistration[]>>('/api/staff/shift-registrations/my', {
+      params: {
+        fromDate,
+        toDate,
+      },
+    })
+
+    return response.data.data ?? []
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Khong the tai danh sach dang ky ca lam.'))
+  }
+}
+
+export async function submitShiftRegistrations(slots: ShiftRegistrationSlot[]): Promise<StaffShiftRegistration[]> {
+  try {
+    const response = await api.post<ApiResponse<StaffShiftRegistration[]>>('/api/staff/shift-registrations', {
+      slots,
+    })
+
+    return response.data.data ?? []
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Khong the dang ky ca lam.'))
   }
 }
 

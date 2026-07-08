@@ -5,7 +5,6 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
-import BandRoomHeader from '@/components/layout/BandRoomHeader'
 import {
   DEFAULT_BOOKING_DATE,
   DEFAULT_START_TIME,
@@ -182,7 +181,6 @@ export default function BookingConfirmationClient() {
 
   return (
     <main className="min-h-screen bg-[#F5F2EC] text-[#1A1C1E]">
-      <BandRoomHeader />
 
       <section className="mx-auto max-w-7xl px-6 py-8">
         <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-end">
@@ -291,7 +289,6 @@ export default function BookingConfirmationClient() {
             <div className="my-4 h-px bg-[#E8E4DC]" />
 
             <PaymentRow label="Tiền phòng" value={formatCurrency(roomSubtotal)} />
-            <PaymentRow label="Dịch vụ thuê thêm" value="Chưa áp dụng" />
 
             <div className="my-4">
               <CheckoutCouponInput
@@ -505,7 +502,7 @@ function getApiBookingRoom(searchParams: { get(name: string): string | null }): 
     badge: undefined,
     rating: undefined,
     reviews: undefined,
-    capacity: formatCapacityLabel(searchParams.get('roomCapacity'), 'Chua ro suc chua'),
+    capacity: formatCapacityLabel(searchParams.get('roomCapacity'), 'Chưa rõ sức chứa'),
     location: searchParams.get('roomLocation')?.trim() || 'Band Room Studio',
     image: safeImage,
     imageClassName: 'object-center',

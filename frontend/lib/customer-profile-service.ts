@@ -200,7 +200,7 @@ export async function uploadCustomerAvatar(file: File, fallback?: AuthUser | nul
     writeStoredCustomerProfile(updatedProfile)
     return updatedProfile
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the tai anh dai dien len. Vui long thu lai.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể tải ảnh đại diện lên. Vui lòng thử lại.'))
   }
 }
 

@@ -58,6 +58,16 @@ export function IconReports({ className = 'h-5 w-5' }: IconProps) {
   )
 }
 
+export function IconIncidentReports({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+      <path d="M12 3 2.8 19a1.8 1.8 0 0 0 1.6 2.7h15.2a1.8 1.8 0 0 0 1.6-2.7L12 3z" />
+      <path d="M12 8v5" strokeLinecap="round" />
+      <path d="M12 17h.01" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 export function IconReviews({ className = 'h-5 w-5' }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">

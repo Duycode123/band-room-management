@@ -90,7 +90,7 @@ export default function AdminRoomsPage() {
     } catch (error) {
       setRooms([])
       setSelected(null)
-      setToast(error instanceof Error ? error.message : 'Khong the tai danh sach phong tu backend.')
+      setToast(error instanceof Error ? error.message : 'Không thể tải danh sách phòng từ backend.')
     } finally {
       setIsLoading(false)
     }
@@ -126,7 +126,7 @@ export default function AdminRoomsPage() {
 
   const handleCreate = async (data: RoomFormData) => {
     await createAdminRoom(data)
-    setToast('Them phong tap thanh cong.')
+    setToast('Thêm phòng tập thành công.')
     await loadRooms()
   }
 
@@ -134,16 +134,16 @@ export default function AdminRoomsPage() {
     if (!formModal.open || formModal.mode !== 'edit') return
 
     const updated = await updateAdminRoom(formModal.roomId, data)
-    if (!updated) throw new Error('Khong tim thay phong tap.')
+    if (!updated) throw new Error('Không tìm thấy phòng tập.')
 
-    setToast('Cap nhat phong tap thanh cong.')
+    setToast('Cập nhật phòng tập thành công.')
     setSelected(updated)
     await loadRooms()
   }
 
   const handleDelete = async (roomId: string) => {
     await deleteAdminRoom(roomId)
-    setToast('Xoa phong tap thanh cong.')
+    setToast('Xóa phòng tập thành công.')
     setSelected((current) => (current?.id === roomId ? null : current))
     await loadRooms()
   }
@@ -151,13 +151,13 @@ export default function AdminRoomsPage() {
   const handleMaintenance = async (room: AdminRoom) => {
     try {
       const updated = await updateRoomStatus(room.id, 'maintenance')
-      if (!updated) throw new Error('Khong tim thay phong tap.')
+      if (!updated) throw new Error('Không tìm thấy phòng tập.')
 
-      setToast(`${room.name} da duoc chuyen sang trang thai bao tri.`)
+      setToast(`${room.name} đã được chuyển sang trạng thái bảo trì.`)
       setSelected((current) => (current?.id === room.id ? updated : current))
       await loadRooms()
     } catch (error) {
-      setToast(error instanceof Error ? error.message : 'Khong the doi trang thai phong.')
+      setToast(error instanceof Error ? error.message : 'Không thể đổi trạng thái phòng.')
     }
   }
 
@@ -166,20 +166,20 @@ export default function AdminRoomsPage() {
       <AdminShell>
         <AdminPageHeader
           eyebrow="ROOM MANAGEMENT"
-          title="Quan ly phong tap"
-          description="Theo doi danh sach phong, trang thai van hanh, lich hom nay va thao tac nhanh cho doi ngu quan tri BandSpace."
+          title="Quản lý phòng tập"
+          description="Theo dõi danh sách phòng, trạng thái vận hành, lịch hôm nay và thao tác nhanh cho đội ngũ quản trị BandSpace."
           breadcrumbs={[
-            { label: 'Tong quan', href: '/admin/dashboard' },
-            { label: 'Phong tap' },
+            { label: 'Tổng quan', href: '/admin/dashboard' },
+            { label: 'Phòng tập' },
           ]}
           actions={
             <>
               <button
                 type="button"
-                onClick={() => setToast('Da chuan bi du lieu phong tap de xuat.')}
+                onClick={() => setToast('Đã chuẩn bị dữ liệu phòng tập để xuất.')}
                 className="rounded-xl border border-outline bg-white px-4 py-2.5 font-display text-sm font-medium text-on-surface-variant shadow-sm transition-colors hover:border-brand-orange/30 hover:text-brand-orange"
               >
-                Xuat du lieu
+                Xuất dữ liệu
               </button>
               <button
                 type="button"
@@ -189,7 +189,7 @@ export default function AdminRoomsPage() {
                 className="inline-flex items-center gap-2 rounded-xl bg-brand-orange px-5 py-2.5 font-display text-sm font-medium text-white shadow-lg shadow-brand-orange/25 transition-all hover:bg-brand-orangeHover active:scale-[0.98]"
               >
                 <IconPlus className="h-4 w-4" />
-                Them phong
+                Thêm phòng
               </button>
             </>
           }
@@ -200,29 +200,29 @@ export default function AdminRoomsPage() {
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <AdminStatCard
-              label="Tong so phong"
+              label="Tổng số phòng"
               value={stats.total}
-              hint="Phong dang quan ly"
+              hint="Phòng đang quản lý"
               icon={<IconRooms className="h-5 w-5" />}
             />
             <AdminStatCard
-              label="Dang hoat dong"
+              label="Đang hoạt động"
               value={stats.active}
-              hint="San sang hoac dang co lich"
+              hint="Sẵn sàng hoặc đang có lịch"
               accent="secondary"
               icon={<span className="text-base">✓</span>}
             />
             <AdminStatCard
-              label="Dang bao tri"
+              label="Đang bảo trì"
               value={stats.maintenance}
-              hint="Tam khoa lich dat"
+              hint="Tạm khóa lịch đặt"
               accent="tertiary"
               icon={<span className="text-base">⚙</span>}
             />
             <AdminStatCard
-              label="Ty le lap day hom nay"
+              label="Tỷ lệ lấp đầy hôm nay"
               value={`${stats.occupancy}%`}
-              hint="Trung binh toan bo phong"
+              hint="Trung bình toàn bộ phòng"
               accent="primary"
               icon={<span className="text-base">%</span>}
             />
@@ -233,12 +233,12 @@ export default function AdminRoomsPage() {
           <section>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="font-display text-lg font-bold text-on-surface">Danh sach phong tap</h2>
+                <h2 className="font-display text-lg font-bold text-on-surface">Danh sách phòng tập</h2>
                 <p className="text-xs text-on-surface-variant">
-                  Quan ly trang thai, gia thue, thiet bi va lich su dung trong ngay.
+                  Quản lý trạng thái, giá thuê, thiết bị và lịch sử dụng trong ngày.
                 </p>
               </div>
-              <p className="text-xs text-on-surface-variant">Chon "Chi tiet" de mo ho so phong</p>
+              <p className="text-xs text-on-surface-variant">Chọn &quot;Chi tiết&quot; để mở hồ sơ phòng</p>
             </div>
 
             <RoomTable
@@ -255,7 +255,7 @@ export default function AdminRoomsPage() {
           </section>
 
           <p className="pb-4 text-center text-[11px] text-on-surface-variant">
-            * Danh sach, them, sua, xoa, doi trang thai, suc chua va anh phong da route qua backend. Gia van theo hang phong, ma phong sinh theo ID backend.
+            * Danh sách, thêm, sửa, xóa, đổi trạng thái, sức chứa và ảnh phòng đã route qua backend. Giá vẫn theo hạng phòng, mã phòng sinh theo ID backend.
           </p>
         </div>
 

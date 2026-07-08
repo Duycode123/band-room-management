@@ -35,9 +35,9 @@ export default function EquipmentTable({
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-surface-container text-lg font-bold text-brand-orange">
           EQ
         </div>
-        <p className="font-display text-lg font-bold text-on-surface">Khong tim thay thiet bi</p>
+        <p className="font-display text-lg font-bold text-on-surface">Không tìm thấy thiết bị</p>
         <p className="mt-2 text-sm text-on-surface-variant">
-          Thu doi bo loc hoac them thiet bi moi vao he thong.
+          Thử đổi bộ lọc hoặc thêm thiết bị mới vào hệ thống.
         </p>
       </div>
     )
@@ -95,7 +95,7 @@ export default function EquipmentTable({
                   {item.notes}
                 </p>
               ) : (
-                <p className="text-xs italic text-on-surface-variant">Chua co ghi chu cho thiet bi nay.</p>
+                <p className="text-xs italic text-on-surface-variant">Chưa có ghi chú cho thiết bị này.</p>
               )}
             </div>
           </button>

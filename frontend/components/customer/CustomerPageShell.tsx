@@ -1,7 +1,6 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import BandRoomHeader from '@/components/layout/BandRoomHeader'
 
 export function CustomerPageShell({
   children,
@@ -27,7 +26,6 @@ export function CustomerPageShell({
         }}
       />
       <div className="pointer-events-none absolute -left-24 top-0 h-72 w-72 rounded-full bg-brand-orange/8 blur-3xl" aria-hidden />
-      <BandRoomHeader />
       <div className={contained ? 'relative flex min-h-0 flex-1 flex-col overflow-hidden' : 'relative overflow-x-hidden'}>
         <section
           className={

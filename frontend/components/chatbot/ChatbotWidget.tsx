@@ -96,7 +96,7 @@ function QuickReplyChips({
   if (replies.length === 0) return null
 
   return (
-    <div className="flex flex-wrap gap-2 px-1 pt-1">
+    <div className="flex max-h-24 flex-wrap gap-2 overflow-y-auto px-1 pb-1 pt-1">
       {replies.map((reply) => (
         <button
           key={reply.id}
@@ -206,10 +206,9 @@ export default function ChatbotWidget() {
         aria-label="BandBot trợ lý ảo"
         aria-hidden={!open}
         className={[
-          'pointer-events-auto mb-4 flex w-[min(100vw-2rem,400px)] flex-col overflow-hidden rounded-[28px] border border-white/60 bg-white/80 shadow-[var(--shadow-elevated)] backdrop-blur-xl transition-all duration-300 ease-out',
+          'pointer-events-auto mb-4 flex max-h-[min(680px,calc(100vh-6rem))] w-[min(100vw-2rem,400px)] flex-col overflow-hidden rounded-[28px] border border-white/60 bg-white/80 shadow-[var(--shadow-elevated)] backdrop-blur-xl transition-all duration-300 ease-out',
           open ? 'translate-y-0 scale-100 opacity-100' : 'pointer-events-none translate-y-4 scale-95 opacity-0',
         ].join(' ')}
-        style={{ maxHeight: 'min(640px, calc(100vh - 7rem))' }}
       >
         {/* Header */}
         <header className="relative overflow-hidden bg-gradient-to-br from-brand-greenDark via-[#1e4d3a] to-brand-greenLight px-5 py-4 text-white">
@@ -242,7 +241,7 @@ export default function ChatbotWidget() {
         {/* Messages */}
         <div
           ref={listRef}
-          className="flex min-h-[280px] flex-1 flex-col gap-4 overflow-y-auto bg-gradient-to-b from-brand-bgGray/50 to-white px-4 py-5"
+          className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto bg-gradient-to-b from-brand-bgGray/50 to-white px-4 py-5"
         >
           {messages.map((msg) => (
             <MessageBubble key={msg.id} message={msg} />
@@ -284,7 +283,7 @@ export default function ChatbotWidget() {
             </button>
           </form>
           <p className="mt-2 text-center text-[10px] text-on-surface-variant/60">
-            BandBot dùng dữ liệu mẫu · Hỗ trợ thật qua hotline
+            BandBot dùng dữ liệu phòng thực tế · Hỗ trợ thật qua hotline
           </p>
         </div>
       </div>
