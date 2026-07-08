@@ -96,11 +96,11 @@ function derivePaymentStatus(status: BookingStatus): PaymentStatus {
 
 function mapPaymentMethod(paymentMethod?: BackendPaymentMethod | null) {
   if (paymentMethod === 'ONLINE') {
-    return 'Thanh toan online'
+    return 'Thanh toán online'
   }
 
   if (paymentMethod === 'CASH') {
-    return 'Thanh toan tien mat'
+    return 'Thanh toán tiền mặt'
   }
 
   return undefined
@@ -120,12 +120,12 @@ function mapBackendBooking(booking: BackendBooking): AdminBooking {
   return {
     bookingId: booking.bookingId,
     bookingCode: normalizeText(booking.bookingCode) || `BR${booking.bookingId}`,
-    customerName: normalizeText(booking.customerName) || 'Khach hang',
+    customerName: normalizeText(booking.customerName) || 'Khách hàng',
     customerEmail: normalizeText(booking.customerEmail),
     customerPhone: normalizeText(booking.customerPhone),
     roomId: booking.roomId ?? 0,
-    roomName: normalizeText(booking.roomName) || 'Chua xac dinh',
-    roomType: normalizeText(booking.typeName) || 'Chua xac dinh',
+    roomName: normalizeText(booking.roomName) || 'Chưa xác định',
+    roomType: normalizeText(booking.typeName) || 'Chưa xác định',
     startTime: booking.startTime,
     endTime: booking.endTime,
     durationHours,
@@ -206,7 +206,7 @@ export async function fetchAdminBookings(filters: BookingFilters): Promise<Admin
 
     return applyClientFilters(response.data.data.map(mapBackendBooking), filters)
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the tai danh sach booking.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể tải danh sách booking.'))
   }
 }
 
@@ -223,7 +223,7 @@ export async function updateAdminBookingStatus(
 
     return mapBackendBooking(response.data.data)
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the cap nhat trang thai booking.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể cập nhật trạng thái booking.'))
   }
 }
 
@@ -239,7 +239,7 @@ export async function cancelAdminBooking(
 
     return mapBackendBooking(response.data.data)
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the huy booking.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể hủy booking.'))
   }
 }
 
@@ -248,6 +248,6 @@ export async function getAdminBookingById(bookingId: number): Promise<AdminBooki
     const response = await api.get<ApiResponse<BackendBooking>>(`/api/admin/bookings/${bookingId}`)
     return mapBackendBooking(response.data.data)
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the tai chi tiet booking.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể tải chi tiết booking.'))
   }
 }

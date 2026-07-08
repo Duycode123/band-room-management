@@ -19,8 +19,8 @@ export default function AdminDashboardPage() {
       <AdminShell>
         <AdminPageHeader
           eyebrow="Kinh doanh"
-          title="Bang dieu khien admin"
-          description="Tong hop doanh thu, xu huong dat phong va hieu suat phong theo thoi gian thuc."
+          title="Bảng điều khiển admin"
+          description="Tổng hợp doanh thu, xu hướng đặt phòng và hiệu suất phòng theo thời gian thực."
         />
 
         <div className="mx-auto max-w-7xl space-y-8 px-5 py-6 sm:px-8">
@@ -50,27 +50,27 @@ export default function AdminDashboardPage() {
                   BandSpace Control Center
                 </div>
                 <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
-                  Dashboard danh gia hieu qua kinh doanh
+                  Dashboard đánh giá hiệu quả kinh doanh
                 </h1>
                 <p className="mt-3 text-sm leading-relaxed text-inverse-on-surface/85 sm:text-base">
-                  Theo doi ngay gio cao diem, phong duoc yeu thich va dong tien trong 30 ngay gan nhat ngay tai mot man hinh.
+                  Theo dõi ngày giờ cao điểm, phòng được yêu thích và dòng tiền trong 30 ngày gần nhất ngay tại một màn hình.
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-sm">
                   <p className="text-[10px] font-medium uppercase tracking-wider text-inverse-on-surface/70">
-                    Khung mac dinh
+                    Khung mặc định
                   </p>
-                  <p className="mt-1 font-display text-2xl font-bold">30 ngay</p>
-                  <p className="text-xs text-inverse-on-surface/70">co the loc lai ngay lap tuc</p>
+                  <p className="mt-1 font-display text-2xl font-bold">30 ngày</p>
+                  <p className="text-xs text-inverse-on-surface/70">có thể lọc lại ngay lập tức</p>
                 </div>
                 <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-sm">
                   <p className="text-[10px] font-medium uppercase tracking-wider text-inverse-on-surface/70">
                     Admin route
                   </p>
                   <p className="mt-1 font-display text-2xl font-bold text-brand-orange">Protected</p>
-                  <p className="text-xs text-inverse-on-surface/70">chi role ADMIN duoc xem</p>
+                  <p className="text-xs text-inverse-on-surface/70">chỉ role ADMIN được xem</p>
                 </div>
               </div>
             </div>
@@ -80,45 +80,45 @@ export default function AdminDashboardPage() {
 
           <section>
             <div className="mb-5">
-              <h2 className="font-display text-xl font-bold text-on-surface">Truy cap nhanh</h2>
+              <h2 className="font-display text-xl font-bold text-on-surface">Truy cập nhanh</h2>
               <p className="mt-1 text-sm text-on-surface-variant">
-                Di den cac man hinh van hanh lien quan de hanh dong tren du lieu vua phan tich.
+                Đi đến các màn hình vận hành liên quan để hành động trên dữ liệu vừa phân tích.
               </p>
             </div>
 
             <div className="grid gap-5 md:grid-cols-2">
               <AdminModuleCard
                 href="/admin/bookings"
-                label="Don dat phong"
-                title="Quan ly booking"
-                description="Theo doi don dat, thanh toan va xu ly ngay cac booking can can thiep sau khi xem bao cao."
+                label="Đơn đặt phòng"
+                title="Quản lý booking"
+                description="Theo dõi đơn đặt, thanh toán và xử lý ngay các booking cần can thiệp sau khi xem báo cáo."
                 icon={<IconBookings className="h-6 w-6" />}
                 accent="orange"
                 badge="Live"
               />
               <AdminModuleCard
                 href="/admin/equipment"
-                label="Thiet bi cho thue"
-                title="Quan ly thiet bi"
-                description="Kiem tra tai san cho tung phong de doi chieu ROI voi muc do su dung phong tap."
+                label="Thiết bị cho thuê"
+                title="Quản lý thiết bị"
+                description="Kiểm tra tài sản cho từng phòng để đối chiếu ROI với mức độ sử dụng phòng tập."
                 icon={<IconEquipment className="h-6 w-6" />}
                 accent="green"
                 badge="Live"
               />
               <AdminModuleCard
                 href="/admin/rooms"
-                label="Phong tap"
-                title="Quan ly phong tap"
-                description="Tinh chinh gia, hang phong va trang thai van hanh khi nhan ra phong hot hoac phong it duoc dat."
+                label="Phòng tập"
+                title="Quản lý phòng tập"
+                description="Tinh chỉnh giá, hạng phòng và trạng thái vận hành khi nhận ra phòng hot hoặc phòng ít được đặt."
                 icon={<IconRooms className="h-6 w-6" />}
                 accent="amber"
                 badge="Active"
               />
               <AdminModuleCard
                 href="/admin/reports"
-                label="Bao cao"
-                title="Che do phan tich tap trung"
-                description="Mo man hinh bao cao rieng khi ban muon tap trung vao bo loc thoi gian va bieu do."
+                label="Báo cáo"
+                title="Chế độ phân tích tập trung"
+                description="Mở màn hình báo cáo riêng khi bạn muốn tập trung vào bộ lọc thời gian và biểu đồ."
                 icon={<IconReports className="h-6 w-6" />}
                 accent="slate"
                 badge="New"

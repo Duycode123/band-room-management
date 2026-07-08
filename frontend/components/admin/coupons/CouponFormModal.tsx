@@ -6,8 +6,9 @@ import {
   DISCOUNT_TYPE_OPTIONS,
 } from '@/lib/admin/coupons/couponLabels'
 import {
-  previewCouponDiscount,
+  previewCouponFromForm,
   validateCouponForm,
+  validateCouponPreview,
 } from '@/lib/admin/coupons/adminCouponApi'
 import type { CouponFormData, CouponRoomOption } from '@/lib/admin/coupons/types'
 
@@ -35,17 +36,18 @@ export default function CouponFormModal({
   onSubmit,
 }: CouponFormModalProps) {
   const [form, setForm] = useState<CouponFormData>(initialData)
+  const [applyToAllRooms, setApplyToAllRooms] = useState(true)
   const [errors, setErrors] = useState<Partial<Record<keyof CouponFormData, string>>>({})
   const [isSaving, setIsSaving] = useState(false)
   const [serverError, setServerError] = useState('')
   const [previewMessage, setPreviewMessage] = useState('')
   const [previewDiscount, setPreviewDiscount] = useState<number | null>(null)
-  const [isPreviewing, setIsPreviewing] = useState(false)
 
   useEffect(() => {
     if (!open) return
 
     setForm(initialData)
+    setApplyToAllRooms(initialData.roomIds.length === 0)
     setErrors({})
     setServerError('')
     setPreviewMessage('')
@@ -56,60 +58,68 @@ export default function CouponFormModal({
 
   const set = (patch: Partial<CouponFormData>) => setForm((currentForm) => ({ ...currentForm, ...patch }))
 
-  const toggleRoom = (roomId: number) => {
-    setForm((currentForm) => {
-      if (currentForm.roomIds.length === 0) {
-        return {
-          ...currentForm,
-          roomIds: rooms.map((room) => room.roomId).filter((id) => id !== roomId),
-        }
-      }
+  const allRoomIds = rooms.map((room) => room.roomId)
 
-      const selected = new Set(currentForm.roomIds)
-      if (selected.has(roomId)) {
-        selected.delete(roomId)
-      } else {
-        selected.add(roomId)
-      }
+  const isRoomChecked = (roomId: number) => applyToAllRooms || form.roomIds.includes(roomId)
 
-      const nextRoomIds = Array.from(selected)
-      if (nextRoomIds.length === rooms.length) {
-        return { ...currentForm, roomIds: [] }
-      }
-
-      return { ...currentForm, roomIds: nextRoomIds }
-    })
+  const selectAllRooms = () => {
+    setApplyToAllRooms(true)
+    setForm((currentForm) => ({ ...currentForm, roomIds: [] }))
   }
 
-  const handlePreview = async () => {
-    const orderAmount = Number(form.previewOrderAmount)
-    const validationErrors = validateCouponForm(form)
+  const deselectAllRooms = () => {
+    setApplyToAllRooms(false)
+    setForm((currentForm) => ({ ...currentForm, roomIds: [] }))
+  }
 
-    if (validationErrors.code || validationErrors.previewOrderAmount) {
-      setErrors((currentErrors) => ({
-        ...currentErrors,
-        code: validationErrors.code,
-        previewOrderAmount: validationErrors.previewOrderAmount,
+  const toggleRoom = (roomId: number) => {
+    if (applyToAllRooms) {
+      setApplyToAllRooms(false)
+      setForm((currentForm) => ({
+        ...currentForm,
+        roomIds: allRoomIds.filter((id) => id !== roomId),
       }))
       return
     }
 
-    setIsPreviewing(true)
-    setPreviewMessage('')
-    setPreviewDiscount(null)
+    const selected = new Set(form.roomIds)
+    if (selected.has(roomId)) {
+      selected.delete(roomId)
+    } else {
+      selected.add(roomId)
+    }
 
-    try {
-      const result = await previewCouponDiscount(form.code, orderAmount)
-      if (result.valid) {
-        setPreviewDiscount(result.discountAmount ?? 0)
-        setPreviewMessage(result.message)
-      } else {
-        setPreviewMessage(result.message)
-      }
-    } catch (error) {
-      setPreviewMessage(error instanceof Error ? error.message : 'Không thể xem trước giảm giá.')
-    } finally {
-      setIsPreviewing(false)
+    const nextRoomIds = Array.from(selected)
+    if (nextRoomIds.length === allRoomIds.length) {
+      selectAllRooms()
+      return
+    }
+
+    setForm((currentForm) => ({ ...currentForm, roomIds: nextRoomIds }))
+  }
+
+  const handlePreview = () => {
+    const orderAmount = Number(form.previewOrderAmount)
+    const validationErrors = validateCouponPreview(form)
+
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors((currentErrors) => ({
+        ...currentErrors,
+        ...validationErrors,
+      }))
+      setPreviewMessage('')
+      setPreviewDiscount(null)
+      return
+    }
+
+    const result = previewCouponFromForm(form, orderAmount)
+
+    if (result.valid) {
+      setPreviewDiscount(result.discountAmount ?? 0)
+      setPreviewMessage(result.message)
+    } else {
+      setPreviewDiscount(null)
+      setPreviewMessage(result.message)
     }
   }
 
@@ -136,7 +146,7 @@ export default function CouponFormModal({
     }
   }
 
-  const allRoomsSelected = form.roomIds.length === 0
+  const allRoomsSelected = applyToAllRooms
 
   return (
     <>
@@ -255,16 +265,16 @@ export default function CouponFormModal({
                   </div>
                   <button
                     type="button"
-                    onClick={() => set({ roomIds: allRoomsSelected ? rooms.map((room) => room.roomId) : [] })}
+                    onClick={allRoomsSelected ? deselectAllRooms : selectAllRooms}
                     className="shrink-0 rounded-lg border border-outline px-3 py-1.5 font-display text-xs font-medium text-brand-orange hover:bg-white"
                   >
-                    {allRoomsSelected ? 'Chọn tất cả' : 'Bỏ chọn hết'}
+                    {allRoomsSelected ? 'Bỏ chọn hết' : 'Chọn tất cả'}
                   </button>
                 </div>
 
                 <div className="grid max-h-40 gap-2 overflow-y-auto sm:grid-cols-2">
                   {rooms.map((room) => {
-                    const checked = allRoomsSelected || form.roomIds.includes(room.roomId)
+                    const checked = isRoomChecked(room.roomId)
 
                     return (
                       <label
@@ -287,7 +297,7 @@ export default function CouponFormModal({
               <section className="rounded-2xl border border-brand-orange/20 bg-primary-container/20 p-4">
                 <h3 className="font-display text-sm font-bold text-on-surface">Xem trước giảm giá</h3>
                 <p className="mt-1 text-xs text-on-surface-variant">
-                  Kiểm tra nhanh coupon với giá trị đơn mẫu qua API validate.
+                  Ước tính mức giảm theo thông tin đang nhập — không cần lưu coupon trước.
                 </p>
 
                 <div className="mt-3 flex flex-col gap-3 sm:flex-row">
@@ -302,11 +312,10 @@ export default function CouponFormModal({
                   />
                   <button
                     type="button"
-                    onClick={() => void handlePreview()}
-                    disabled={isPreviewing}
-                    className="h-11 shrink-0 rounded-xl border border-brand-orange bg-white px-4 font-display text-sm font-medium text-brand-orange hover:bg-primary-container/30 disabled:opacity-50"
+                    onClick={handlePreview}
+                    className="h-11 shrink-0 rounded-xl border border-brand-orange bg-white px-4 font-display text-sm font-medium text-brand-orange hover:bg-primary-container/30"
                   >
-                    {isPreviewing ? 'Đang kiểm tra...' : 'Xem trước'}
+                    Xem trước
                   </button>
                 </div>
                 {errors.previewOrderAmount && (

@@ -39,9 +39,9 @@ export default function EquipmentFiltersBar({ filters, onChange, resultCount }: 
       <div className="border-b border-outline-variant/60 bg-gradient-to-r from-surface-container-low to-white px-5 py-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="font-display text-sm font-bold text-on-surface">Bo loc va tim kiem</h2>
+            <h2 className="font-display text-sm font-bold text-on-surface">Bộ lọc và tìm kiếm</h2>
             <p className="text-xs text-on-surface-variant">
-              <span className="font-semibold text-brand-orange">{resultCount}</span> thiet bi phu hop
+              <span className="font-semibold text-brand-orange">{resultCount}</span> thiết bị phù hợp
             </p>
           </div>
           {hasActiveFilters && (
@@ -58,7 +58,7 @@ export default function EquipmentFiltersBar({ filters, onChange, resultCount }: 
               }
               className="rounded-full border border-outline px-3 py-1.5 font-display text-xs font-medium text-brand-orange transition-colors hover:bg-primary-container/30"
             >
-              Xoa bo loc
+              Xóa bộ lọc
             </button>
           )}
         </div>
@@ -66,21 +66,21 @@ export default function EquipmentFiltersBar({ filters, onChange, resultCount }: 
 
       <div className="space-y-4 p-5">
         <label className="block">
-          <span className={labelClass}>Tim kiem</span>
+          <span className={labelClass}>Tìm kiếm</span>
           <div className="relative">
             <IconSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-on-surface-variant" />
             <input
               type="search"
               value={filters.query}
               onChange={(event) => set({ query: event.target.value })}
-              placeholder="Ten thiet bi, phong, ma EQ..."
+              placeholder="Tên thiết bị, phòng, mã EQ..."
               className={[inputClass, 'pl-10'].join(' ')}
             />
           </div>
         </label>
 
         <div>
-          <span className={labelClass}>Loai nhanh</span>
+          <span className={labelClass}>Loại nhanh</span>
           <div className="flex flex-wrap gap-2">
             {quickTypes.map((type) => {
               const active = filters.equipmentType === type
@@ -96,7 +96,7 @@ export default function EquipmentFiltersBar({ filters, onChange, resultCount }: 
                       : 'border border-outline-variant bg-surface-container-low text-on-surface-variant hover:border-brand-orange/30 hover:text-on-surface',
                   ].join(' ')}
                 >
-                  {type === 'ALL' ? 'Tat ca' : EQUIPMENT_TYPE_LABELS[type]}
+                  {type === 'ALL' ? 'Tất cả' : EQUIPMENT_TYPE_LABELS[type]}
                 </button>
               )
             })}
@@ -104,7 +104,7 @@ export default function EquipmentFiltersBar({ filters, onChange, resultCount }: 
         </div>
 
         <div>
-          <span className={labelClass}>Trang thai nhanh</span>
+          <span className={labelClass}>Trạng thái nhanh</span>
           <div className="flex flex-wrap gap-2">
             {quickStatuses.map((status) => {
               const active = filters.status === status
@@ -120,7 +120,7 @@ export default function EquipmentFiltersBar({ filters, onChange, resultCount }: 
                       : 'border border-outline-variant bg-surface-container-low text-on-surface-variant hover:border-secondary/30 hover:text-on-surface',
                   ].join(' ')}
                 >
-                  {status === 'ALL' ? 'Tat ca' : EQUIPMENT_STATUS_LABELS[status]}
+                  {status === 'ALL' ? 'Tất cả' : EQUIPMENT_STATUS_LABELS[status]}
                 </button>
               )
             })}
@@ -129,13 +129,13 @@ export default function EquipmentFiltersBar({ filters, onChange, resultCount }: 
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <label className="block">
-            <span className={labelClass}>Loai chi tiet</span>
+            <span className={labelClass}>Loại chi tiết</span>
             <select
               value={filters.equipmentType}
               onChange={(event) => set({ equipmentType: event.target.value as EquipmentFilters['equipmentType'] })}
               className={inputClass}
             >
-              <option value="ALL">Tat ca</option>
+              <option value="ALL">Tất cả</option>
               {EQUIPMENT_TYPE_OPTIONS.map((type) => (
                 <option key={type} value={type}>
                   {EQUIPMENT_TYPE_LABELS[type]}
@@ -145,13 +145,13 @@ export default function EquipmentFiltersBar({ filters, onChange, resultCount }: 
           </label>
 
           <label className="block">
-            <span className={labelClass}>Trang thai</span>
+            <span className={labelClass}>Trạng thái</span>
             <select
               value={filters.status}
               onChange={(event) => set({ status: event.target.value as EquipmentFilters['status'] })}
               className={inputClass}
             >
-              <option value="ALL">Tat ca</option>
+              <option value="ALL">Tất cả</option>
               {EQUIPMENT_STATUS_OPTIONS.map((status) => (
                 <option key={status} value={status}>
                   {EQUIPMENT_STATUS_LABELS[status]}
@@ -161,26 +161,26 @@ export default function EquipmentFiltersBar({ filters, onChange, resultCount }: 
           </label>
 
           <label className="block">
-            <span className={labelClass}>Sap xep theo</span>
+            <span className={labelClass}>Sắp xếp theo</span>
             <select
               value={filters.sortBy}
               onChange={(event) => set({ sortBy: event.target.value as EquipmentFilters['sortBy'] })}
               className={inputClass}
             >
-              <option value="name">Ten</option>
-              <option value="room">Phong</option>
+              <option value="name">Tên</option>
+              <option value="room">Phòng</option>
             </select>
           </label>
 
           <label className="block">
-            <span className={labelClass}>Thu tu</span>
+            <span className={labelClass}>Thứ tự</span>
             <select
               value={filters.sortOrder}
               onChange={(event) => set({ sortOrder: event.target.value as EquipmentFilters['sortOrder'] })}
               className={inputClass}
             >
-              <option value="asc">Tang dan</option>
-              <option value="desc">Giam dan</option>
+              <option value="asc">Tăng dần</option>
+              <option value="desc">Giảm dần</option>
             </select>
           </label>
         </div>

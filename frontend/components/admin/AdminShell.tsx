@@ -52,13 +52,13 @@ export default function AdminShell({ children }: AdminShellProps) {
       </div>
 
       <div className="relative flex min-h-screen">
-        {/* Sidebar - desktop */}
-        <aside className="hidden w-64 shrink-0 flex-col border-r border-white/10 bg-gradient-to-b from-brand-greenDark via-brand-greenDark to-brand-greenLight lg:flex">
-          <div className="border-b border-white/10 px-5 py-6">
+        {/* Sidebar - desktop: full viewport height, footer pinned at bottom */}
+        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-white/10 bg-gradient-to-b from-brand-greenDark via-brand-greenDark to-brand-greenLight lg:flex">
+          <div className="shrink-0 border-b border-white/10 px-5 py-6">
             <AdminBrandMark />
           </div>
 
-          <nav className="flex-1 space-y-1 px-3 py-5">
+          <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-5">
             {NAV_ITEMS.map((item) => {
               const active = pathname === item.href
               const base =
@@ -85,13 +85,13 @@ export default function AdminShell({ children }: AdminShellProps) {
             })}
           </nav>
 
-          <div className="border-t border-white/10 p-4">
+          <div className="shrink-0 border-t border-white/10 bg-brand-greenDark/40 p-4 backdrop-blur-sm">
             <Link
               href="/customer/profile"
               className="mb-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 font-display text-sm font-medium text-inverse-on-surface/80 transition-colors hover:bg-white/10 hover:text-white"
             >
               <span className="flex h-5 w-5 items-center justify-center rounded-full border border-current text-[11px]">U</span>
-              Ho so ca nhan
+              Hồ sơ cá nhân
             </Link>
             <button
               type="button"

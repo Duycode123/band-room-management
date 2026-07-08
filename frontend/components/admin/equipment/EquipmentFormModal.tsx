@@ -67,7 +67,7 @@ export default function EquipmentFormModal({
       await onSubmit(form)
       onClose()
     } catch (error) {
-      setServerError(error instanceof Error ? error.message : 'Khong the luu thiet bi.')
+      setServerError(error instanceof Error ? error.message : 'Không thể lưu thiết bị.')
     } finally {
       setIsSaving(false)
     }
@@ -77,7 +77,7 @@ export default function EquipmentFormModal({
     <>
       <button
         type="button"
-        aria-label="Dong form"
+        aria-label="Đóng form"
         onClick={onClose}
         className="fixed inset-0 z-50 bg-inverse-surface/50 backdrop-blur-sm"
       />
@@ -95,13 +95,13 @@ export default function EquipmentFormModal({
               className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-brand-orange/20 blur-2xl"
             />
             <p className="relative font-display text-[10px] font-medium uppercase tracking-[0.15em] text-brand-orange">
-              {mode === 'create' ? 'Them moi' : 'Chinh sua'}
+              {mode === 'create' ? 'Thêm mới' : 'Chỉnh sửa'}
             </p>
             <h2 id="equipment-form-title" className="relative font-display text-xl font-bold">
-              {mode === 'create' ? 'Them thiet bi moi' : 'Cap nhat thiet bi'}
+              {mode === 'create' ? 'Thêm thiết bị mới' : 'Cập nhật thiết bị'}
             </h2>
             <p className="relative mt-1 text-xs text-inverse-on-surface/80">
-              Dong bo truc tiep voi API quan ly thiet bi cua backend.
+              Đồng bộ trực tiếp với API quản lý thiết bị của backend.
             </p>
           </header>
 
@@ -109,14 +109,14 @@ export default function EquipmentFormModal({
             <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
               <label className="block">
                 <span className={labelClass}>
-                  Phong <span className="text-error">*</span>
+                  Phòng <span className="text-error">*</span>
                 </span>
                 <select
                   value={form.roomId ?? ''}
                   onChange={(event) => set({ roomId: Number(event.target.value) || null })}
                   className={inputClass}
                 >
-                  <option value="">Chon phong</option>
+                  <option value="">Chọn phòng</option>
                   {rooms.map((room) => (
                     <option key={room.roomId} value={room.roomId}>
                       {room.roomName}
@@ -128,7 +128,7 @@ export default function EquipmentFormModal({
 
               <label className="block">
                 <span className={labelClass}>
-                  Ten thiet bi <span className="text-error">*</span>
+                  Tên thiết bị <span className="text-error">*</span>
                 </span>
                 <input
                   type="text"
@@ -143,7 +143,7 @@ export default function EquipmentFormModal({
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
                   <span className={labelClass}>
-                    Loai thiet bi <span className="text-error">*</span>
+                    Loại thiết bị <span className="text-error">*</span>
                   </span>
                   <select
                     value={form.equipmentType}
@@ -160,7 +160,7 @@ export default function EquipmentFormModal({
 
                 <label className="block">
                   <span className={labelClass}>
-                    Trang thai <span className="text-error">*</span>
+                    Trạng thái <span className="text-error">*</span>
                   </span>
                   <select
                     value={form.status}
@@ -177,14 +177,14 @@ export default function EquipmentFormModal({
               </div>
 
               <label className="block">
-                <span className={labelClass}>Ghi chu</span>
+                <span className={labelClass}>Ghi chú</span>
                 <textarea
                   value={form.notes}
                   onChange={(event) => set({ notes: event.target.value })}
                   rows={4}
                   maxLength={1000}
                   className="w-full rounded-xl border border-outline bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface outline-none transition-all focus:border-brand-orange focus:bg-white focus:ring-2 focus:ring-brand-orange/15"
-                  placeholder="Mo ta nhanh tinh trang hoac cach su dung..."
+                  placeholder="Mô tả nhanh tình trạng hoặc cách sử dụng..."
                 />
                 <p className="mt-1 text-right text-[10px] text-on-surface-variant">{form.notes.length}/1000</p>
                 {errors.notes && <p className="mt-1 text-xs text-error">{errors.notes}</p>}
@@ -204,14 +204,14 @@ export default function EquipmentFormModal({
                 disabled={isSaving}
                 className="rounded-xl border border-outline px-5 py-2.5 font-display text-sm font-medium text-on-surface-variant hover:bg-white disabled:opacity-50"
               >
-                Huy
+                Hủy
               </button>
               <button
                 type="submit"
                 disabled={isSaving}
                 className="rounded-xl bg-brand-orange px-5 py-2.5 font-display text-sm font-medium text-white shadow-md shadow-brand-orange/20 hover:bg-brand-orangeHover disabled:opacity-50"
               >
-                {isSaving ? 'Dang luu...' : 'Luu thiet bi'}
+                {isSaving ? 'Đang lưu...' : 'Lưu thiết bị'}
               </button>
             </footer>
           </form>

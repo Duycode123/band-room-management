@@ -117,7 +117,7 @@ function mapTopRooms(rooms: BackendRoomPerformanceSummary[]): TopRoomPoint[] {
     .slice(0, 8)
     .map((room) => ({
       roomId: room.roomId,
-      roomName: room.roomName || 'Chua xac dinh',
+      roomName: room.roomName || 'Chưa xác định',
       roomTypeName: room.roomTypeName || undefined,
       orderCount: room.successfulBookingCount,
     }))
@@ -154,6 +154,6 @@ export async function fetchAdminReport(range: ReportDateRange): Promise<AdminRep
       topRooms: mapTopRooms(roomPerformanceReport.rooms),
     }
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the tai bao cao doanh thu.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể tải báo cáo doanh thu.'))
   }
 }

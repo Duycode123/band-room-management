@@ -87,11 +87,11 @@ function mapBooking(booking: BackendBooking): CustomerBookingSummary {
 
 export function formatBookingStatus(status: CustomerBookingStatus) {
   const labels: Record<CustomerBookingStatus, string> = {
-    PENDING_PAYMENT: 'Cho thanh toan',
-    PAID: 'Da thanh toan',
-    CHECKED_IN: 'Da check-in',
-    COMPLETED: 'Hoan tat',
-    CANCELLED: 'Da huy',
+    PENDING_PAYMENT: 'Chờ thanh toán',
+    PAID: 'Đã thanh toán',
+    CHECKED_IN: 'Đã check-in',
+    COMPLETED: 'Hoàn tất',
+    CANCELLED: 'Đã hủy',
   }
 
   return labels[status]
@@ -105,7 +105,7 @@ export async function fetchCustomerBookings(): Promise<CustomerBookingSummary[]>
 
     return (response.data.data?.content ?? []).map(mapBooking)
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the tai danh sach booking cua ban.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể tải danh sách booking của bạn.'))
   }
 }
 
@@ -117,6 +117,6 @@ export async function submitCustomerIssueReport(payload: ReportIssuePayload): Pr
       description: payload.description.trim(),
     })
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the gui bao cao su co.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể gửi báo cáo sự cố.'))
   }
 }
