@@ -37,6 +37,9 @@ public class CustomerIssueReport {
     @Column(name = "description", nullable = false, length = 1000)
     private String description;
 
+    @Column(name = "admin_note", length = 1000)
+    private String adminNote;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
     private CustomerIssueReportStatus status;

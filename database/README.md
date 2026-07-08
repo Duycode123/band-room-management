@@ -198,7 +198,7 @@ If the change is part of the Vietnamese-to-English rename:
 - `staff.account_id` is required for staff-only workflows. The backfill migration creates a minimal staff profile for existing `account.role = 'STAFF'` rows that were missing a `staff` record.
 - Approved staff shift registrations must have a matching `shift` row because the staff schedule page reads assigned shifts from `shift`; `20260707_backfill_shifts_for_approved_staff_registrations.sql` creates missing shifts for already approved registrations.
 - `coupon_usage` records the exact discount amount actually consumed by one paid booking and enforces one usage row per booking through `booking_id` uniqueness.
-- `customer_issue_report` stores customer-submitted support issues, optionally linked to one owned booking, and keeps a small explicit lifecycle (`OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`).
+- `customer_issue_report` stores customer-submitted support issues, optionally linked to one owned booking, keeps a small explicit lifecycle (`OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`), and stores the latest admin handling note in `admin_note`.
 - `user_notification_settings` stores per-account notification preferences for operational events such as booking updates, shift reminders, room issues, and equipment issues.
 - `facility_condition_report` stores staff-recorded room/equipment condition history and marks broken reports as maintenance suggestions.
 

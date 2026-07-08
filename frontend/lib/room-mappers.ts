@@ -2,6 +2,7 @@ import {
   bookingRooms,
   roomCategories,
   type BookingRoom,
+  type BookingRoomReviewSummary,
   type RoomAvailabilityStatus,
   type RoomCategory,
 } from '@/components/booking/booking-data'
@@ -192,7 +193,12 @@ export function mapRoomTypeToAdminOption(roomType: BackendRoomType): AdminRoomTy
   }
 }
 
-export function mapBackendRoomToAdminRoom(room: BackendRoom, index = 0): AdminRoom {
+export function mapBackendRoomToAdminRoom(
+  room: BackendRoom,
+  index = 0,
+  monthlyRevenue = 0,
+  reviewSummary?: BookingRoomReviewSummary,
+): AdminRoom {
   const category = inferRoomCategoryFromTypeName(
     `${room.roomType?.typeName ?? ''} ${room.roomType?.description ?? ''}`,
   )
@@ -219,13 +225,17 @@ export function mapBackendRoomToAdminRoom(room: BackendRoom, index = 0): AdminRo
     lastUpdated: 'Đồng bộ từ backend',
     description: getRoomDescription(room, category),
     occupancyRateToday: availability.occupancyRateToday,
-    monthlyRevenue: 0,
-    averageRating: 0,
+    monthlyRevenue,
+    averageRating: reviewSummary?.averageRating ?? 0,
     latestMaintenance: status === 'maintenance' ? 'Đang bảo trì' : 'Chưa có lịch bảo trì gần đây',
   }
 }
 
-export function mapBackendRoomToBookingRoom(room: BackendRoom, index = 0): BookingRoom {
+export function mapBackendRoomToBookingRoom(
+  room: BackendRoom,
+  index = 0,
+  reviewSummary?: BookingRoomReviewSummary,
+): BookingRoom {
   const category = inferRoomCategoryFromTypeName(
     `${room.roomType?.typeName ?? ''} ${room.roomType?.description ?? ''}`,
   )
@@ -241,8 +251,8 @@ export function mapBackendRoomToBookingRoom(room: BackendRoom, index = 0): Booki
     categoryLabel: getCategoryLabel(category),
     type: getRoomTypeName(room, category),
     badge: categoryBadges[category],
-    rating: 4.8,
-    reviews: 0,
+    rating: reviewSummary?.reviewCount ? reviewSummary.averageRating : undefined,
+    reviews: reviewSummary?.reviewCount ?? 0,
     capacity: `Tối đa ${capacity} người`,
     location: room.floor ? `Tầng ${room.floor}, Band Room Studio` : 'Band Room Studio',
     image: getImageUrl(room.imageUrl, true),

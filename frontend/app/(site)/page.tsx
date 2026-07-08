@@ -3,9 +3,16 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState, type ReactNode } from 'react'
-import { shouldReopenQuickBooking } from '@/components/booking/quick-booking-draft'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import BookingQuickModal from '@/components/booking/BookingQuickModal'
+import RoomDetailModal from '@/components/booking/RoomDetailModal'
+import { formatCurrency, type BookingRoom } from '@/components/booking/booking-data'
+import {
+  readQuickBookingDraft,
+  shouldReopenQuickBooking,
+} from '@/components/booking/quick-booking-draft'
 import { useHomepageLiveData } from '@/hooks/useHomepageLiveData'
+import { usePublicRoomCatalog } from '@/hooks/usePublicRoomCatalog'
 import {
   formatRelativeTime,
   formatSlotDateLabel,
@@ -215,6 +222,246 @@ function getAvailabilityDotClassName(tone: AvailabilityTone) {
   return ['h-2 w-2 rounded-full', toneClassName[tone]].join(' ')
 }
 
+function getTopRatedRooms(rooms: BookingRoom[]) {
+  return rooms
+    .filter((room) => typeof room.rating === 'number' && room.rating > 4 && !isRoomUnavailable(room))
+    .sort((a, b) => {
+      const ratingDiff = (b.rating ?? 0) - (a.rating ?? 0)
+      if (ratingDiff !== 0) return ratingDiff
+      return (b.reviews ?? 0) - (a.reviews ?? 0)
+    })
+    .slice(0, 8)
+}
+
+function isRoomUnavailable(room: BookingRoom) {
+  return ['MAINTENANCE', 'INACTIVE', 'UNAVAILABLE', 'DISABLED', 'CLOSED'].includes(room.operationalStatus ?? '')
+}
+
+function TopRatedRoomsSection({
+  rooms,
+  isLoading,
+  onOpenDetail,
+  onBook,
+}: {
+  rooms: BookingRoom[]
+  isLoading: boolean
+  onOpenDetail: (room: BookingRoom) => void
+  onBook: (room: BookingRoom) => void
+}) {
+  const scrollerRef = useRef<HTMLDivElement | null>(null)
+  const [canScrollPrevious, setCanScrollPrevious] = useState(false)
+  const [canScrollNext, setCanScrollNext] = useState(false)
+
+  useEffect(() => {
+    const scroller = scrollerRef.current
+    if (!scroller) return
+
+    const updateScrollState = () => {
+      const maxScrollLeft = scroller.scrollWidth - scroller.clientWidth
+      setCanScrollPrevious(scroller.scrollLeft > 8)
+      setCanScrollNext(scroller.scrollLeft < maxScrollLeft - 8)
+    }
+
+    updateScrollState()
+    scroller.addEventListener('scroll', updateScrollState, { passive: true })
+    window.addEventListener('resize', updateScrollState)
+
+    return () => {
+      scroller.removeEventListener('scroll', updateScrollState)
+      window.removeEventListener('resize', updateScrollState)
+    }
+  }, [rooms.length, isLoading])
+
+  const scrollCards = (direction: 'previous' | 'next') => {
+    const scroller = scrollerRef.current
+    if (!scroller) return
+
+    scroller.scrollBy({
+      left: direction === 'next' ? scroller.clientWidth : -scroller.clientWidth,
+      behavior: 'smooth',
+    })
+  }
+
+  return (
+    <section className="relative overflow-hidden bg-brand-bgGray py-20 sm:py-24">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -left-20 top-12 h-64 w-64 rounded-full bg-brand-orange/10 blur-3xl"
+      />
+
+      <div className="relative mx-auto max-w-7xl px-5 sm:px-8">
+        <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
+          <div className="max-w-2xl">
+            <p className="font-display text-sm font-semibold uppercase tracking-[0.12em] text-brand-orange">
+              Gợi ý từ khách hàng
+            </p>
+            <h2 className="mt-3 font-display text-3xl font-bold leading-tight text-on-surface sm:text-4xl">
+              Phòng được đánh giá cao
+            </h2>
+            <p className="mt-4 text-base leading-7 text-on-surface-variant">
+              Những phòng tập được khách hàng yêu thích và đánh giá tốt nhất.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/rooms?sort=rating"
+              className="inline-flex h-11 items-center rounded-xl bg-brand-orange px-5 font-display text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,117,24,0.28)] transition-all hover:bg-brand-orangeHover active:scale-[0.98]"
+            >
+              Xem tất cả
+            </Link>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="h-[420px] animate-pulse rounded-[28px] border border-outline-variant bg-white" />
+            ))}
+          </div>
+        ) : rooms.length > 0 ? (
+          <div className="relative mt-10">
+            {canScrollPrevious && (
+              <button
+                type="button"
+                onClick={() => scrollCards('previous')}
+                className="group absolute left-1 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/35 bg-[linear-gradient(135deg,#FF8A33_0%,#FF7518_52%,#E6640F_100%)] text-white shadow-[0_18px_44px_rgba(230,100,15,0.28),0_4px_12px_rgba(26,28,30,0.12),inset_0_1px_0_rgba(255,255,255,0.36)] outline-none transition-all duration-300 ease-out before:pointer-events-none before:absolute before:inset-[1px] before:rounded-full before:border before:border-white/20 hover:scale-[1.05] hover:bg-[linear-gradient(135deg,#FF9B4A_0%,#FF8126_52%,#F06D15_100%)] hover:shadow-[0_24px_54px_rgba(230,100,15,0.36),0_8px_18px_rgba(26,28,30,0.14),inset_0_1px_0_rgba(255,255,255,0.46)] focus-visible:ring-4 focus-visible:ring-brand-orange/25 active:scale-[0.96] active:shadow-[0_12px_30px_rgba(230,100,15,0.22),0_3px_8px_rgba(26,28,30,0.1)] sm:left-2"
+                aria-label="Xem nhóm phòng trước"
+              >
+                <ChevronIcon className="h-5 w-5 rotate-180 stroke-[2.4] transition-transform duration-300 ease-out group-hover:-translate-x-0.5" />
+              </button>
+            )}
+
+            {canScrollNext && (
+              <button
+                type="button"
+                onClick={() => scrollCards('next')}
+                className="group absolute right-1 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/35 bg-[linear-gradient(135deg,#FF8A33_0%,#FF7518_52%,#E6640F_100%)] text-white shadow-[0_18px_44px_rgba(230,100,15,0.28),0_4px_12px_rgba(26,28,30,0.12),inset_0_1px_0_rgba(255,255,255,0.36)] outline-none transition-all duration-300 ease-out before:pointer-events-none before:absolute before:inset-[1px] before:rounded-full before:border before:border-white/20 hover:scale-[1.05] hover:bg-[linear-gradient(135deg,#FF9B4A_0%,#FF8126_52%,#F06D15_100%)] hover:shadow-[0_24px_54px_rgba(230,100,15,0.36),0_8px_18px_rgba(26,28,30,0.14),inset_0_1px_0_rgba(255,255,255,0.46)] focus-visible:ring-4 focus-visible:ring-brand-orange/25 active:scale-[0.96] active:shadow-[0_12px_30px_rgba(230,100,15,0.22),0_3px_8px_rgba(26,28,30,0.1)] sm:right-2"
+                aria-label="Xem nhóm phòng tiếp theo"
+              >
+                <ChevronIcon className="h-5 w-5 stroke-[2.4] transition-transform duration-300 ease-out group-hover:translate-x-0.5" />
+              </button>
+            )}
+
+            <div
+              ref={scrollerRef}
+              className="-mx-5 flex snap-x gap-5 overflow-x-auto scroll-smooth px-5 pb-4 sm:-mx-8 sm:px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
+              {rooms.map((room) => (
+                <TopRatedRoomCard key={room.id} room={room} onOpenDetail={onOpenDetail} onBook={onBook} />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="mt-10 rounded-[28px] border border-dashed border-outline-variant bg-white px-6 py-12 text-center shadow-[var(--shadow-card)]">
+            <p className="font-display text-lg font-bold text-on-surface">Chưa có dữ liệu đánh giá phòng.</p>
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function TopRatedRoomCard({
+  room,
+  onOpenDetail,
+  onBook,
+}: {
+  room: BookingRoom
+  onOpenDetail: (room: BookingRoom) => void
+  onBook: (room: BookingRoom) => void
+}) {
+  const imageSrc = room.image ?? '/images/band-room-hero.png'
+
+  return (
+    <article className="group flex w-[82vw] shrink-0 snap-start flex-col overflow-hidden rounded-[28px] border border-[#E8E4DC] bg-white shadow-[0_16px_42px_rgba(26,28,30,0.08)] transition-all duration-300 hover:-translate-y-1 hover:border-brand-orange/30 hover:shadow-[0_22px_56px_rgba(26,28,30,0.12)] sm:w-[calc((100vw-5rem-1.25rem)/2)] xl:w-[calc((100vw-12rem-3.75rem)/4)] xl:max-w-[292px]">
+      <button type="button" onClick={() => onOpenDetail(room)} className="block text-left">
+        <div className="relative aspect-[16/11] overflow-hidden bg-surface-container">
+          <Image
+            src={imageSrc}
+            alt={room.name}
+            fill
+            sizes="(min-width: 1280px) 292px, (min-width: 768px) 46vw, 82vw"
+            className={['object-cover transition duration-300 group-hover:scale-105', room.imageClassName].join(' ')}
+          />
+          <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(4,42,22,0.54),transparent_58%)]" />
+          <span className="absolute right-4 top-4 rounded-full bg-white/95 px-3 py-1 font-display text-xs font-bold text-[#1A1C1E] shadow-sm">
+            ★ {(room.rating ?? 0).toFixed(1)}
+          </span>
+          <span className="absolute bottom-4 left-4 rounded-full border border-white/20 bg-white/92 px-3 py-1 font-display text-xs font-bold text-[#5C5348]">
+            {room.availabilityStatus === 'FULL_TODAY' ? 'Chọn ngày khác' : 'Có thể đặt lịch'}
+          </span>
+        </div>
+      </button>
+
+      <div className="flex flex-1 flex-col p-5">
+        <p className="font-display text-xs font-bold uppercase tracking-wide text-brand-orange">{room.categoryLabel}</p>
+        <h3 className="mt-2 font-display text-xl font-bold leading-tight text-on-surface">{room.name}</h3>
+        <p className="mt-2 line-clamp-2 text-sm leading-6 text-on-surface-variant">{room.description}</p>
+
+        <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+          <div className="rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] px-3 py-3">
+            <p className="font-display text-[10px] font-bold uppercase text-[#5C5348]">Sức chứa</p>
+            <p className="mt-1 font-semibold text-[#1A1C1E]">{room.capacity}</p>
+          </div>
+          <div className="rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] px-3 py-3">
+            <p className="font-display text-[10px] font-bold uppercase text-[#5C5348]">Giá/giờ</p>
+            <p className="mt-1 font-semibold text-[#FF7518]">{formatCurrency(room.pricePerHour)}</p>
+          </div>
+        </div>
+
+        <p className="mt-4 text-sm font-medium text-on-surface-variant">
+          {room.reviews ? `${room.reviews} đánh giá` : 'Chưa có lượt đánh giá'}
+        </p>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          {room.equipments.slice(0, 3).map((item) => (
+            <span
+              key={item}
+              className="rounded-full border border-[#E8E4DC] bg-[#F5F2EC] px-3 py-1 text-xs font-medium text-[#5C5348]"
+            >
+              {item}
+            </span>
+          ))}
+        </div>
+
+        <div className="mt-auto grid grid-cols-2 gap-2 border-t border-[#E8E4DC] pt-4">
+          <button
+            type="button"
+            onClick={() => onOpenDetail(room)}
+            className="rounded-xl border border-[#E8E4DC] bg-white px-4 py-2.5 font-display text-sm font-semibold text-[#5C5348] transition-colors hover:border-brand-orange/40 hover:text-brand-orange"
+          >
+            Chi tiết
+          </button>
+          <button
+            type="button"
+            onClick={() => onBook(room)}
+            className="rounded-xl bg-brand-orange px-4 py-2.5 font-display text-sm font-semibold text-white shadow-[0_10px_24px_rgba(255,117,24,0.24)] transition-colors hover:bg-brand-orangeHover"
+          >
+            Đặt phòng
+          </button>
+        </div>
+      </div>
+    </article>
+  )
+}
+
+function ChevronIcon({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m9 18 6-6-6-6" />
+    </svg>
+  )
+}
+
+type QuickBookingState = {
+  room: BookingRoom
+  initialDate?: string
+  initialStartTime?: string
+  initialDuration?: number
+  initialNote?: string
+}
+
 export default function HomePage() {
   const router = useRouter()
   const {
@@ -224,13 +471,36 @@ export default function HomePage() {
     isLoading: isLiveDataLoading,
     error: liveDataError,
   } = useHomepageLiveData()
+  const { rooms, isLoading: isRoomCatalogLoading } = usePublicRoomCatalog()
   const [availabilityHintVisible, setAvailabilityHintVisible] = useState(false)
+  const [detailRoom, setDetailRoom] = useState<BookingRoom | null>(null)
+  const [quickBooking, setQuickBooking] = useState<QuickBookingState | null>(null)
+  const topRatedRooms = useMemo(() => getTopRatedRooms(rooms), [rooms])
 
   useEffect(() => {
-    if (shouldReopenQuickBooking(window.location.search)) {
-      router.replace('/rooms?reopenQuickBooking=1')
+    if (!shouldReopenQuickBooking(window.location.search)) return
+
+    const draft = readQuickBookingDraft()
+    if (!draft) {
+      window.history.replaceState(window.history.state, '', '/')
+      return
     }
-  }, [router])
+
+    const draftRoom = draft.selectedRoom ?? draft.room
+    const restoredRoom = rooms.find((room) => room.id === draftRoom?.id) ?? draftRoom
+
+    if (restoredRoom) {
+      setQuickBooking({
+        room: restoredRoom,
+        initialDate: draft.selectedDate ?? draft.initialDate,
+        initialStartTime: draft.selectedStartTime ?? draft.selectedSlot?.startTime ?? draft.initialStartTime,
+        initialDuration: draft.selectedDuration ?? draft.initialDuration,
+        initialNote: draft.customerNote ?? draft.initialNote,
+      })
+    }
+
+    window.history.replaceState(window.history.state, '', '/')
+  }, [rooms])
 
   const goToRooms = () => {
     router.push('/rooms')
@@ -446,6 +716,13 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      <TopRatedRoomsSection
+        rooms={topRatedRooms}
+        isLoading={isRoomCatalogLoading}
+        onOpenDetail={setDetailRoom}
+        onBook={(room) => setQuickBooking({ room })}
+      />
 
       <section className="relative scroll-mt-24 overflow-hidden bg-brand-bgGray py-20 sm:py-24">
         <div
@@ -687,6 +964,31 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {detailRoom && (
+        <RoomDetailModal
+          room={detailRoom}
+          open
+          onClose={() => setDetailRoom(null)}
+          onBook={(room) => {
+            setDetailRoom(null)
+            setQuickBooking({ room })
+          }}
+        />
+      )}
+      {quickBooking && (
+        <BookingQuickModal
+          room={quickBooking.room}
+          open
+          initialDate={quickBooking.initialDate}
+          initialStartTime={quickBooking.initialStartTime}
+          initialDuration={quickBooking.initialDuration}
+          initialNote={quickBooking.initialNote}
+          sourceRoute="/"
+          returnPath="/"
+          onClose={() => setQuickBooking(null)}
+        />
+      )}
     </main>
   )
 }
