@@ -23,5 +23,8 @@ public class BookingCostResponse {
 
     private BigDecimal totalHours;
     private BigDecimal pricePerHour;
+    private BigDecimal originalAmount;
+    private String couponCode;
+    private BigDecimal discountAmount;
     private BigDecimal totalAmount;
 }

@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "khach_hang")
+@Table(name = "customer")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -18,18 +18,18 @@ public class Customer {
     private Integer id;
 
     @OneToOne(optional = false)
-    @JoinColumn(name = "tai_khoan_id", nullable = false, unique = true)
+    @JoinColumn(name = "account_id", nullable = false, unique = true)
     private User account;
 
-    @Column(name = "ho_ten", nullable = false)
+    @Column(name = "full_name", nullable = false)
     private String fullName;
 
-    @Column(name = "so_dien_thoai")
+    @Column(name = "phone_number")
     private String phone;
 
     @Column(name = "email")
     private String email;
 
-    @Column(name = "ngay_sinh")
+    @Column(name = "date_of_birth")
     private LocalDate dateOfBirth;
 }

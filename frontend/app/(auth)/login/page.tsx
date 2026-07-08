@@ -1,12 +1,13 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { Suspense, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import api from '@/lib/api'
-import axios from 'axios'
 import { useAuth } from '@/contexts/AuthContext'
+import { getPostLoginPath, loginSession } from '@/lib/auth'
+import { clearStoredCustomerProfile, fetchCurrentUser } from '@/lib/customer-profile-service'
 import AuthBanner from '@/components/auth/AuthBanner'
 import AuthTabs from '@/components/auth/AuthTabs'
+import RegisterSuccessBanner from '@/components/auth/RegisterSuccessBanner'
 import {
   AuthError,
   AuthField,
@@ -16,14 +17,6 @@ import {
   AuthSubmitButton,
 } from '@/components/auth/AuthField'
 
-type UserRole = 'ADMIN' | 'STAFF' | 'CUSTOMER'
-
-const dashboardByRole: Record<UserRole, string> = {
-  ADMIN: '/admin/dashboard',
-  STAFF: '/staff/dashboard',
-  CUSTOMER: '/customer/dashboard',
-}
-
 export default function LoginPage() {
   const router = useRouter()
   const { login } = useAuth()
@@ -31,6 +24,7 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [requiresEmailVerification, setRequiresEmailVerification] = useState(false)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
@@ -40,26 +34,28 @@ export default function LoginPage() {
     e.preventDefault()
     setIsLoading(true)
     setError('')
+    setRequiresEmailVerification(false)
+
     try {
-      const response = await api.post('/api/auth/login', formData)
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`,
-        {
-          email: formData.identifier.trim(),
-          password: formData.password,
-        },
-      )
-      if (response.status === 200 && response.data) {
-        const { role } = response.data as {
-          role: UserRole
-        }
-        alert('Đăng nhập thành công!')
-        login({ accessToken, refreshToken, role })
-        router.push(dashboardByRole[role] || '/')
-      }
+      const sessionUser = await loginSession(formData.identifier.trim(), formData.password)
+      clearStoredCustomerProfile()
+      const currentProfile = await fetchCurrentUser(sessionUser)
+
+      login({
+        ...sessionUser,
+        id: currentProfile.id ?? sessionUser.id,
+        role: currentProfile.role,
+        fullName: currentProfile.fullName,
+        name: currentProfile.fullName,
+        email: currentProfile.email,
+        phone: currentProfile.phone,
+        avatarUrl: currentProfile.avatarUrl,
+      })
+      router.replace(getRedirectPath(sessionUser.role))
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } }
       setError(axiosErr.response?.data?.message || 'Đăng nhập thất bại, vui lòng kiểm tra lại tài khoản.')
+      setRequiresEmailVerification(Boolean(axiosErr.response?.data?.message?.toLowerCase().includes('xac thuc email')))
     } finally {
       setIsLoading(false)
     }
@@ -78,15 +74,28 @@ export default function LoginPage() {
           <p className="mt-1 text-sm text-on-surface-variant">Đăng nhập để tiếp tục đặt phòng tập của bạn.</p>
         </div>
 
+        <Suspense fallback={null}>
+          <RegisterSuccessBanner />
+        </Suspense>
+
         {error && <AuthError message={error} />}
+        {requiresEmailVerification && (
+          <button
+            type="button"
+            onClick={() => router.push(`/verify-email?email=${encodeURIComponent(formData.identifier.trim())}`)}
+            className="mb-4 w-full cursor-pointer rounded-lg border border-brand-orange px-4 py-2.5 font-display text-sm font-semibold text-brand-orange transition-colors hover:bg-brand-orange/5"
+          >
+            Gui lai email xac thuc
+          </button>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <AuthField
-            label="Email hoặc Số điện thoại"
+            label="Email"
             name="identifier"
             value={formData.identifier}
             onChange={handleChange}
-            placeholder="Nhập email hoặc số điện thoại"
+            placeholder="Nhập email của bạn"
             icon="user"
           />
 
@@ -206,4 +215,24 @@ export default function LoginPage() {
       </AuthFormPanel>
     </AuthShell>
   )
+}
+
+function getRedirectPath(role: Parameters<typeof getPostLoginPath>[0]) {
+  if (typeof window === 'undefined') {
+    return getPostLoginPath(role)
+  }
+
+  const searchParams = new URLSearchParams(window.location.search)
+  const returnUrl = searchParams.get('returnUrl')
+  const redirectPath = searchParams.get('redirect')
+
+  if (returnUrl && returnUrl.startsWith('/') && !returnUrl.startsWith('//') && returnUrl !== '/login') {
+    return returnUrl
+  }
+
+  if (redirectPath && redirectPath.startsWith('/') && !redirectPath.startsWith('//') && redirectPath !== '/login') {
+    return redirectPath
+  }
+
+  return getPostLoginPath(role)
 }

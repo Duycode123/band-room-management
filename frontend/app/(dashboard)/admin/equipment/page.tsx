@@ -1,0 +1,234 @@
+'use client'
+
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import AuthGuard from '@/components/AuthGuard'
+import AdminPageHeader from '@/components/admin/AdminPageHeader'
+import AdminShell from '@/components/admin/AdminShell'
+import AdminStatCard from '@/components/admin/AdminStatCard'
+import AdminToast from '@/components/admin/AdminToast'
+import { IconEquipment, IconPlus } from '@/components/admin/AdminIcons'
+import EquipmentDetailPanel from '@/components/admin/equipment/EquipmentDetailPanel'
+import EquipmentFiltersBar from '@/components/admin/equipment/EquipmentFiltersBar'
+import EquipmentFormModal from '@/components/admin/equipment/EquipmentFormModal'
+import EquipmentTable from '@/components/admin/equipment/EquipmentTable'
+import {
+  createAdminEquipment,
+  deleteAdminEquipment,
+  EMPTY_EQUIPMENT_FORM,
+  fetchAdminEquipment,
+  fetchEquipmentRooms,
+  toFormData,
+  updateAdminEquipment,
+} from '@/lib/admin/equipment/adminEquipmentApi'
+import type {
+  AdminEquipment,
+  EquipmentFilters,
+  EquipmentFormData,
+  EquipmentRoomOption,
+} from '@/lib/admin/equipment/types'
+
+const DEFAULT_FILTERS: EquipmentFilters = {
+  query: '',
+  equipmentType: 'ALL',
+  status: 'ALL',
+  sortBy: 'name',
+  sortOrder: 'asc',
+}
+
+type FormModalState =
+  | { open: false }
+  | { open: true; mode: 'create'; data: EquipmentFormData }
+  | { open: true; mode: 'edit'; equipmentId: number; data: EquipmentFormData }
+
+export default function AdminEquipmentPage() {
+  const [filters, setFilters] = useState<EquipmentFilters>(DEFAULT_FILTERS)
+  const [equipment, setEquipment] = useState<AdminEquipment[]>([])
+  const [rooms, setRooms] = useState<EquipmentRoomOption[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [selected, setSelected] = useState<AdminEquipment | null>(null)
+  const [formModal, setFormModal] = useState<FormModalState>({ open: false })
+  const [toast, setToast] = useState('')
+  const [errorMessage, setErrorMessage] = useState('')
+
+  const loadEquipment = useCallback(async () => {
+    setIsLoading(true)
+
+    try {
+      const data = await fetchAdminEquipment(filters)
+      setEquipment(data)
+      setErrorMessage('')
+      setSelected((currentEquipment) => {
+        if (!currentEquipment) return null
+        return data.find((item) => item.equipmentId === currentEquipment.equipmentId) ?? null
+      })
+    } catch (error) {
+      setEquipment([])
+      setSelected(null)
+      setErrorMessage(error instanceof Error ? error.message : 'Khong the tai danh sach thiet bi.')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [filters])
+
+  useEffect(() => {
+    void fetchEquipmentRooms()
+      .then((data) => setRooms(data))
+      .catch((error) => {
+        setErrorMessage(error instanceof Error ? error.message : 'Khong the tai danh sach phong.')
+      })
+  }, [])
+
+  useEffect(() => {
+    const timer = setTimeout(() => void loadEquipment(), 200)
+    return () => clearTimeout(timer)
+  }, [loadEquipment])
+
+  useEffect(() => {
+    if (!toast) return
+
+    const timer = setTimeout(() => setToast(''), 3500)
+    return () => clearTimeout(timer)
+  }, [toast])
+
+  const stats = useMemo(() => {
+    return {
+      total: equipment.length,
+      good: equipment.filter((item) => item.status === 'GOOD').length,
+      broken: equipment.filter((item) => item.status === 'BROKEN').length,
+      maintenance: equipment.filter((item) => item.status === 'MAINTENANCE').length,
+    }
+  }, [equipment])
+
+  const createInitialForm = useCallback(
+    () => ({
+      ...EMPTY_EQUIPMENT_FORM,
+      roomId: rooms[0]?.roomId ?? null,
+    }),
+    [rooms],
+  )
+
+  const handleCreate = async (data: EquipmentFormData) => {
+    await createAdminEquipment(data)
+    setToast('Them thiet bi thanh cong.')
+    await loadEquipment()
+  }
+
+  const handleUpdate = async (data: EquipmentFormData) => {
+    if (!formModal.open || formModal.mode !== 'edit') return
+
+    const updated = await updateAdminEquipment(formModal.equipmentId, data)
+    if (!updated) {
+      throw new Error('Khong tim thay thiet bi.')
+    }
+
+    setToast('Cap nhat thiet bi thanh cong.')
+    setSelected(updated)
+    await loadEquipment()
+  }
+
+  const handleDelete = async (id: number) => {
+    await deleteAdminEquipment(id)
+    setToast('Xoa thiet bi thanh cong.')
+    setSelected(null)
+    await loadEquipment()
+  }
+
+  return (
+    <AuthGuard allowedRoles={['ADMIN']}>
+      <AdminShell>
+        <AdminPageHeader
+          eyebrow="Thiet bi"
+          title="Quan ly thiet bi"
+          description="Danh sach thiet bi nay dang doc va ghi truc tiep vao backend."
+          breadcrumbs={[
+            { label: 'Tong quan', href: '/admin/dashboard' },
+            { label: 'Thiet bi' },
+          ]}
+          actions={
+            <button
+              type="button"
+              onClick={() => setFormModal({ open: true, mode: 'create', data: createInitialForm() })}
+              className="inline-flex items-center gap-2 rounded-xl bg-brand-orange px-5 py-2.5 font-display text-sm font-medium text-white shadow-lg shadow-brand-orange/25 transition-all hover:bg-brand-orangeHover active:scale-[0.98]"
+            >
+              <IconPlus className="h-4 w-4" />
+              Them moi
+            </button>
+          }
+        />
+
+        <div className="mx-auto max-w-7xl space-y-6 px-5 py-6 sm:px-8">
+          <AdminToast message={toast} onDismiss={() => setToast('')} />
+
+          {errorMessage && (
+            <div className="rounded-xl border border-error/30 bg-error-container/30 px-4 py-3 text-sm text-error">
+              {errorMessage}
+            </div>
+          )}
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <AdminStatCard
+              label="Ket qua loc"
+              value={stats.total}
+              hint="Thiet bi hien thi"
+              icon={<IconEquipment className="h-5 w-5" />}
+            />
+            <AdminStatCard
+              label="Tot"
+              value={stats.good}
+              hint="San sang su dung"
+              accent="secondary"
+              icon={<span className="text-base">OK</span>}
+            />
+            <AdminStatCard
+              label="Hu hong"
+              value={stats.broken}
+              hint="Can xu ly"
+              accent="primary"
+              icon={<span className="text-base">!</span>}
+            />
+            <AdminStatCard
+              label="Bao tri"
+              value={stats.maintenance}
+              hint="Tam dung"
+              accent="tertiary"
+              icon={<span className="text-base">MT</span>}
+            />
+          </div>
+
+          <EquipmentFiltersBar filters={filters} onChange={setFilters} resultCount={equipment.length} />
+
+          <section>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="font-display text-lg font-bold text-on-surface">Danh sach thiet bi</h2>
+              <p className="text-xs text-on-surface-variant">Nhan the de xem chi tiet</p>
+            </div>
+            <EquipmentTable
+              equipment={equipment}
+              isLoading={isLoading}
+              selectedId={selected?.equipmentId ?? null}
+              onSelect={setSelected}
+            />
+          </section>
+        </div>
+
+        <EquipmentDetailPanel
+          equipment={selected}
+          onClose={() => setSelected(null)}
+          onEdit={(item) =>
+            setFormModal({ open: true, mode: 'edit', equipmentId: item.equipmentId, data: toFormData(item) })
+          }
+          onDelete={handleDelete}
+        />
+
+        <EquipmentFormModal
+          open={formModal.open}
+          mode={formModal.open ? formModal.mode : 'create'}
+          initialData={formModal.open ? formModal.data : createInitialForm()}
+          rooms={rooms}
+          onClose={() => setFormModal({ open: false })}
+          onSubmit={formModal.open && formModal.mode === 'edit' ? handleUpdate : handleCreate}
+        />
+      </AdminShell>
+    </AuthGuard>
+  )
+}

@@ -1,0 +1,595 @@
+import type { PracticeRoom } from '@/lib/booking/types'
+
+export type RoomCategory = 'standard' | 'band' | 'recording' | 'premium'
+export type RoomAvailabilityStatus = 'AVAILABLE' | 'ALMOST_FULL' | 'FULL_TODAY'
+
+export type RoomCategoryOption = {
+  id: RoomCategory
+  label: string
+  description: string
+}
+
+export type BookingRoom = {
+  id: string
+  code: string
+  name: string
+  category: RoomCategory
+  roomTierId?: number
+  roomTierName?: string
+  roomTierDescription?: string
+  categoryLabel: string
+  type: string
+  badge?: string
+  rating?: number
+  reviews?: number
+  capacity: string
+  location: string
+  image?: string
+  imageClassName: string
+  pricePerHour: number
+  equipments: string[]
+  includedEquipments: string[]
+  addons: string[]
+  description?: string
+  availabilityStatus?: RoomAvailabilityStatus
+  remainingSlots?: number
+  nextAvailableSlot?: string
+  isAvailable: boolean
+  availabilityKnown?: boolean
+  nextAvailableTime?: string
+  note?: string
+}
+
+export type BookingRoomReviewSummary = {
+  averageRating: number
+  reviewCount: number
+}
+
+export type BookingRoomAvailabilitySummary = {
+  isAvailable: boolean
+  nextAvailableTime?: string
+}
+
+export type PaymentMethodId = 'bank_transfer' | 'e_wallet' | 'cash'
+
+export type PaymentMethod = {
+  id: PaymentMethodId
+  label: string
+  description: string
+}
+
+export function getTodayDateString() {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+export const DEFAULT_BOOKING_DATE = getTodayDateString()
+export const DEFAULT_START_TIME = ''
+export const DEFAULT_DURATION = 0
+export const BOOKING_DURATION_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8] as const
+export const EMPTY_NOTE_TEXT = 'Không có ghi chú thêm.'
+
+export const roomCategories: RoomCategoryOption[] = [
+  {
+    id: 'standard',
+    label: 'Standard Practice',
+    description: 'Luyện tập cá nhân, nhóm nhỏ, giá dễ tiếp cận.',
+  },
+  {
+    id: 'band',
+    label: 'Band Rehearsal',
+    description: 'Phòng tập đầy đủ cho band rehearsal.',
+  },
+  {
+    id: 'recording',
+    label: 'Recording & Mixing',
+    description: 'Thu demo, vocal, podcast và mix nhạc.',
+  },
+  {
+    id: 'premium',
+    label: 'Premium Studio',
+    description: 'Không gian cao cấp, riêng tư và thiết bị tốt hơn.',
+  },
+]
+
+const roomCategoryLabels: Record<RoomCategory, string> = {
+  standard: 'Standard Practice',
+  band: 'Band Rehearsal',
+  recording: 'Recording & Mixing',
+  premium: 'Premium Studio',
+}
+
+export function detectRoomCategory(typeName?: string | null): RoomCategory {
+  const normalized = typeName?.trim().toLowerCase() || ''
+
+  if (normalized.includes('record') || normalized.includes('thu')) return 'recording'
+  if (normalized.includes('vip') || normalized.includes('premium')) return 'premium'
+  if (normalized.includes('band') || normalized.includes('rehearsal')) return 'band'
+  return 'standard'
+}
+
+export function isApiBackedBookingRoom(room: BookingRoom) {
+  return room.code.startsWith('API-')
+}
+
+function getOptimizedCloudinaryImageUrl(imageUrl: string) {
+  if (!/^https:\/\/res\.cloudinary\.com\//i.test(imageUrl)) {
+    return imageUrl
+  }
+
+  if (imageUrl.includes('/image/upload/f_auto,q_auto/')) {
+    return imageUrl
+  }
+
+  return imageUrl.replace('/image/upload/', '/image/upload/f_auto,q_auto/')
+}
+
+function getRoomImage(imageUrl?: string) {
+  if (!imageUrl) return undefined
+
+  const normalized = imageUrl.trim()
+  if (!normalized) return undefined
+  if (normalized.startsWith('/')) return normalized
+  if (/^https?:\/\//i.test(normalized)) return getOptimizedCloudinaryImageUrl(normalized)
+
+  return undefined
+}
+
+export function mapPracticeRoomToBookingRoom(
+  room: PracticeRoom,
+  options: {
+    reviewSummary?: BookingRoomReviewSummary
+    availabilitySummary?: BookingRoomAvailabilitySummary
+  } = {},
+): BookingRoom {
+  const category = detectRoomCategory(room.roomTypeName)
+  const roomTierName = room.roomTypeName?.trim() || roomCategoryLabels[category]
+  const roomTierDescription = room.roomTypeDescription?.trim() || undefined
+  const safeImage = getRoomImage(room.imageUrl)
+  const fallbackEquipments = room.equipment.length > 0 ? room.equipment : [room.roomTypeName || 'Studio']
+  const description = room.description?.trim() || roomTierDescription
+  const availabilitySummary = options.availabilitySummary
+  const reviewSummary = options.reviewSummary
+  const availabilityStatus = !availabilitySummary
+    ? undefined
+    : availabilitySummary.isAvailable
+      ? 'AVAILABLE'
+      : 'FULL_TODAY'
+  const nextAvailableSlot = availabilitySummary?.nextAvailableTime
+    ? `Hôm nay, ${availabilitySummary.nextAvailableTime}`
+    : undefined
+  const remainingSlots = availabilitySummary?.isAvailable ? 3 : 0
+
+  return {
+    id: room.id,
+    code: `API-${room.id}`,
+    name: room.name,
+    category,
+    roomTierId: room.roomTypeId,
+    roomTierName,
+    roomTierDescription,
+    categoryLabel: roomTierName,
+    type: roomTierName,
+    badge: availabilitySummary ? (availabilitySummary.isAvailable ? 'Có lịch trống' : 'Kín lịch') : undefined,
+    rating: reviewSummary?.averageRating,
+    reviews: reviewSummary?.reviewCount,
+    capacity: `Tối đa ${room.capacity} người`,
+    location: room.location || 'Band Room Studio',
+    image: safeImage,
+    imageClassName: 'object-[62%_center]',
+    pricePerHour: room.pricePerHour,
+    equipments: fallbackEquipments,
+    includedEquipments: fallbackEquipments,
+    addons: [],
+    description,
+    availabilityStatus,
+    remainingSlots,
+    nextAvailableSlot,
+    isAvailable: availabilitySummary?.isAvailable ?? false,
+    availabilityKnown: Boolean(availabilitySummary),
+    nextAvailableTime: availabilitySummary?.nextAvailableTime,
+    note: undefined,
+  }
+}
+
+export const paymentMethods: PaymentMethod[] = [
+  {
+    id: 'bank_transfer',
+    label: 'Chuyển khoản ngân hàng',
+    description: 'Thanh toán online qua portal SePay.',
+  },
+]
+
+const image = '/images/band-room-hero.png'
+
+export const bookingRooms: BookingRoom[] = [
+  {
+    id: 'practice-pod-a',
+    code: 'BR-2026-0801',
+    name: 'Practice Pod A',
+    category: 'standard',
+    categoryLabel: 'Standard Practice',
+    type: 'Luyện tập cá nhân',
+    badge: 'Tiết kiệm',
+    rating: 4.6,
+    reviews: 186,
+    capacity: 'Tối đa 2 người',
+    location: 'Tầng 1, Band Room Studio',
+    image,
+    imageClassName: 'object-[38%_center]',
+    pricePerHour: 120000,
+    equipments: ['Roland Kit', 'Fender Champ', 'Tai nghe kiểm âm'],
+    includedEquipments: ['Roland Kit', 'Fender Champ', 'Tai nghe kiểm âm', 'Stand nhạc'],
+    addons: ['Dây jack dự phòng', 'Stand micro', 'Backing track setup'],
+    description: 'Không gian nhỏ gọn cho luyện cá nhân, warm-up trước show hoặc tập kỹ thuật.',
+    availabilityStatus: 'AVAILABLE',
+    remainingSlots: 3,
+    nextAvailableSlot: 'Hôm nay, 10:00',
+    isAvailable: true,
+    nextAvailableTime: '10:00',
+    note: 'Phù hợp luyện cá nhân, vui lòng giữ âm lượng trong ngưỡng phòng nhỏ.',
+  },
+  {
+    id: 'practice-pod-b',
+    code: 'BR-2026-0802',
+    name: 'Practice Pod B',
+    category: 'standard',
+    categoryLabel: 'Standard Practice',
+    type: 'Luyện nhóm nhỏ',
+    badge: 'Linh hoạt',
+    rating: 4.7,
+    reviews: 204,
+    capacity: 'Tối đa 3 người',
+    location: 'Tầng 1, Band Room Studio',
+    image,
+    imageClassName: 'object-[48%_center]',
+    pricePerHour: 140000,
+    equipments: ['Yamaha DTX', 'Vox AC15', 'Mixer 8 kênh'],
+    includedEquipments: ['Yamaha DTX', 'Vox AC15', 'Mixer 8 kênh', 'Micro Shure'],
+    addons: ['Guitar điện Fender', 'Dây jack dự phòng', 'Tai nghe kiểm âm'],
+    description: 'Phòng luyện nhóm nhỏ với setup nhanh, phù hợp acoustic session và duo rehearsal.',
+    availabilityStatus: 'ALMOST_FULL',
+    remainingSlots: 1,
+    nextAvailableSlot: 'Hôm nay, 13:00',
+    isAvailable: true,
+    nextAvailableTime: '13:00',
+    note: 'Ưu tiên setup nhanh cho nhóm nhỏ và kiểm tra monitor trước giờ vào phòng.',
+  },
+  {
+    id: 'practice-pod-c',
+    code: 'BR-2026-0803',
+    name: 'Practice Pod C',
+    category: 'standard',
+    categoryLabel: 'Standard Practice',
+    type: 'Luyện tập cá nhân',
+    badge: 'Tiết kiệm',
+    rating: 4.7,
+    reviews: 342,
+    capacity: 'Tối đa 2 người',
+    location: 'Tầng 1, Band Room Studio',
+    image,
+    imageClassName: 'object-[45%_center]',
+    pricePerHour: 150000,
+    equipments: ['Roland Kit', 'Fender Amp', 'AKG C414'],
+    includedEquipments: ['Roland Kit', 'Fender Amp', 'AKG C414', 'Tai nghe kiểm âm'],
+    addons: ['Backing track setup', 'Dây jack dự phòng', 'Stand nhạc'],
+    description: 'Pod luyện cá nhân có micro tốt hơn cho vocal take nhanh hoặc luyện nhạc cụ chính.',
+    availabilityStatus: 'FULL_TODAY',
+    remainingSlots: 0,
+    nextAvailableSlot: 'Ngày mai, 09:00',
+    isAvailable: false,
+    nextAvailableTime: 'Ngày mai 09:00',
+    note: 'Phù hợp luyện cá nhân, vui lòng giữ âm lượng trong ngưỡng phòng nhỏ.',
+  },
+  {
+    id: 'studio-a',
+    code: 'BR-2026-0821',
+    name: 'Studio A - Phòng Đỏ',
+    category: 'band',
+    categoryLabel: 'Band Rehearsal',
+    type: 'Tập band đầy đủ',
+    badge: 'Phổ biến nhất',
+    rating: 4.9,
+    reviews: 218,
+    capacity: 'Tối đa 10 người',
+    location: 'Tầng 2, Band Room Studio',
+    image,
+    imageClassName: 'object-[62%_center]',
+    pricePerHour: 350000,
+    equipments: ['Trống Tama', 'Marshall Stack', 'Mixer 16 kênh'],
+    includedEquipments: ['Trống Tama', 'Marshall Stack', 'Mixer 16 kênh', 'Micro Shure'],
+    addons: ['Guitar điện Fender', 'Dây jack dự phòng', 'Stand micro'],
+    description: 'Phòng rehearsal chủ lực cho band đầy đủ, âm thanh cân bằng và sân khấu nhỏ.',
+    availabilityStatus: 'AVAILABLE',
+    remainingSlots: 4,
+    nextAvailableSlot: 'Hôm nay, 19:00',
+    isAvailable: true,
+    nextAvailableTime: '19:00',
+    note: 'Cần chuẩn bị phòng trước 15 phút, ưu tiên âm thanh vocal rõ.',
+  },
+  {
+    id: 'studio-b',
+    code: 'BR-2026-0822',
+    name: 'Studio B - Phòng Xanh',
+    category: 'band',
+    categoryLabel: 'Band Rehearsal',
+    type: 'Rehearsal nhóm vừa',
+    badge: 'Cân bằng',
+    rating: 4.8,
+    reviews: 176,
+    capacity: 'Tối đa 8 người',
+    location: 'Tầng 2, Band Room Studio',
+    image,
+    imageClassName: 'object-[68%_center]',
+    pricePerHour: 320000,
+    equipments: ['Pearl Export', 'Orange Combo', 'Mixer 12 kênh'],
+    includedEquipments: ['Pearl Export', 'Orange Combo', 'Mixer 12 kênh', 'Monitor wedge'],
+    addons: ['Micro Shure SM58', 'Pedal guitar', 'Dây jack dự phòng'],
+    description: 'Không gian rehearsal ấm, hợp band indie, pop-rock và buổi tập setlist dài.',
+    availabilityStatus: 'AVAILABLE',
+    remainingSlots: 3,
+    nextAvailableSlot: 'Hôm nay, 17:00',
+    isAvailable: true,
+    nextAvailableTime: '17:00',
+    note: 'Chuẩn bị monitor rõ vocal và line guitar sạch.',
+  },
+  {
+    id: 'studio-c',
+    code: 'BR-2026-0823',
+    name: 'Studio C - Phòng Gỗ',
+    category: 'band',
+    categoryLabel: 'Band Rehearsal',
+    type: 'Rehearsal âm thanh mộc',
+    badge: 'Âm ấm',
+    rating: 4.8,
+    reviews: 149,
+    capacity: 'Tối đa 9 người',
+    location: 'Tầng 2, Band Room Studio',
+    image,
+    imageClassName: 'object-[58%_center]',
+    pricePerHour: 380000,
+    equipments: ['Gretsch Kit', 'Fender Twin', 'Mixer 16 kênh'],
+    includedEquipments: ['Gretsch Kit', 'Fender Twin', 'Mixer 16 kênh', 'Bass amp Ampeg'],
+    addons: ['Guitar điện Fender', 'Micro Shure SM58', 'Stand micro'],
+    description: 'Phòng xử lý âm mộc, phù hợp jazz, soul, acoustic band và rehearsal cần độ chi tiết.',
+    availabilityStatus: 'ALMOST_FULL',
+    remainingSlots: 1,
+    nextAvailableSlot: 'Hôm nay, 20:00',
+    isAvailable: true,
+    nextAvailableTime: '20:00',
+    note: 'Ưu tiên setup acoustic và giảm bleed cho vocal.',
+  },
+  {
+    id: 'the-vault',
+    code: 'BR-2026-0831',
+    name: 'The Vault - Thu âm',
+    category: 'recording',
+    categoryLabel: 'Recording & Mixing',
+    type: 'Thu demo và mix nhạc',
+    badge: 'Cao cấp',
+    rating: 4.8,
+    reviews: 157,
+    capacity: 'Tối đa 6 người',
+    location: 'Tầng 3, Band Room Studio',
+    image,
+    imageClassName: 'object-[74%_center]',
+    pricePerHour: 500000,
+    equipments: ['Console SSL', 'Genelec Monitor', 'Vocal Booth'],
+    includedEquipments: ['Console SSL', 'Genelec Monitor', 'Vocal Booth', 'Rack outboard'],
+    addons: ['Kỹ thuật viên thu âm', 'Micro condenser', 'Gói mix nhanh'],
+    description: 'Phòng thu kín, kiểm âm chuẩn để thu demo, vocal, podcast và overdub.',
+    availabilityStatus: 'AVAILABLE',
+    remainingSlots: 3,
+    nextAvailableSlot: 'Hôm nay, 15:00',
+    isAvailable: true,
+    nextAvailableTime: '15:00',
+    note: 'Ưu tiên chuẩn bị vocal booth và kiểm tra monitor trước giờ vào phòng.',
+  },
+  {
+    id: 'vocal-booth-pro',
+    code: 'BR-2026-0832',
+    name: 'Vocal Booth Pro',
+    category: 'recording',
+    categoryLabel: 'Recording & Mixing',
+    type: 'Thu vocal chuyên dụng',
+    badge: 'Vocal',
+    rating: 4.9,
+    reviews: 133,
+    capacity: 'Tối đa 3 người',
+    location: 'Tầng 3, Band Room Studio',
+    image,
+    imageClassName: 'object-[70%_center]',
+    pricePerHour: 420000,
+    equipments: ['Neumann TLM', 'Apollo Interface', 'Closed Booth'],
+    includedEquipments: ['Neumann TLM', 'Apollo Interface', 'Closed Booth', 'Pop filter'],
+    addons: ['Kỹ thuật viên thu âm', 'Tai nghe kiểm âm', 'Micro Shure SM58'],
+    description: 'Booth khô, sạch, chuyên cho vocal lead, harmony, voice-over và podcast.',
+    availabilityStatus: 'FULL_TODAY',
+    remainingSlots: 0,
+    nextAvailableSlot: 'Ngày mai, 10:00',
+    isAvailable: false,
+    nextAvailableTime: 'Ngày mai 10:00',
+    note: 'Kiểm tra lyric stand và headphone mix trước giờ thu.',
+  },
+  {
+    id: 'mix-suite-01',
+    code: 'BR-2026-0833',
+    name: 'Mix Suite 01',
+    category: 'recording',
+    categoryLabel: 'Recording & Mixing',
+    type: 'Mixing và production',
+    badge: 'Mix room',
+    rating: 4.9,
+    reviews: 119,
+    capacity: 'Tối đa 4 người',
+    location: 'Tầng 3, Band Room Studio',
+    image,
+    imageClassName: 'object-[64%_center]',
+    pricePerHour: 550000,
+    equipments: ['Genelec 8351', 'SSL UC1', 'MIDI Station'],
+    includedEquipments: ['Genelec 8351', 'SSL UC1', 'MIDI Station', 'Reference DAC'],
+    addons: ['Kỹ thuật viên thu âm', 'Gói mix nhanh', 'Tai nghe kiểm âm'],
+    description: 'Suite kiểm âm chi tiết cho mixing, arrangement và production session cùng producer.',
+    availabilityStatus: 'ALMOST_FULL',
+    remainingSlots: 1,
+    nextAvailableSlot: 'Hôm nay, 18:00',
+    isAvailable: true,
+    nextAvailableTime: '18:00',
+    note: 'Mang project file và reference track để setup phiên nhanh hơn.',
+  },
+  {
+    id: 'amber-live-room',
+    code: 'BR-2026-0841',
+    name: 'Amber Live Room',
+    category: 'premium',
+    categoryLabel: 'Premium Studio',
+    type: 'Live room cao cấp',
+    badge: 'VIP',
+    rating: 5,
+    reviews: 94,
+    capacity: 'Tối đa 14 người',
+    location: 'Tầng 4, Band Room Studio',
+    image,
+    imageClassName: 'object-[56%_center]',
+    pricePerHour: 650000,
+    equipments: ['DW Collector', 'Mesa Stack', 'Stage Lighting'],
+    includedEquipments: ['DW Collector', 'Mesa Stack', 'Stage Lighting', 'In-ear monitor'],
+    addons: ['Kỹ thuật viên thu âm', 'Guitar điện Fender', 'Micro Shure SM58'],
+    description: 'Live room rộng, ánh sáng đẹp, phù hợp rehearsal cao cấp và quay session live.',
+    availabilityStatus: 'AVAILABLE',
+    remainingSlots: 3,
+    nextAvailableSlot: 'Hôm nay, 21:00',
+    isAvailable: true,
+    nextAvailableTime: '21:00',
+    note: 'Chuẩn bị ánh sáng sân khấu và line check đầy đủ trước giờ vào phòng.',
+  },
+  {
+    id: 'black-forest-studio',
+    code: 'BR-2026-0842',
+    name: 'Black Forest Studio',
+    category: 'premium',
+    categoryLabel: 'Premium Studio',
+    type: 'Studio riêng tư',
+    badge: 'Riêng tư',
+    rating: 4.9,
+    reviews: 87,
+    capacity: 'Tối đa 12 người',
+    location: 'Tầng 4, Band Room Studio',
+    image,
+    imageClassName: 'object-[78%_center]',
+    pricePerHour: 720000,
+    equipments: ['Ludwig Kit', 'Marshall JVM', 'Private Lounge'],
+    includedEquipments: ['Ludwig Kit', 'Marshall JVM', 'Private Lounge', 'Premium monitors'],
+    addons: ['Kỹ thuật viên thu âm', 'Pedal guitar', 'Stand micro'],
+    description: 'Phòng premium có lounge riêng cho band cần không gian kín và trải nghiệm chỉn chu.',
+    availabilityStatus: 'FULL_TODAY',
+    remainingSlots: 0,
+    nextAvailableSlot: 'Ngày mai, 14:00',
+    isAvailable: false,
+    nextAvailableTime: 'Ngày mai 14:00',
+    note: 'Chuẩn bị lounge và setup riêng theo yêu cầu khách VIP.',
+  },
+  {
+    id: 'producer-suite-vip',
+    code: 'BR-2026-0843',
+    name: 'Producer Suite VIP',
+    category: 'premium',
+    categoryLabel: 'Premium Studio',
+    type: 'Production suite VIP',
+    badge: 'Producer',
+    rating: 5,
+    reviews: 76,
+    capacity: 'Tối đa 8 người',
+    location: 'Tầng 4, Band Room Studio',
+    image,
+    imageClassName: 'object-[72%_center]',
+    pricePerHour: 900000,
+    equipments: ['SSL Console', 'Focal Trio', 'Producer Desk'],
+    includedEquipments: ['SSL Console', 'Focal Trio', 'Producer Desk', 'Private assistant'],
+    addons: ['Kỹ thuật viên thu âm', 'Gói mix nhanh', 'Micro condenser'],
+    description: 'Suite cao cấp nhất cho production camp, mix review và buổi làm việc riêng với producer.',
+    availabilityStatus: 'AVAILABLE',
+    remainingSlots: 3,
+    nextAvailableSlot: 'Hôm nay, 16:00',
+    isAvailable: true,
+    nextAvailableTime: '16:00',
+    note: 'Chuẩn bị reference monitor, session template và không gian tiếp khách.',
+  },
+]
+
+export function formatCurrency(value: number) {
+  return new Intl.NumberFormat('vi-VN').format(value) + 'đ'
+}
+
+export function maskCustomerName(customerName: string) {
+  const parts = customerName.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return 'Khách hàng'
+  if (parts.length === 1) return parts[0]
+
+  return `${parts[0]} ${parts[parts.length - 1].charAt(0)}.`
+}
+
+export function formatRelativeTime(createdAt: string) {
+  const createdDate = new Date(createdAt)
+
+  if (Number.isNaN(createdDate.getTime())) {
+    return 'Gần đây'
+  }
+
+  const now = new Date()
+  const diffInMilliseconds = now.getTime() - createdDate.getTime()
+  const diffInDays = Math.max(0, Math.floor(diffInMilliseconds / 86400000))
+
+  if (diffInDays === 0) return 'Hôm nay'
+  if (diffInDays === 1) return '1 ngày trước'
+  if (diffInDays < 30) return `${diffInDays} ngày trước`
+
+  const diffInMonths = Math.floor(diffInDays / 30)
+  if (diffInMonths === 1) return '1 tháng trước'
+
+  return `${diffInMonths} tháng trước`
+}
+
+export function findBookingRoom(roomId: string | null) {
+  return bookingRooms.find((room) => room.id === roomId) ?? null
+}
+
+export function getBookingRoomOrFallback(roomId: string | null) {
+  return findBookingRoom(roomId) ?? bookingRooms[0]
+}
+
+export function normalizeDuration(value: string | number | null) {
+  const duration = Number(value)
+  return Number.isInteger(duration) && duration >= 0 && duration <= 8 ? duration : DEFAULT_DURATION
+}
+
+export function getRoomSubtotal(room: BookingRoom, duration: number) {
+  return room.pricePerHour * duration
+}
+
+export function calculateEndTime(startTime: string, duration: number) {
+  const [hourValue, minuteValue] = startTime.split(':').map(Number)
+  const hour = Number.isFinite(hourValue) ? hourValue : 0
+  const minute = Number.isFinite(minuteValue) ? minuteValue : 0
+  const endHour = (hour + duration) % 24
+
+  return `${String(endHour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+}
+
+export function formatDisplayDate(value: string) {
+  const date = new Date(`${value}T00:00:00`)
+
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+
+  return new Intl.DateTimeFormat('vi-VN', {
+    weekday: 'long',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date)
+}

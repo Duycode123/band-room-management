@@ -13,7 +13,7 @@ import java.util.Collection;
 import java.util.List;
 
 @Entity
-@Table(name = "tai_khoan")
+@Table(name = "account")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -28,15 +28,15 @@ public class User implements UserDetails {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(name = "mat_khau_hash", nullable = false)
+    @Column(name = "password_hash", nullable = false)
     private String password;
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "vai_tro", nullable = false, columnDefinition = "vai_tro")
+    @Column(name = "role", nullable = false, columnDefinition = "role")
     private Role role;
 
-    @Column(name = "ngay_tao", insertable = false, updatable = false)
+    @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "reset_token", unique = true)
@@ -44,6 +44,22 @@ public class User implements UserDetails {
 
     @Column(name = "reset_token_expires_at")
     private LocalDateTime resetTokenExpiresAt;
+
+    @Column(name = "email_verified", nullable = false)
+    @Builder.Default
+    private boolean emailVerified = false;
+
+    @Column(name = "email_verification_token_hash", unique = true)
+    private String emailVerificationTokenHash;
+
+    @Column(name = "email_verification_expires_at")
+    private LocalDateTime emailVerificationExpiresAt;
+
+    @Column(name = "email_verification_sent_at")
+    private LocalDateTime emailVerificationSentAt;
+
+    @Column(name = "avatar_url")
+    private String avatarUrl;
 
     @OneToOne(mappedBy = "account", fetch = FetchType.LAZY)
     private Customer customerProfile;

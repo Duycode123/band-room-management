@@ -16,9 +16,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Auto-cancels CHO_THANH_TOAN bookings that stay unpaid past the configured grace period.
+ * Auto-cancels PENDING_PAYMENT bookings that stay unpaid past the configured grace period.
  * Without this, an abandoned pending booking would block its room/time slot forever, because
- * both the overlap query and the DB exclusion constraint treat every non-DA_HUY booking as busy.
+ * both the overlap query and the DB exclusion constraint treat every non-CANCELLED booking as busy.
  */
 @Service
 @RequiredArgsConstructor
@@ -38,7 +38,7 @@ public class BookingExpiryService {
         LocalDateTime cutoff = LocalDateTime.now().minusMinutes(paymentExpirationMinutes);
 
         List<Booking> stale = bookingRepository.findStalePendingBookings(
-                BookingStatus.CHO_THANH_TOAN,
+                BookingStatus.PENDING_PAYMENT,
                 cutoff
         );
 
@@ -46,7 +46,7 @@ public class BookingExpiryService {
             return;
         }
 
-        stale.forEach(booking -> booking.setStatus(BookingStatus.DA_HUY));
+        stale.forEach(booking -> booking.setStatus(BookingStatus.CANCELLED));
         bookingRepository.saveAll(stale);
 
         log.info("Auto-cancelled {} unpaid booking(s) older than {} minutes", stale.size(), paymentExpirationMinutes);

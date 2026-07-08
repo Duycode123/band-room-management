@@ -1,14 +1,23 @@
 package backend.controller;
 
+import backend.booking.application.port.in.CancelBookingForManagementUseCase;
+import backend.booking.application.port.in.GetBookingManagementDetailUseCase;
+import backend.booking.application.port.in.ListBookingsForManagementUseCase;
+import backend.booking.application.port.in.UpdateBookingStatusUseCase;
+import backend.booking.application.port.in.command.CancelBookingForManagementCommand;
+import backend.booking.application.port.in.command.UpdateBookingStatusCommand;
+import backend.booking.application.port.in.query.GetBookingManagementDetailQuery;
+import backend.booking.application.port.in.query.ListBookingsForManagementQuery;
 import backend.dto.request.CancelBookingRequest;
-import backend.dto.request.UpdateBookingStatusRequest;
 import backend.dto.response.BookingResponse;
+import backend.dto.response.PagedResponse;
 import backend.entity.BookingStatus;
-import backend.service.BookingService;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,22 +26,59 @@ import java.util.Map;
 @RequestMapping("/api/admin/bookings")
 public class AdminBookingController {
 
-    private final BookingService bookingService;
+    private final ListBookingsForManagementUseCase listBookingsForManagementUseCase;
+    private final GetBookingManagementDetailUseCase getBookingManagementDetailUseCase;
+    private final UpdateBookingStatusUseCase updateBookingStatusUseCase;
+    private final CancelBookingForManagementUseCase cancelBookingForManagementUseCase;
 
-    public AdminBookingController(BookingService bookingService) {
-        this.bookingService = bookingService;
+    public AdminBookingController(
+            ListBookingsForManagementUseCase listBookingsForManagementUseCase,
+            GetBookingManagementDetailUseCase getBookingManagementDetailUseCase,
+            UpdateBookingStatusUseCase updateBookingStatusUseCase,
+            CancelBookingForManagementUseCase cancelBookingForManagementUseCase
+    ) {
+        this.listBookingsForManagementUseCase = listBookingsForManagementUseCase;
+        this.getBookingManagementDetailUseCase = getBookingManagementDetailUseCase;
+        this.updateBookingStatusUseCase = updateBookingStatusUseCase;
+        this.cancelBookingForManagementUseCase = cancelBookingForManagementUseCase;
     }
 
     @GetMapping
     public ResponseEntity<?> getAllBookings(
             @RequestParam(required = false) BookingStatus status,
+            @RequestParam(required = false) Integer roomId,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String direction,
             Authentication authentication
     ) {
-        String currentUserEmail = authentication.getName();
+        ListBookingsForManagementQuery query = new ListBookingsForManagementQuery(
+                status,
+                roomId,
+                search,
+                from,
+                to,
+                page,
+                size,
+                sortBy,
+                direction,
+                authentication.getName()
+        );
 
-        List<BookingResponse> data = bookingService.getAllBookings(status, currentUserEmail);
+        if (page != null || size != null) {
+            PagedResponse<BookingResponse> data = listBookingsForManagementUseCase.getBookingsPage(query);
+            return ResponseEntity.ok(success("Lay danh sach don dat phong thanh cong", data));
+        }
 
-        return ResponseEntity.ok(success("Lấy danh sách đơn đặt phòng thành công", data));
+        List<BookingResponse> data = listBookingsForManagementUseCase.getAllBookings(query);
+
+        return ResponseEntity.ok(success("Lay danh sach don dat phong thanh cong", data));
     }
 
     @GetMapping("/{id}")
@@ -42,9 +88,11 @@ public class AdminBookingController {
     ) {
         String currentUserEmail = authentication.getName();
 
-        BookingResponse data = bookingService.getBookingDetailForManagement(id, currentUserEmail);
+        BookingResponse data = getBookingManagementDetailUseCase.getBookingDetail(
+                new GetBookingManagementDetailQuery(id, currentUserEmail)
+        );
 
-        return ResponseEntity.ok(success("Lấy chi tiết đơn đặt phòng thành công", data));
+        return ResponseEntity.ok(success("Lay chi tiet don dat phong thanh cong", data));
     }
 
     @PatchMapping("/{id}/status")
@@ -55,12 +103,11 @@ public class AdminBookingController {
     ) {
         String currentUserEmail = authentication.getName();
 
-        UpdateBookingStatusRequest request = new UpdateBookingStatusRequest();
-        request.setStatus(status);
+        BookingResponse data = updateBookingStatusUseCase.updateBookingStatus(
+                new UpdateBookingStatusCommand(id, status, currentUserEmail)
+        );
 
-        BookingResponse data = bookingService.updateBookingStatus(id, request, currentUserEmail);
-
-        return ResponseEntity.ok(success("Cập nhật trạng thái đơn đặt phòng thành công", data));
+        return ResponseEntity.ok(success("Cap nhat trang thai don dat phong thanh cong", data));
     }
 
     @PutMapping("/{id}/cancel")
@@ -71,9 +118,15 @@ public class AdminBookingController {
     ) {
         String currentUserEmail = authentication.getName();
 
-        BookingResponse data = bookingService.cancelBookingForManagement(id, request, currentUserEmail);
+        BookingResponse data = cancelBookingForManagementUseCase.cancelBooking(
+                new CancelBookingForManagementCommand(
+                        id,
+                        request != null ? request.getReason() : null,
+                        currentUserEmail
+                )
+        );
 
-        return ResponseEntity.ok(success("Hủy đơn đặt phòng thành công", data));
+        return ResponseEntity.ok(success("Huy don dat phong thanh cong", data));
     }
 
     private Map<String, Object> success(String message, Object data) {

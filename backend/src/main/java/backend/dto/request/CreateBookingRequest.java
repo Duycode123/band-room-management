@@ -18,5 +18,6 @@ public class CreateBookingRequest {
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private PaymentMethod paymentMethod;
+    private String couponCode;
     private String note;
 }

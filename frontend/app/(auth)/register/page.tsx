@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import AuthBanner from '@/components/auth/AuthBanner'
@@ -20,11 +20,30 @@ const REGISTER_BULLETS = [
   { title: 'Hỗ trợ 24/7', desc: 'Đội ngũ vận hành sẵn sàng khi bạn cần.' },
 ]
 
+function todayIsoDate() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function minBirthDateIso() {
+  const d = new Date()
+  d.setFullYear(d.getFullYear() - 100)
+  return d.toISOString().slice(0, 10)
+}
+
 export default function RegisterPage() {
   const router = useRouter()
-  const [formData, setFormData] = useState({ fullName: '', identifier: '', password: '' })
+  const [formData, setFormData] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    dateOfBirth: '',
+    password: '',
+  })
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+
+  const maxBirthDate = useMemo(() => todayIsoDate(), [])
+  const minBirthDate = useMemo(() => minBirthDateIso(), [])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
@@ -35,33 +54,63 @@ export default function RegisterPage() {
     setError('')
     setIsLoading(true)
 
-    const identifier = formData.identifier.trim()
-    const isEmail = identifier.includes('@')
+    const fullName = formData.fullName.trim()
+    const email = formData.email.trim().toLowerCase()
+    const phone = formData.phone.trim()
+    const dateOfBirth = formData.dateOfBirth
+    const password = formData.password
 
-    if (isEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)) {
+    if (!fullName) {
+      setError('Họ tên không được để trống.')
+      setIsLoading(false)
+      return
+    }
+    if (!email) {
+      setError('Email không được để trống.')
+      setIsLoading(false)
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError('Email không hợp lệ.')
       setIsLoading(false)
       return
     }
-    if (!isEmail && !/^(0|\+84)[0-9]{9}$/.test(identifier)) {
+    if (!phone) {
+      setError('Số điện thoại không được để trống.')
+      setIsLoading(false)
+      return
+    }
+    if (!/^(0|\+84)[0-9]{9}$/.test(phone)) {
       setError('Số điện thoại không hợp lệ.')
+      setIsLoading(false)
+      return
+    }
+    if (!dateOfBirth) {
+      setError('Ngày sinh không được để trống.')
+      setIsLoading(false)
+      return
+    }
+    if (dateOfBirth > maxBirthDate) {
+      setError('Ngày sinh không hợp lệ.')
+      setIsLoading(false)
+      return
+    }
+    if (password.length < 6) {
+      setError('Mật khẩu phải có ít nhất 6 ký tự.')
       setIsLoading(false)
       return
     }
 
     try {
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/register`,
-        {
-          fullName: formData.fullName.trim(),
-          email: isEmail ? identifier.toLowerCase() : '',
-          phone: isEmail ? '' : identifier,
-          password: formData.password,
-        },
-      )
+      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/auth/register`, {
+        fullName,
+        email,
+        phone,
+        dateOfBirth,
+        password,
+      })
       if (response.status === 200 || response.status === 201) {
-        alert('Đăng ký thành công!')
-        router.push('/login')
+        router.push(`/verify-email?sent=1&email=${encodeURIComponent(email)}`)
       }
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } }
@@ -99,12 +148,33 @@ export default function RegisterPage() {
             icon="user"
           />
           <AuthField
-            label="Email hoặc Số điện thoại"
-            name="identifier"
-            value={formData.identifier}
+            label="Nhập email"
+            name="email"
+            type="email"
+            value={formData.email}
             onChange={handleChange}
-            placeholder="Nhập email hoặc số điện thoại"
+            placeholder="Nhập email của bạn"
+            icon="email"
+          />
+          <AuthField
+            label="Nhập số điện thoại"
+            name="phone"
+            type="tel"
+            value={formData.phone}
+            onChange={handleChange}
+            placeholder="Nhập số điện thoại của bạn"
             icon="user"
+          />
+          <AuthField
+            label="Ngày sinh"
+            name="dateOfBirth"
+            type="date"
+            value={formData.dateOfBirth}
+            onChange={handleChange}
+            placeholder=""
+            icon="calendar"
+            max={maxBirthDate}
+            min={minBirthDate}
           />
           <AuthField
             label="Mật khẩu"

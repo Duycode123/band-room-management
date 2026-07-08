@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "dat_phong")
+@Table(name = "booking")
 public class Booking {
 
     @Id
@@ -24,48 +24,56 @@ public class Booking {
     private Integer id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "khach_hang_id", nullable = false)
+    @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "phong_id", nullable = false)
+    @JoinColumn(name = "room_id", nullable = false)
     private Room room;
 
-    @Column(name = "gio_bat_dau", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "discount_code_id")
+    private DiscountCode discountCode;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "checkin_staff_id")
+    private Staff checkinStaff;
+
+    @Column(name = "start_time", nullable = false)
     private LocalDateTime startTime;
 
-    @Column(name = "gio_ket_thuc", nullable = false)
+    @Column(name = "end_time", nullable = false)
     private LocalDateTime endTime;
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "phuong_thuc", nullable = false, columnDefinition = "phuong_thuc_thanh_toan")
+    @Column(name = "payment_method", nullable = false, columnDefinition = "payment_method")
     private PaymentMethod paymentMethod;
 
-    @Column(name = "gia_gio_ap_dung", nullable = false, precision = 12, scale = 2)
+    @Column(name = "applied_hourly_rate", nullable = false, precision = 12, scale = 2)
     private BigDecimal pricePerHour;
 
-    @Column(name = "tong_tien", nullable = false, precision = 12, scale = 2)
+    @Column(name = "total_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal totalAmount;
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "trang_thai", nullable = false, columnDefinition = "trang_thai_dat_phong")
+    @Column(name = "status", nullable = false, columnDefinition = "booking_status")
     private BookingStatus status;
 
-    @Column(name = "ghi_chu", length = 500)
+    @Column(name = "notes", length = 500)
     private String note;
 
-    @Column(name = "ghi_chu_nhac_cu", length = 500)
+    @Column(name = "equipment_notes", length = 500)
     private String instrumentNote;
 
-    @Column(name = "ngay_tao", insertable = false, updatable = false)
+    @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @PrePersist
     public void prePersist() {
         if (status == null) {
-            status = BookingStatus.CHO_THANH_TOAN;
+            status = BookingStatus.PENDING_PAYMENT;
         }
     }
 

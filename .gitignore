@@ -66,6 +66,12 @@ coverage/
 out/
 next-env.d.ts
 
+# Keep hexagonal source packages named out/ tracked under backend source trees
+!backend/src/main/java/**/out/
+!backend/src/main/java/**/out/**
+!backend/src/test/java/**/out/
+!backend/src/test/java/**/out/**
+
 # Package archives
 *.jar
 *.war
@@ -74,4 +80,9 @@ next-env.d.ts
 *.zip
 *.tar.gz
 *.rar
+
+# Local tunneling tools
+.tools/
+tools/ngrok/
 backend/src/main/resources/application.properties
+task.md

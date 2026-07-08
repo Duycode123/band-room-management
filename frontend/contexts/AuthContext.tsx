@@ -1,51 +1,78 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
-
-type UserRole = 'ADMIN' | 'STAFF' | 'CUSTOMER'
-
-interface AuthUser {
-  accessToken: string
-  refreshToken: string
-  role: UserRole
-}
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { logoutSession, restoreSession, type AuthUser } from '@/lib/auth'
+import { clearStoredCustomerProfile } from '@/lib/customer-profile-service'
 
 interface AuthContextType {
   user: AuthUser | null
-  login: (data: AuthUser) => void
-  logout: () => void
+  login: (user: AuthUser) => void
+  logout: (redirectTo?: string) => Promise<void>
   isAuthenticated: boolean
+  isLoading: boolean
+  isLoggingOut: boolean
+  refreshSession: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
+function clearClientUserCaches() {
+  if (typeof window === 'undefined') return
+
+  const keys = ['user', 'currentUser', 'profile', 'avatarUrl', 'accessToken', 'refreshToken']
+  keys.forEach((key) => window.localStorage.removeItem(key))
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
-  useEffect(() => {
-    const accessToken = localStorage.getItem('accessToken')
-    const refreshToken = localStorage.getItem('refreshToken')
-    const role = localStorage.getItem('role') as UserRole | null
-
-    if (accessToken && refreshToken && role) {
-      setUser({ accessToken, refreshToken, role })
+  const refreshSession = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const sessionUser = await restoreSession()
+      setUser(sessionUser)
+    } catch {
+      setUser(null)
+    } finally {
+      setIsLoading(false)
     }
   }, [])
 
-  const login = (data: AuthUser) => {
-    localStorage.setItem('accessToken', data.accessToken)
-    localStorage.setItem('refreshToken', data.refreshToken)
-    localStorage.setItem('role', data.role)
-    setUser(data)
+  useEffect(() => {
+    void refreshSession()
+  }, [refreshSession])
+
+  const login = (sessionUser: AuthUser) => {
+    setUser(sessionUser)
+    setIsLoading(false)
+    setIsLoggingOut(false)
   }
 
-  const logout = () => {
-    localStorage.clear()
-    setUser(null)
+  const logout = async (redirectTo?: string) => {
+    setIsLoggingOut(true)
+    try {
+      await logoutSession()
+    } finally {
+      clearStoredCustomerProfile()
+      clearClientUserCaches()
+      setUser(null)
+      setIsLoading(false)
+
+      if (redirectTo && typeof window !== 'undefined') {
+        window.location.assign(redirectTo)
+        return
+      }
+
+      window.setTimeout(() => setIsLoggingOut(false), 500)
+    }
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider
+      value={{ user, login, logout, isAuthenticated: !!user, isLoading, isLoggingOut, refreshSession }}
+    >
       {children}
     </AuthContext.Provider>
   )
