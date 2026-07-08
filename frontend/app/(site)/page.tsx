@@ -221,7 +221,7 @@ function getAvailabilityDotClassName(tone: AvailabilityTone) {
 
 function getTopRatedRooms(rooms: BookingRoom[]) {
   return rooms
-    .filter((room) => typeof room.rating === 'number' && room.rating >= 4.5 && !isRoomUnavailable(room))
+    .filter((room) => typeof room.rating === 'number' && room.rating > 4 && !isRoomUnavailable(room))
     .sort((a, b) => {
       const ratingDiff = (b.rating ?? 0) - (a.rating ?? 0)
       if (ratingDiff !== 0) return ratingDiff
