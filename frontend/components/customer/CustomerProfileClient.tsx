@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
-import BandRoomHeader from '@/components/layout/BandRoomHeader'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   fetchCurrentUser,
@@ -199,7 +198,6 @@ export default function CustomerProfileClient() {
 
   return (
     <main className="min-h-screen bg-[#F5F2EC] text-[#1A1C1E]">
-      <BandRoomHeader />
 
       <section className="mx-auto max-w-6xl px-6 py-8">
         <div className="rounded-[28px] border border-[#E8E4DC] bg-white p-6 shadow-[0_4px_24px_rgba(26,28,30,0.06)] md:p-8">

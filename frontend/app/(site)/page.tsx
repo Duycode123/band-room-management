@@ -5,8 +5,6 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, type ReactNode } from 'react'
 import { shouldReopenQuickBooking } from '@/components/booking/quick-booking-draft'
-import BandRoomFooter from '@/components/layout/BandRoomFooter'
-import BandRoomHeader from '@/components/layout/BandRoomHeader'
 import { useHomepageLiveData } from '@/hooks/useHomepageLiveData'
 import {
   formatRelativeTime,
@@ -22,26 +20,42 @@ const stats = [
   { value: '4.9/5', label: 'Điểm đánh giá' },
 ]
 
-const features = [
+const equipmentCategories = [
   {
-    icon: 'bolt',
-    title: 'Đặt phòng tức thì',
-    description: 'Xem lịch trống theo thời gian thực, chọn khung giờ và nhận xác nhận trong một luồng gọn gàng.',
+    icon: 'music',
+    title: 'Bộ trống acoustic',
+    description: 'Full kit lắp sẵn trong phòng, cymbal và hardware được kiểm tra trước mỗi ca tập.',
+    items: ['Kick & snare', 'Tom & cymbal', 'Ghế trống'],
   },
   {
-    icon: 'calendar',
-    title: 'Lịch tập linh hoạt',
-    description: 'Đặt theo giờ, nửa buổi hoặc cả buổi. Phù hợp cho rehearsal, thu demo và luyện cá nhân.',
+    icon: 'amp',
+    title: 'Amp guitar & bass',
+    description: 'Amp guitar và bass sẵn sàng, hỗ trợ DI box khi cần line-out hoặc thu nhanh.',
+    items: ['Guitar amp', 'Bass amp', 'DI box'],
+  },
+  {
+    icon: 'mic',
+    title: 'Micro & vocal',
+    description: 'Micro động/năng lượng, stand và pop filter phục vụ vocal và nhạc cụ có dây.',
+    items: ['Dynamic mic', 'Mic stand', 'Pop filter'],
   },
   {
     icon: 'sliders',
-    title: 'Thiết bị chuyên nghiệp',
-    description: 'Trống acoustic, amp guitar, micro, mixer và monitor được chuẩn bị theo ghi chú của ban nhạc.',
+    title: 'Mixer & monitor',
+    description: 'Mixer analog/digital và monitor studio giúp ban nhạc nghe rõ từng nhạc cụ khi tập.',
+    items: ['Mixer', 'Studio monitor', 'Tai nghe'],
+  },
+  {
+    icon: 'cable',
+    title: 'Cáp & phụ kiện',
+    description: 'Jack, cáp loa, pedalboard và splitter cơ bản — hạn chế mang thêm từ nhà.',
+    items: ['Jack & cáp', 'Pedalboard', 'Splitter'],
   },
   {
     icon: 'shield',
-    title: 'Hỗ trợ tại chỗ',
-    description: 'Nhân viên studio hỗ trợ check-in, setup nhạc cụ và xử lý nhanh khi lịch tập thay đổi.',
+    title: 'Setup trước giờ tập',
+    description: 'Nhân viên studio hỗ trợ bật thiết bị, chỉnh tư thế mic và kiểm tra âm lượng ban đầu.',
+    items: ['Check-in', 'Sound check', 'Hỗ trợ tại chỗ'],
   },
 ] as const
 
@@ -96,7 +110,16 @@ const testimonials = [
   },
 ]
 
-type IconName = (typeof features)[number]['icon'] | 'music' | 'users' | 'clock' | 'star' | 'check'
+type IconName =
+  | (typeof equipmentCategories)[number]['icon']
+  | 'music'
+  | 'users'
+  | 'clock'
+  | 'star'
+  | 'check'
+  | 'bolt'
+  | 'calendar'
+  | 'sliders'
 
 function Icon({ name, className = 'h-5 w-5' }: { name: IconName; className?: string }) {
   const paths: Record<IconName, ReactNode> = {
@@ -124,6 +147,25 @@ function Icon({ name, className = 'h-5 w-5' }: { name: IconName; className?: str
       </>
     ),
     shield: <path d="M12 3 20 6v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3zM9 12l2 2 4-5" />,
+    mic: (
+      <>
+        <rect x="9" y="3" width="6" height="11" rx="3" />
+        <path d="M6 11a6 6 0 0 0 12 0M12 17v4M8 21h8" />
+      </>
+    ),
+    amp: (
+      <>
+        <rect x="4" y="7" width="16" height="12" rx="2" />
+        <circle cx="9" cy="13" r="2" />
+        <path d="M14 11v4M17 10v6" />
+      </>
+    ),
+    cable: (
+      <>
+        <path d="M7 7a5 5 0 0 1 10 0v4a3 3 0 0 1-3 3h-1" />
+        <path d="M10 14v3M14 14v3M8 20h8" />
+      </>
+    ),
     users: (
       <>
         <path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
@@ -220,9 +262,8 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-brand-bgGray text-on-surface">
-      <BandRoomHeader variant="hero" />
 
-      <section className="relative flex min-h-[720px] items-center overflow-hidden bg-secondary pt-28 text-white md:min-h-screen">
+      <section className="relative flex min-h-[720px] items-center overflow-hidden bg-secondary pt-6 text-white md:min-h-screen md:pt-8">
         <Image
           src="/images/band-room-hero.png"
           alt="Phòng tập band chuyên nghiệp với trống, ampli guitar và micro"
@@ -356,29 +397,50 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section id="features" className="scroll-mt-24 bg-surface-container py-20 sm:py-24">
+      <section id="equipment" className="scroll-mt-20 bg-surface-container py-20 sm:py-24">
         <div className="mx-auto max-w-7xl px-5 sm:px-8">
-          <div className="max-w-2xl">
-            <p className="font-display text-sm font-semibold uppercase tracking-[0.12em] text-brand-orange">Tại sao chọn Band Room</p>
-            <h2 className="mt-3 font-display text-3xl font-bold leading-tight text-on-surface sm:text-4xl">
-              Từ ý tưởng tới buổi tập chỉ trong vài thao tác.
-            </h2>
-            <p className="mt-4 text-base leading-7 text-on-surface-variant">
-              Trải nghiệm đặt phòng mượt, thiết bị sẵn sàng và đội ngũ hỗ trợ ngay tại studio.
-            </p>
+          <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+            <div className="max-w-2xl">
+              <p className="font-display text-sm font-semibold uppercase tracking-[0.12em] text-brand-orange">
+                Thiết bị studio
+              </p>
+              <h2 className="mt-3 font-display text-3xl font-bold leading-tight text-on-surface sm:text-4xl">
+                Nhạc cụ &amp; âm thanh có sẵn trong phòng
+              </h2>
+              <p className="mt-4 text-base leading-7 text-on-surface-variant">
+                Thiết bị đi kèm khi đặt phòng — không cần mang cả dàn nhạc. Ghi chú nhu cầu khi đặt để studio chuẩn bị
+                trước giờ tập.
+              </p>
+            </div>
+            <Link
+              href="/rooms"
+              className="inline-flex h-12 shrink-0 items-center rounded-xl border border-outline-variant bg-white px-6 font-display text-sm font-semibold text-on-surface transition-colors hover:border-brand-orange/40 hover:text-brand-orange"
+            >
+              Chọn phòng có thiết bị phù hợp
+            </Link>
           </div>
 
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {features.map((feature) => (
+          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {equipmentCategories.map((category) => (
               <article
-                key={feature.title}
+                key={category.title}
                 className="group rounded-2xl border border-outline-variant bg-white p-6 shadow-[var(--shadow-card)] transition-all duration-300 hover:-translate-y-1 hover:border-brand-orange/25 hover:shadow-[var(--shadow-elevated)]"
               >
                 <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-primary-container text-brand-orange transition-colors group-hover:bg-brand-orange group-hover:text-white">
-                  <Icon name={feature.icon} />
+                  <Icon name={category.icon} />
                 </div>
-                <h3 className="font-display text-lg font-bold text-on-surface">{feature.title}</h3>
-                <p className="mt-3 text-sm leading-6 text-on-surface-variant">{feature.description}</p>
+                <h3 className="font-display text-lg font-bold text-on-surface">{category.title}</h3>
+                <p className="mt-3 text-sm leading-6 text-on-surface-variant">{category.description}</p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {category.items.map((item) => (
+                    <span
+                      key={item}
+                      className="rounded-full border border-outline-variant bg-surface-container-low px-3 py-1 text-xs font-medium text-on-surface-variant"
+                    >
+                      {item}
+                    </span>
+                  ))}
+                </div>
               </article>
             ))}
           </div>
@@ -456,7 +518,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section id="process" className="scroll-mt-24 bg-surface-container py-20 sm:py-24">
+      <section id="process" className="scroll-mt-20 bg-surface-container py-20 sm:py-24">
         <div className="mx-auto max-w-7xl px-5 sm:px-8">
           <div className="mx-auto max-w-2xl text-center">
             <p className="font-display text-sm font-semibold uppercase tracking-[0.12em] text-brand-orange">Cách thức hoạt động</p>
@@ -625,8 +687,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
-      <BandRoomFooter />
     </main>
   )
 }
