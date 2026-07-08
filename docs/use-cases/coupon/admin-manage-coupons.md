@@ -22,6 +22,8 @@ Allow an administrator to create and maintain coupon campaigns that can later be
 4. Backend normalizes the coupon code to uppercase.
 5. Backend validates amount rules and duplicate code rules.
 6. Backend saves the coupon and returns the stored coupon data.
+7. Admin can open the usage report for a date range.
+8. Backend summarizes paid coupon usage by day and top coupons from `coupon_usage`.
 
 ## Alternate and error flows
 
@@ -31,6 +33,8 @@ Allow an administrator to create and maintain coupon campaigns that can later be
 - Non-positive discount value: backend rejects the request.
 - Negative minimum order value: backend rejects the request.
 - Delete coupon already applied to a booking or recorded in usage: backend rejects the request.
+- Usage report range with `startDate` after `endDate`: backend rejects the request.
+- Usage report range larger than one year: backend rejects the request.
 
 ## Business rules
 
@@ -39,6 +43,7 @@ Allow an administrator to create and maintain coupon campaigns that can later be
 - `min_order_value`, when supplied, cannot be negative.
 - Deleting a coupon is only allowed while no booking or coupon usage references it.
 - Validation, booking creation, and payment confirmation remain responsible for applying coupon effects.
+- Coupon usage reporting only counts rows already recorded in `coupon_usage`, which are created after payment confirmation.
 
 ## Related endpoints
 
@@ -47,11 +52,13 @@ Allow an administrator to create and maintain coupon campaigns that can later be
 - `POST /api/admin/coupons`
 - `PUT /api/admin/coupons/{id}`
 - `DELETE /api/admin/coupons/{id}`
+- `GET /api/admin/coupons/usage-report?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD`
 
 ## Data touched
 
 - Reads and writes `discount_code`.
 - Reads `booking.discount_code_id` and `coupon_usage.discount_code_id` before delete.
+- Reads `coupon_usage` joined with `discount_code` for usage report totals, daily trend, and top coupons.
 
 ## Current implementation notes
 
@@ -59,6 +66,8 @@ Allow an administrator to create and maintain coupon campaigns that can later be
 - `AdminCouponController` is the inbound web adapter.
 - `CouponManagementService` is the application use case boundary.
 - `CouponManagementPersistenceAdapter` maps between domain coupon models and the legacy JPA `DiscountCode` entity.
+- `CouponUsageReportService` is the usage report use case boundary.
+- `JdbcCouponUsageReportAdapter` queries `coupon_usage` for aggregated reporting data.
 
 ## Known gaps
 
