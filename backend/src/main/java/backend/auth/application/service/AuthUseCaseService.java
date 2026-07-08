@@ -33,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
 import java.util.Set;
@@ -53,6 +54,7 @@ public class AuthUseCaseService implements
 
     private static final int EMAIL_VERIFICATION_EXPIRATION_HOURS = 24;
     private static final int RESEND_COOLDOWN_SECONDS = 60;
+    private static final int MIN_CUSTOMER_AGE = 13;
     private static final Set<String> BLOCKED_EMAIL_DOMAINS = Set.of(
             "10minutemail.com",
             "guerrillamail.com",
@@ -74,6 +76,7 @@ public class AuthUseCaseService implements
         String email = normalizeEmail(command.email());
         String phone = normalizeRequired(command.phone(), "So dien thoai khong duoc de trong");
         String password = normalizeRequired(command.password(), "Mat khau khong duoc de trong");
+        validateDateOfBirth(command.dateOfBirth());
         String emailVerificationUrlBase = normalizeRequired(
                 command.emailVerificationUrlBase(),
                 "Duong dan xac thuc email khong hop le"
@@ -332,5 +335,15 @@ public class AuthUseCaseService implements
 
     private String normalizeEmail(String email) {
         return normalizeRequired(email, "Email khong duoc de trong").toLowerCase();
+    }
+
+    private void validateDateOfBirth(LocalDate dateOfBirth) {
+        if (dateOfBirth == null) {
+            throw new IllegalArgumentException("Ngay sinh khong duoc de trong");
+        }
+
+        if (dateOfBirth.isAfter(LocalDate.now().minusYears(MIN_CUSTOMER_AGE))) {
+            throw new IllegalArgumentException("Ban phai du 13 tuoi de tao tai khoan");
+        }
     }
 }

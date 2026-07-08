@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import React, { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -20,13 +20,18 @@ const REGISTER_BULLETS = [
   { title: 'Hỗ trợ 24/7', desc: 'Đội ngũ vận hành sẵn sàng khi bạn cần.' },
 ]
 
-function todayIsoDate() {
-  return new Date().toISOString().slice(0, 10)
+const MIN_CUSTOMER_AGE = 13
+const MAX_CUSTOMER_AGE = 100
+
+function maxBirthDateIso() {
+  const d = new Date()
+  d.setFullYear(d.getFullYear() - MIN_CUSTOMER_AGE)
+  return d.toISOString().slice(0, 10)
 }
 
 function minBirthDateIso() {
   const d = new Date()
-  d.setFullYear(d.getFullYear() - 100)
+  d.setFullYear(d.getFullYear() - MAX_CUSTOMER_AGE)
   return d.toISOString().slice(0, 10)
 }
 
@@ -42,7 +47,7 @@ export default function RegisterPage() {
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
-  const maxBirthDate = useMemo(() => todayIsoDate(), [])
+  const maxBirthDate = useMemo(() => maxBirthDateIso(), [])
   const minBirthDate = useMemo(() => minBirthDateIso(), [])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -91,7 +96,7 @@ export default function RegisterPage() {
       return
     }
     if (dateOfBirth > maxBirthDate) {
-      setError('Ngày sinh không hợp lệ.')
+      setError('Bạn phải đủ 13 tuổi để tạo tài khoản.')
       setIsLoading(false)
       return
     }
@@ -113,9 +118,17 @@ export default function RegisterPage() {
         router.push(`/verify-email?sent=1&email=${encodeURIComponent(email)}`)
       }
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { message?: string } } }
-      setError(axiosErr.response?.data?.message || 'Đăng ký thất bại, vui lòng thử lại.')
-    } finally {
+      if (axios.isAxiosError(err)) {
+        const message =
+          typeof err.response?.data?.message === 'string'
+            ? err.response.data.message
+            : typeof err.response?.data === 'string'
+              ? err.response.data
+              : err.message
+        setError(message || 'Đăng ký thất bại, vui lòng thử lại.')
+      } else {
+        setError('Đăng ký thất bại, vui lòng thử lại.')
+      }
       setIsLoading(false)
     }
   }
