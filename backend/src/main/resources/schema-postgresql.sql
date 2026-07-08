@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS customer_issue_report (
     booking_id INT REFERENCES booking(id),
     issue_type VARCHAR(30) NOT NULL,
     description VARCHAR(1000) NOT NULL,
+    admin_note VARCHAR(1000),
     status VARCHAR(30) NOT NULL DEFAULT 'OPEN',
     created_at TIMESTAMP NOT NULL DEFAULT now(),
     updated_at TIMESTAMP NOT NULL DEFAULT now(),

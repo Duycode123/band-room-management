@@ -192,7 +192,7 @@ export function mapRoomTypeToAdminOption(roomType: BackendRoomType): AdminRoomTy
   }
 }
 
-export function mapBackendRoomToAdminRoom(room: BackendRoom, index = 0): AdminRoom {
+export function mapBackendRoomToAdminRoom(room: BackendRoom, index = 0, monthlyRevenue = 0): AdminRoom {
   const category = inferRoomCategoryFromTypeName(
     `${room.roomType?.typeName ?? ''} ${room.roomType?.description ?? ''}`,
   )
@@ -219,7 +219,7 @@ export function mapBackendRoomToAdminRoom(room: BackendRoom, index = 0): AdminRo
     lastUpdated: 'Đồng bộ từ backend',
     description: getRoomDescription(room, category),
     occupancyRateToday: availability.occupancyRateToday,
-    monthlyRevenue: 0,
+    monthlyRevenue,
     averageRating: 0,
     latestMaintenance: status === 'maintenance' ? 'Đang bảo trì' : 'Chưa có lịch bảo trì gần đây',
   }

@@ -4,11 +4,15 @@
 
 - Source: Normalized from current frontend support flow and backend controller contract
 - Primary actor: Customer
-- Current status in repo: Implemented core flow
+- Supporting actor: Admin
+- Current status in repo: Implemented core flow and admin triage
 
 ## Related Endpoints
 
 - `POST /api/customer/report-issue`
+- `GET /api/admin/incident-reports`
+- `GET /api/admin/incident-reports/{reportId}`
+- `PATCH /api/admin/incident-reports/{reportId}/status`
 
 ## Goal
 
@@ -28,6 +32,15 @@ Allow an authenticated customer to submit a support issue that the backend can t
 5. Backend validates the issue type, description, and optional booking ownership.
 6. Backend stores the issue with `OPEN` status and returns the created report summary.
 
+## Admin Triage Flow
+
+1. Admin opens the incident reports page.
+2. Frontend requests issue reports from `GET /api/admin/incident-reports` with optional filters.
+3. Backend returns customer, booking, room, status, priority, and submitted time details.
+4. Admin opens a report detail.
+5. Admin changes status and optionally writes an admin note.
+6. Backend persists status/admin note and returns the updated report.
+
 ## Alternate and Error Flows
 
 - Customer profile is missing: backend returns not found.
@@ -42,20 +55,25 @@ Allow an authenticated customer to submit a support issue that the backend can t
 - Booking linkage is optional.
 - Allowed issue types are `ROOM`, `EQUIPMENT`, `PAYMENT`, `ACCOUNT`, and `OTHER`.
 - New issue reports start in `OPEN` status.
+- Admin UI represents `OPEN` as `NEW`.
+- Admin can update reports to `OPEN`, `IN_PROGRESS`, `RESOLVED`, or `CLOSED`.
+- Admin note is optional and limited to 1000 characters.
 
 ## Data Touched
 
 - `Customer`
 - `Booking`
 - `CustomerIssueReport`
+- `customer_issue_report.admin_note`
 
 ## Current Implementation Notes
 
 - The backend persists reports in `customer_issue_report`.
 - Status is stored explicitly as a small lifecycle string rather than inferred from frontend UI state.
-- The current API is create-only; staff/admin triage endpoints are still future work.
+- Admin incident reports page reads from backend data rather than mock data.
+- Priority is currently derived from issue type for admin filtering and display.
 
 ## Known Gaps / Follow-up
 
-- No staff/admin management endpoint exists yet for triage or status updates.
 - Notifications, SLA tracking, and attachments are not implemented.
+- Admin note is stored, but there is no separate status history/audit table yet.
