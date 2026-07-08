@@ -8,6 +8,7 @@ import { formatCurrency } from '@/components/booking/booking-data'
 import { BOOKING_SLOT_TIMES, getTodayKey } from '@/components/booking/booking-time-utils'
 import RoomCatalogSkeleton from '@/components/public/RoomCatalogSkeleton'
 import {
+  clearQuickBookingDraft,
   readQuickBookingDraft,
   shouldReopenQuickBooking,
 } from '@/components/booking/quick-booking-draft'
@@ -55,8 +56,6 @@ const defaultFilters: RoomFilters = {
   price: 'all',
 }
 
-const roomsQuickBookingReturnPath = '/rooms?reopenQuickBooking=1'
-
 type RoomBookingStatus = 'AVAILABLE_NOW' | 'AVAILABLE_OTHER_TIME' | 'UNAVAILABLE'
 
 type RoomSlotsById = Record<string, TimeSlot[] | undefined>
@@ -72,7 +71,6 @@ type QuickBookingState = {
 export default function RoomsPublicPage() {
   const [filters, setFilters] = useState<RoomFilters>(defaultFilters)
   const { rooms, source: catalogSource, isLoading, isRefreshing } = usePublicRoomCatalog()
-  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null)
   const [detailRoom, setDetailRoom] = useState<Room | null>(null)
   const [quickBooking, setQuickBooking] = useState<QuickBookingState | null>(null)
   const [todaySlotsByRoomId, setTodaySlotsByRoomId] = useState<RoomSlotsById>({})
@@ -127,13 +125,13 @@ export default function RoomsPublicPage() {
         setQuickBooking({
           room: restoredRoom,
           initialDate: draft.selectedDate ?? draft.initialDate,
-          initialStartTime: draft.selectedStartTime ?? draft.initialStartTime,
+          initialStartTime: draft.selectedStartTime ?? draft.selectedSlot?.startTime ?? draft.initialStartTime,
           initialDuration: draft.selectedDuration ?? draft.initialDuration,
           initialNote: draft.customerNote ?? draft.initialNote,
         })
       }
     } catch {
-      window.sessionStorage.removeItem('bandroom.homepage.quickBookingDraft')
+      clearQuickBookingDraft()
     } finally {
       window.history.replaceState(window.history.state, '', '/rooms')
     }
@@ -279,7 +277,7 @@ export default function RoomsPublicPage() {
                 key={room.id}
                 room={room}
                 todaySlots={todaySlotsByRoomId[room.id]}
-                onBook={setSelectedRoom}
+                onBook={(room) => setQuickBooking({ room })}
                 onViewDetail={setDetailRoom}
               />
             ))}
@@ -301,15 +299,21 @@ export default function RoomsPublicPage() {
           onClose={() => setDetailRoom(null)}
           onBook={(room) => {
             setDetailRoom(null)
-            setSelectedRoom(room)
+            setQuickBooking({ room })
           }}
         />
       )}
-      {selectedRoom && (
+      {quickBooking && (
         <BookingQuickModal
-          room={selectedRoom}
+          room={quickBooking.room}
           open
-          onClose={() => setSelectedRoom(null)}
+          initialDate={quickBooking.initialDate}
+          initialStartTime={quickBooking.initialStartTime}
+          initialDuration={quickBooking.initialDuration}
+          initialNote={quickBooking.initialNote}
+          sourceRoute="/rooms"
+          returnPath="/rooms"
+          onClose={() => setQuickBooking(null)}
         />
       )}
     </main>

@@ -7,7 +7,10 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import BookingQuickModal from '@/components/booking/BookingQuickModal'
 import RoomDetailModal from '@/components/booking/RoomDetailModal'
 import { formatCurrency, type BookingRoom } from '@/components/booking/booking-data'
-import { shouldReopenQuickBooking } from '@/components/booking/quick-booking-draft'
+import {
+  readQuickBookingDraft,
+  shouldReopenQuickBooking,
+} from '@/components/booking/quick-booking-draft'
 import { useHomepageLiveData } from '@/hooks/useHomepageLiveData'
 import { usePublicRoomCatalog } from '@/hooks/usePublicRoomCatalog'
 import {
@@ -451,6 +454,14 @@ function ChevronIcon({ className = 'h-5 w-5' }: { className?: string }) {
   )
 }
 
+type QuickBookingState = {
+  room: BookingRoom
+  initialDate?: string
+  initialStartTime?: string
+  initialDuration?: number
+  initialNote?: string
+}
+
 export default function HomePage() {
   const router = useRouter()
   const {
@@ -463,14 +474,33 @@ export default function HomePage() {
   const { rooms, isLoading: isRoomCatalogLoading } = usePublicRoomCatalog()
   const [availabilityHintVisible, setAvailabilityHintVisible] = useState(false)
   const [detailRoom, setDetailRoom] = useState<BookingRoom | null>(null)
-  const [quickBookingRoom, setQuickBookingRoom] = useState<BookingRoom | null>(null)
+  const [quickBooking, setQuickBooking] = useState<QuickBookingState | null>(null)
   const topRatedRooms = useMemo(() => getTopRatedRooms(rooms), [rooms])
 
   useEffect(() => {
-    if (shouldReopenQuickBooking(window.location.search)) {
-      router.replace('/rooms?reopenQuickBooking=1')
+    if (!shouldReopenQuickBooking(window.location.search)) return
+
+    const draft = readQuickBookingDraft()
+    if (!draft) {
+      window.history.replaceState(window.history.state, '', '/')
+      return
     }
-  }, [router])
+
+    const draftRoom = draft.selectedRoom ?? draft.room
+    const restoredRoom = rooms.find((room) => room.id === draftRoom?.id) ?? draftRoom
+
+    if (restoredRoom) {
+      setQuickBooking({
+        room: restoredRoom,
+        initialDate: draft.selectedDate ?? draft.initialDate,
+        initialStartTime: draft.selectedStartTime ?? draft.selectedSlot?.startTime ?? draft.initialStartTime,
+        initialDuration: draft.selectedDuration ?? draft.initialDuration,
+        initialNote: draft.customerNote ?? draft.initialNote,
+      })
+    }
+
+    window.history.replaceState(window.history.state, '', '/')
+  }, [rooms])
 
   const goToRooms = () => {
     router.push('/rooms')
@@ -691,7 +721,7 @@ export default function HomePage() {
         rooms={topRatedRooms}
         isLoading={isRoomCatalogLoading}
         onOpenDetail={setDetailRoom}
-        onBook={setQuickBookingRoom}
+        onBook={(room) => setQuickBooking({ room })}
       />
 
       <section className="relative scroll-mt-24 overflow-hidden bg-brand-bgGray py-20 sm:py-24">
@@ -942,17 +972,21 @@ export default function HomePage() {
           onClose={() => setDetailRoom(null)}
           onBook={(room) => {
             setDetailRoom(null)
-            setQuickBookingRoom(room)
+            setQuickBooking({ room })
           }}
         />
       )}
-      {quickBookingRoom && (
+      {quickBooking && (
         <BookingQuickModal
-          room={quickBookingRoom}
+          room={quickBooking.room}
           open
+          initialDate={quickBooking.initialDate}
+          initialStartTime={quickBooking.initialStartTime}
+          initialDuration={quickBooking.initialDuration}
+          initialNote={quickBooking.initialNote}
           sourceRoute="/"
           returnPath="/"
-          onClose={() => setQuickBookingRoom(null)}
+          onClose={() => setQuickBooking(null)}
         />
       )}
     </main>

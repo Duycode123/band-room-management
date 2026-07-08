@@ -23,6 +23,7 @@ import {
 } from '@/components/booking/booking-data'
 import { useAuth } from '@/contexts/AuthContext'
 import CheckoutCouponInput from '@/components/checkout/CheckoutCouponInput'
+import { clearQuickBookingDraft } from '@/components/booking/quick-booking-draft'
 import {
   clearConfirmationCouponDraft,
   getConfirmationCouponDraft,
@@ -158,6 +159,7 @@ export default function BookingConfirmationClient() {
       })
 
       clearConfirmationCouponDraft()
+      clearQuickBookingDraft()
 
       const params = new URLSearchParams({
         bookingId: booking.bookingCode || String(booking.bookingId),
