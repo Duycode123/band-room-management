@@ -33,7 +33,7 @@ export default function RoomDeleteConfirmModal({
       await onConfirm(room.id)
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Khong the xoa phong tap.')
+      setError(err instanceof Error ? err.message : 'Không thể xóa phòng tập.')
     } finally {
       setIsDeleting(false)
     }
@@ -43,7 +43,7 @@ export default function RoomDeleteConfirmModal({
     <>
       <button
         type="button"
-        aria-label="Dong xac nhan xoa"
+        aria-label="Đóng xác nhận xóa"
         onClick={onClose}
         className="fixed inset-0 z-50 bg-inverse-surface/50 backdrop-blur-sm"
       />
@@ -56,19 +56,19 @@ export default function RoomDeleteConfirmModal({
           className="w-full max-w-md rounded-3xl border border-outline-variant bg-white p-6 shadow-[var(--shadow-elevated)]"
         >
           <p className="font-display text-[10px] font-semibold uppercase tracking-[0.16em] text-error">
-            Xac nhan xoa
+            Xác nhận xóa
           </p>
           <h2 id="delete-room-title" className="mt-1 font-display text-xl font-bold text-on-surface">
-            Xoa phong tap nay?
+            Xóa phòng tập này?
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-on-surface-variant">
-            Ban dang xoa <strong className="text-on-surface">{room.name}</strong> ({room.code}).
-            Thao tac nay se goi API backend thuc te va co the bi chan neu phong da co booking hoac thiet bi lien ket.
+            Bạn đang xóa <strong className="text-on-surface">{room.name}</strong> ({room.code}).
+            Thao tác này sẽ gọi API backend thực tế và có thể bị chặn nếu phòng đã có booking hoặc thiết bị liên kết.
           </p>
 
           {room.status === 'occupied' && (
             <p className="mt-4 rounded-2xl border border-tertiary-container bg-tertiary-container/30 px-4 py-3 text-xs text-on-tertiary-container">
-              Phong dang co lich su dung. Backend co the tu choi xoa de bao toan du lieu van hanh.
+              Phòng đang có lịch sử dụng. Backend có thể từ chối xóa để bảo toàn dữ liệu vận hành.
             </p>
           )}
 
@@ -85,7 +85,7 @@ export default function RoomDeleteConfirmModal({
               disabled={isDeleting}
               className="rounded-xl border border-outline px-5 py-2.5 font-display text-sm font-medium text-on-surface-variant hover:bg-surface-container-low disabled:opacity-50"
             >
-              Huy
+              Hủy
             </button>
             <button
               type="button"
@@ -93,7 +93,7 @@ export default function RoomDeleteConfirmModal({
               disabled={isDeleting}
               className="rounded-xl bg-error px-5 py-2.5 font-display text-sm font-medium text-white hover:bg-error/90 disabled:opacity-50"
             >
-              {isDeleting ? 'Dang xoa...' : 'Xoa phong'}
+              {isDeleting ? 'Đang xóa...' : 'Xóa phòng'}
             </button>
           </div>
         </div>

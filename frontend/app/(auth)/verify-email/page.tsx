@@ -26,7 +26,7 @@ function VerifyEmailContent() {
   )
   const [message, setMessage] = useState(
     sent
-      ? 'Tai khoan da duoc tao. Vui long kiem tra email va bam vao lien ket xac thuc truoc khi dang nhap.'
+      ? 'Tài khoản đã được tạo. Vui lòng kiểm tra email và bấm vào liên kết xác thực trước khi đăng nhập.'
       : '',
   )
   const [error, setError] = useState('')
@@ -46,13 +46,13 @@ function VerifyEmailContent() {
       .then(() => {
         if (!mounted) return
         setStatus('success')
-        setMessage('Email da duoc xac thuc thanh cong. Ban co the dang nhap ngay bay gio.')
+        setMessage('Email đã được xác thực thành công. Bạn có thể đăng nhập ngay bây giờ.')
       })
       .catch((err: unknown) => {
         if (!mounted) return
         const axiosErr = err as { response?: { data?: { message?: string } } }
         setStatus('error')
-        setError(axiosErr.response?.data?.message || 'Lien ket xac thuc khong hop le hoac da het han.')
+        setError(axiosErr.response?.data?.message || 'Liên kết xác thực không hợp lệ hoặc đã hết hạn.')
       })
 
     return () => {
@@ -68,10 +68,10 @@ function VerifyEmailContent() {
 
     try {
       await api.post('/api/auth/resend-verification-email', { email: email.trim().toLowerCase() })
-      setMessage('He thong da gui lai email xac thuc. Vui long kiem tra hop thu den va spam.')
+      setMessage('Hệ thống đã gửi lại email xác thực. Vui lòng kiểm tra hộp thư đến và spam.')
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } }
-      setError(axiosErr.response?.data?.message || 'Khong the gui lai email xac thuc. Vui long thu lai.')
+      setError(axiosErr.response?.data?.message || 'Không thể gửi lại email xác thực. Vui lòng thử lại.')
     } finally {
       setIsResending(false)
     }
@@ -80,26 +80,26 @@ function VerifyEmailContent() {
   return (
     <AuthShell>
       <AuthBanner
-        description="Xac thuc email giup bao ve tai khoan, giam dang ky ao va dam bao thong bao dat phong duoc gui dung nguoi."
+        description="Xác thực email giúp bảo vệ tài khoản, giảm đăng ký ảo và đảm bảo thông báo đặt phòng được gửi đúng người."
         bullets={[
-          { title: 'Bao ve tai khoan', desc: 'Chi email that moi co the kich hoat tai khoan.' },
-          { title: 'Nhan thong bao', desc: 'Hoa don, lich dat va ho tro se gui ve email da xac thuc.' },
-          { title: 'Giam gian lan', desc: 'Han che tao nhieu tai khoan bang email tam thoi.' },
+          { title: 'Bảo vệ tài khoản', desc: 'Chỉ email thật mới có thể kích hoạt tài khoản.' },
+          { title: 'Nhận thông báo', desc: 'Hóa đơn, lịch đặt và hỗ trợ sẽ gửi về email đã xác thực.' },
+          { title: 'Giảm gian lận', desc: 'Hạn chế tạo nhiều tài khoản bằng email tạm thời.' },
         ]}
       />
 
       <AuthFormPanel>
         <AuthMobileBrand />
         <div className="mb-6">
-          <h1 className="font-display text-2xl font-bold tracking-tight text-on-surface">Xac thuc email</h1>
+          <h1 className="font-display text-2xl font-bold tracking-tight text-on-surface">Xác thực email</h1>
           <p className="mt-1 text-sm text-on-surface-variant">
-            Hoan tat buoc nay de kich hoat tai khoan va dang nhap.
+            Hoàn tất bước này để kích hoạt tài khoản và đăng nhập.
           </p>
         </div>
 
         {status === 'checking' && (
           <div className="mb-4 rounded-lg border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
-            Dang kiem tra lien ket xac thuc...
+            Đang kiểm tra liên kết xác thực...
           </div>
         )}
         {message && (
@@ -115,12 +115,12 @@ function VerifyEmailContent() {
             onClick={() => router.push('/login')}
             className="mt-6 flex h-12 w-full cursor-pointer items-center justify-center rounded-lg bg-brand-orange font-display text-sm font-medium text-white shadow-[var(--shadow-card)] transition-all hover:bg-brand-orangeHover active:scale-[0.98]"
           >
-            Dang nhap
+            Đăng nhập
           </button>
         ) : (
           <form onSubmit={handleResend} className="space-y-4">
             <AuthField
-              label="Email dang ky"
+              label="Email đăng ký"
               name="email"
               type="email"
               value={email}
@@ -129,19 +129,19 @@ function VerifyEmailContent() {
               icon="email"
             />
             <AuthSubmitButton disabled={!canResend}>
-              {isResending ? 'Dang gui lai...' : 'Gui lai email xac thuc'}
+              {isResending ? 'Đang gửi lại...' : 'Gửi lại email xác thực'}
             </AuthSubmitButton>
           </form>
         )}
 
         <p className="mt-6 text-center text-xs text-on-surface-variant">
-          Da xac thuc?{' '}
+          Đã xác thực?{' '}
           <button
             type="button"
             onClick={() => router.push('/login')}
             className="cursor-pointer font-display font-semibold text-brand-orange hover:underline"
           >
-            Quay lai dang nhap
+            Quay lại đăng nhập
           </button>
         </p>
       </AuthFormPanel>

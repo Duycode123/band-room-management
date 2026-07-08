@@ -134,7 +134,7 @@ async function sendBackendChatbotMessage(message: string): Promise<ChatbotReply>
   const response = await api.post<ApiEnvelope<BackendChatbotReply>>('/api/ai/chat', { message })
   const payload = response.data
   if (!payload.success || !payload.data?.answer) {
-    throw new Error(payload.message || 'Chatbot chua phan hoi duoc')
+    throw new Error(payload.message || 'Chatbot chưa phản hồi được')
   }
 
   return {

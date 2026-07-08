@@ -64,7 +64,7 @@ export default function AdminEquipmentPage() {
     } catch (error) {
       setEquipment([])
       setSelected(null)
-      setErrorMessage(error instanceof Error ? error.message : 'Khong the tai danh sach thiet bi.')
+      setErrorMessage(error instanceof Error ? error.message : 'Không thể tải danh sách thiết bị.')
     } finally {
       setIsLoading(false)
     }
@@ -74,7 +74,7 @@ export default function AdminEquipmentPage() {
     void fetchEquipmentRooms()
       .then((data) => setRooms(data))
       .catch((error) => {
-        setErrorMessage(error instanceof Error ? error.message : 'Khong the tai danh sach phong.')
+        setErrorMessage(error instanceof Error ? error.message : 'Không thể tải danh sách phòng.')
       })
   }, [])
 
@@ -109,7 +109,7 @@ export default function AdminEquipmentPage() {
 
   const handleCreate = async (data: EquipmentFormData) => {
     await createAdminEquipment(data)
-    setToast('Them thiet bi thanh cong.')
+    setToast('Thêm thiết bị thành công.')
     await loadEquipment()
   }
 
@@ -118,17 +118,17 @@ export default function AdminEquipmentPage() {
 
     const updated = await updateAdminEquipment(formModal.equipmentId, data)
     if (!updated) {
-      throw new Error('Khong tim thay thiet bi.')
+      throw new Error('Không tìm thấy thiết bị.')
     }
 
-    setToast('Cap nhat thiet bi thanh cong.')
+    setToast('Cập nhật thiết bị thành công.')
     setSelected(updated)
     await loadEquipment()
   }
 
   const handleDelete = async (id: number) => {
     await deleteAdminEquipment(id)
-    setToast('Xoa thiet bi thanh cong.')
+    setToast('Xóa thiết bị thành công.')
     setSelected(null)
     await loadEquipment()
   }
@@ -137,12 +137,12 @@ export default function AdminEquipmentPage() {
     <AuthGuard allowedRoles={['ADMIN']}>
       <AdminShell>
         <AdminPageHeader
-          eyebrow="Thiet bi"
-          title="Quan ly thiet bi"
-          description="Danh sach thiet bi nay dang doc va ghi truc tiep vao backend."
+          eyebrow="Thiết bị"
+          title="Quản lý thiết bị"
+          description="Danh sách thiết bị này đang đọc và ghi trực tiếp vào backend."
           breadcrumbs={[
-            { label: 'Tong quan', href: '/admin/dashboard' },
-            { label: 'Thiet bi' },
+            { label: 'Tổng quan', href: '/admin/dashboard' },
+            { label: 'Thiết bị' },
           ]}
           actions={
             <button
@@ -151,7 +151,7 @@ export default function AdminEquipmentPage() {
               className="inline-flex items-center gap-2 rounded-xl bg-brand-orange px-5 py-2.5 font-display text-sm font-medium text-white shadow-lg shadow-brand-orange/25 transition-all hover:bg-brand-orangeHover active:scale-[0.98]"
             >
               <IconPlus className="h-4 w-4" />
-              Them moi
+              Thêm mới
             </button>
           }
         />
@@ -167,29 +167,29 @@ export default function AdminEquipmentPage() {
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <AdminStatCard
-              label="Ket qua loc"
+              label="Kết quả lọc"
               value={stats.total}
-              hint="Thiet bi hien thi"
+              hint="Thiết bị hiển thị"
               icon={<IconEquipment className="h-5 w-5" />}
             />
             <AdminStatCard
-              label="Tot"
+              label="Tốt"
               value={stats.good}
-              hint="San sang su dung"
+              hint="Sẵn sàng sử dụng"
               accent="secondary"
               icon={<span className="text-base">OK</span>}
             />
             <AdminStatCard
-              label="Hu hong"
+              label="Hư hỏng"
               value={stats.broken}
-              hint="Can xu ly"
+              hint="Cần xử lý"
               accent="primary"
               icon={<span className="text-base">!</span>}
             />
             <AdminStatCard
-              label="Bao tri"
+              label="Bảo trì"
               value={stats.maintenance}
-              hint="Tam dung"
+              hint="Tạm dừng"
               accent="tertiary"
               icon={<span className="text-base">MT</span>}
             />
@@ -199,8 +199,8 @@ export default function AdminEquipmentPage() {
 
           <section>
             <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="font-display text-lg font-bold text-on-surface">Danh sach thiet bi</h2>
-              <p className="text-xs text-on-surface-variant">Nhan the de xem chi tiet</p>
+              <h2 className="font-display text-lg font-bold text-on-surface">Danh sách thiết bị</h2>
+              <p className="text-xs text-on-surface-variant">Nhấn thẻ để xem chi tiết</p>
             </div>
             <EquipmentTable
               equipment={equipment}

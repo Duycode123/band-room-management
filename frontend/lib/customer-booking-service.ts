@@ -119,8 +119,8 @@ function normalizeStatus(status?: string | null): CustomerBookingStatus {
 }
 
 function getPaymentMethodLabel(method?: 'CASH' | 'ONLINE' | null) {
-  if (method === 'CASH') return 'Thanh toan tai quay'
-  if (method === 'ONLINE') return 'Thanh toan online'
+  if (method === 'CASH') return 'Thanh toán tại quầy'
+  if (method === 'ONLINE') return 'Thanh toán online'
   return undefined
 }
 
@@ -147,7 +147,7 @@ function mapBooking(booking: BackendBooking): BookingHistoryItem {
 
 function buildReviewTitle(content: string) {
   const normalizedContent = content.trim()
-  return normalizedContent.slice(0, 80) || 'Danh gia phong'
+  return normalizedContent.slice(0, 80) || 'Đánh giá phòng'
 }
 
 function mapBackendReviewToUiReview(review: BackendReview, booking: BookingHistoryItem): BookingReview {
@@ -278,7 +278,7 @@ export async function getBookingDetail(
 
 export async function submitBookingReview(payload: SubmitBookingReviewPayload): Promise<BookingReview> {
   if (!payload.backendBookingId) {
-    throw new Error('Khong tim thay booking backend de gui danh gia.')
+    throw new Error('Không tìm thấy booking backend để gửi đánh giá.')
   }
 
   try {
@@ -305,7 +305,7 @@ export async function submitBookingReview(payload: SubmitBookingReviewPayload): 
     return mapBackendReviewToUiReview(response.data.data, booking)
   } catch (error) {
     if (axios.isAxiosError<{ message?: string }>(error)) {
-      throw new Error(error.response?.data?.message || 'Khong the gui danh gia. Vui long thu lai.')
+      throw new Error(error.response?.data?.message || 'Không thể gửi đánh giá. Vui lòng thử lại.')
     }
 
     throw error

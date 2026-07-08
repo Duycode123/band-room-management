@@ -96,7 +96,7 @@ export default function RoomFormModal({
       await onSubmit(form)
       onClose()
     } catch (error) {
-      setServerError(error instanceof Error ? error.message : 'Khong the luu phong tap.')
+      setServerError(error instanceof Error ? error.message : 'Không thể lưu phòng tập.')
     } finally {
       setIsSaving(false)
     }
@@ -109,12 +109,12 @@ export default function RoomFormModal({
     if (!file) return
 
     if (!file.type.startsWith('image/')) {
-      setErrors((current) => ({ ...current, image: 'File tai len phai la anh.' }))
+      setErrors((current) => ({ ...current, image: 'File tải lên phải là ảnh.' }))
       return
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      setErrors((current) => ({ ...current, image: 'Anh phong khong duoc vuot qua 5MB.' }))
+      setErrors((current) => ({ ...current, image: 'Ảnh phòng không được vượt quá 5MB.' }))
       return
     }
 
@@ -128,7 +128,7 @@ export default function RoomFormModal({
     } catch (error) {
       setErrors((current) => ({
         ...current,
-        image: error instanceof Error ? error.message : 'Khong the tai anh phong len Cloudinary.',
+        image: error instanceof Error ? error.message : 'Không thể tải ảnh phòng lên Cloudinary.',
       }))
     } finally {
       setIsUploadingImage(false)
@@ -139,7 +139,7 @@ export default function RoomFormModal({
     <>
       <button
         type="button"
-        aria-label="Dong form phong tap"
+        aria-label="Đóng form phòng tập"
         onClick={onClose}
         className="fixed inset-0 z-50 bg-inverse-surface/50 backdrop-blur-sm"
       />
@@ -153,28 +153,28 @@ export default function RoomFormModal({
         >
           <header className="relative overflow-hidden border-b border-outline-variant bg-gradient-to-r from-brand-greenDark to-brand-greenLight px-6 py-5 text-white">
             <p className="font-display text-[10px] font-medium uppercase tracking-[0.15em] text-brand-orange">
-              {mode === 'create' ? 'Them phong' : 'Chinh sua phong'}
+              {mode === 'create' ? 'Thêm phòng' : 'Chỉnh sửa phòng'}
             </p>
             <h2 id="room-form-title" className="font-display text-xl font-bold">
-              {mode === 'create' ? 'Them phong tap moi' : 'Cap nhat phong tap'}
+              {mode === 'create' ? 'Thêm phòng tập mới' : 'Cập nhật phòng tập'}
             </h2>
             <p className="mt-1 text-xs text-inverse-on-surface/80">
-              Dong bo du lieu phong voi backend thay vi chi sua mock o frontend.
+              Đồng bộ dữ liệu phòng với backend thay vì chỉ sửa mock ở frontend.
             </p>
           </header>
 
           <form onSubmit={(event) => void handleSubmit(event)} className="flex flex-1 flex-col overflow-hidden">
             <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
               <div className="rounded-2xl border border-brand-orange/20 bg-primary-container/30 px-4 py-3 text-xs leading-6 text-on-surface-variant">
-                Backend hien luu <strong>ten phong</strong>, <strong>hang phong</strong>, <strong>suc chua</strong>,
-                <strong> trang thai</strong> va <strong>link anh Cloudinary</strong>.
-                Ma phong duoc sinh theo ID backend, gia theo gio van di theo hang phong.
+                Backend hiện lưu <strong>tên phòng</strong>, <strong>hạng phòng</strong>, <strong>sức chứa</strong>,
+                <strong> trạng thái</strong> và <strong>link ảnh Cloudinary</strong>.
+                Mã phòng được sinh theo ID backend, giá theo giờ vẫn đi theo hạng phòng.
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
                   <span className={labelClass}>
-                    Ten phong <span className="text-error">*</span>
+                    Tên phòng <span className="text-error">*</span>
                   </span>
                   <input
                     type="text"
@@ -188,23 +188,23 @@ export default function RoomFormModal({
                 </label>
 
                 <label className="block">
-                  <span className={labelClass}>Ma phong</span>
+                  <span className={labelClass}>Mã phòng</span>
                   <input
                     type="text"
                     value={form.code}
                     readOnly
                     disabled
                     className={readonlyClass}
-                    placeholder="Se sinh tu dong sau khi tao"
+                    placeholder="Sẽ sinh tự động sau khi tạo"
                   />
-                  <p className="mt-1 text-[11px] text-on-surface-variant">Field nay chi de hien thi.</p>
+                  <p className="mt-1 text-[11px] text-on-surface-variant">Field này chỉ để hiển thị.</p>
                 </label>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
                   <span className={labelClass}>
-                    Hang phong <span className="text-error">*</span>
+                    Hạng phòng <span className="text-error">*</span>
                   </span>
                   <select
                     value={roomTypes.length > 0 ? String(form.roomTypeId ?? '') : form.category}
@@ -235,7 +235,7 @@ export default function RoomFormModal({
 
                 <label className="block">
                   <span className={labelClass}>
-                    Trang thai <span className="text-error">*</span>
+                    Trạng thái <span className="text-error">*</span>
                   </span>
                   <select
                     value={form.status}
@@ -254,7 +254,7 @@ export default function RoomFormModal({
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
-                  <span className={labelClass}>Suc chua</span>
+                  <span className={labelClass}>Sức chứa</span>
                   <input
                     type="number"
                     min={1}
@@ -263,32 +263,32 @@ export default function RoomFormModal({
                     onChange={(event) => set({ capacity: Number(event.target.value) })}
                     className={inputClass}
                   />
-                  <p className="mt-1 text-[11px] text-on-surface-variant">Luu truc tiep vao truong max_people cua phong.</p>
+                  <p className="mt-1 text-[11px] text-on-surface-variant">Lưu trực tiếp vào trường max_people của phòng.</p>
                   {errors.capacity && <p className="mt-1 text-xs text-error">{errors.capacity}</p>}
                 </label>
 
                 <label className="block">
-                  <span className={labelClass}>Gia/gio (VND)</span>
+                  <span className={labelClass}>Giá/giờ (VND)</span>
                   <input type="number" value={form.pricePerHour} readOnly disabled className={readonlyClass} />
-                  <p className="mt-1 text-[11px] text-on-surface-variant">Dong bo tu hang phong backend.</p>
+                  <p className="mt-1 text-[11px] text-on-surface-variant">Đồng bộ từ hạng phòng backend.</p>
                 </label>
               </div>
 
               <label className="block">
-                <span className={labelClass}>Thiet bi trong phong</span>
+                <span className={labelClass}>Thiết bị trong phòng</span>
                 <textarea
                   value={form.equipments}
                   readOnly
                   disabled
                   rows={4}
                   className="w-full cursor-not-allowed rounded-xl border border-outline bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface opacity-70 outline-none transition-all"
-                  placeholder="Canh nay chua luu qua backend"
+                  placeholder="Cảnh này chưa lưu qua backend"
                 />
-                <p className="mt-1 text-[11px] text-on-surface-variant">Chi de tham chieu hien thi.</p>
+                <p className="mt-1 text-[11px] text-on-surface-variant">Chỉ để tham chiếu hiển thị.</p>
               </label>
 
               <label className="block">
-                <span className={labelClass}>Mo ta</span>
+                <span className={labelClass}>Mô tả</span>
                 <textarea
                   value={form.description}
                   readOnly
@@ -296,10 +296,10 @@ export default function RoomFormModal({
                   rows={3}
                   maxLength={500}
                   className="w-full cursor-not-allowed rounded-xl border border-outline bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface opacity-70 outline-none transition-all"
-                  placeholder="Backend chua luu mo ta phong trong flow nay"
+                  placeholder="Backend chưa lưu mô tả phòng trong flow này"
                 />
                 <p className="mt-1 text-right text-[10px] text-on-surface-variant">{form.description.length}/500</p>
-                <p className="mt-1 text-[11px] text-on-surface-variant">Chi de tham chieu hien thi.</p>
+                <p className="mt-1 text-[11px] text-on-surface-variant">Chỉ để tham chiếu hiển thị.</p>
                 {errors.description && <p className="mt-1 text-xs text-error">{errors.description}</p>}
               </label>
 
@@ -315,7 +315,7 @@ export default function RoomFormModal({
 
                 <div className="space-y-3">
                   <label className="block">
-                    <span className={labelClass}>Anh phong</span>
+                    <span className={labelClass}>Ảnh phòng</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -324,12 +324,12 @@ export default function RoomFormModal({
                       className="block w-full text-sm text-on-surface-variant file:mr-3 file:rounded-xl file:border-0 file:bg-brand-orange file:px-4 file:py-2.5 file:font-display file:text-sm file:font-medium file:text-white hover:file:bg-brand-orangeHover disabled:opacity-60"
                     />
                     <p className="mt-1 text-[11px] text-on-surface-variant">
-                      {isUploadingImage ? 'Dang tai anh len Cloudinary...' : 'Toi da 5MB. Link tra ve se duoc luu cung phong.'}
+                      {isUploadingImage ? 'Đang tải ảnh lên Cloudinary...' : 'Tối đa 5MB. Link trả về sẽ được lưu cùng phòng.'}
                     </p>
                   </label>
 
                   <label className="block">
-                    <span className={labelClass}>URL hinh anh</span>
+                    <span className={labelClass}>URL hình ảnh</span>
                     <input
                       type="text"
                       value={form.image}
@@ -356,14 +356,14 @@ export default function RoomFormModal({
                 disabled={isSaving}
                 className="rounded-xl border border-outline px-5 py-2.5 font-display text-sm font-medium text-on-surface-variant hover:bg-white disabled:opacity-50"
               >
-                Huy
+                Hủy
               </button>
               <button
                 type="submit"
                 disabled={isSaving || isUploadingImage}
                 className="rounded-xl bg-brand-orange px-5 py-2.5 font-display text-sm font-medium text-white shadow-md shadow-brand-orange/20 hover:bg-brand-orangeHover disabled:opacity-50"
               >
-                {isUploadingImage ? 'Dang tai anh...' : isSaving ? 'Dang luu...' : 'Luu phong'}
+                {isUploadingImage ? 'Đang tải ảnh...' : isSaving ? 'Đang lưu...' : 'Lưu phòng'}
               </button>
             </footer>
           </form>
