@@ -191,6 +191,8 @@ If the change is part of the Vietnamese-to-English rename:
 - `payment_provider` includes `SEPAY` for online deposit checkout through the SePay-hosted portal and webhook confirmation.
 - `room.max_people` stores the maximum number of people a specific room can hold; `room.image_url` stores the persisted room image URL returned by Cloudinary or another HTTP(S) asset host.
 - `account.avatar_url` stores the current profile image URL for customer, staff, and admin accounts after upload through the backend.
+- `staff.account_id` is required for staff-only workflows. The backfill migration creates a minimal staff profile for existing `account.role = 'STAFF'` rows that were missing a `staff` record.
+- Approved staff shift registrations must have a matching `shift` row because the staff schedule page reads assigned shifts from `shift`; `20260707_backfill_shifts_for_approved_staff_registrations.sql` creates missing shifts for already approved registrations.
 - `coupon_usage` records the exact discount amount actually consumed by one paid booking and enforces one usage row per booking through `booking_id` uniqueness.
 - `customer_issue_report` stores customer-submitted support issues, optionally linked to one owned booking, and keeps a small explicit lifecycle (`OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`).
 - `user_notification_settings` stores per-account notification preferences for operational events such as booking updates, shift reminders, room issues, and equipment issues.
