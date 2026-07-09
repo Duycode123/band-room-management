@@ -38,7 +38,7 @@ export default function CouponFiltersBar({ filters, onChange, resultCount }: Cou
           <div>
             <h2 className="font-display text-sm font-bold text-on-surface">Bộ lọc và tìm kiếm</h2>
             <p className="text-xs text-on-surface-variant">
-              <span className="font-semibold text-brand-orange">{resultCount}</span> coupon phù hợp
+              <span className="font-semibold text-brand-orange">{resultCount}</span> mã giảm giá phù hợp
             </p>
           </div>
           {hasActiveFilters && (
@@ -70,7 +70,7 @@ export default function CouponFiltersBar({ filters, onChange, resultCount }: Cou
               type="search"
               value={filters.query}
               onChange={(event) => set({ query: event.target.value })}
-              placeholder="Mã coupon, ID..."
+              placeholder="Mã giảm giá, ID..."
               className={[inputClass, 'pl-10'].join(' ')}
             />
           </div>

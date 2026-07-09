@@ -21,8 +21,8 @@ export default function ReviewStatsOverview({ stats, isLoading }: ReviewStatsOve
   const cards = [
     { label: 'Tổng đánh giá', value: stats.total, hint: 'Toàn hệ thống' },
     { label: 'Chờ duyệt', value: stats.pending, hint: 'Chưa công khai' },
-    { label: 'Đã công khai', value: stats.published, hint: 'Hiển thị customer' },
-    { label: 'TB rating', value: stats.averageRating.toFixed(1), hint: 'Mẫu 100 review gần nhất' },
+    { label: 'Đã công khai', value: stats.published, hint: 'Hiển thị cho khách hàng' },
+    { label: 'Điểm TB', value: stats.averageRating.toFixed(1), hint: 'Mẫu 100 đánh giá gần nhất' },
   ]
 
   return (

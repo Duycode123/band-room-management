@@ -92,9 +92,9 @@ export default function StaffScheduleDayModal({
           <div className="flex-1 overflow-y-auto px-5 py-5">
             {sortedRegistrations.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-outline-variant bg-surface-container-low px-6 py-14 text-center">
-                <p className="font-display text-lg font-bold text-on-surface">Chưa có staff đăng ký</p>
+                <p className="font-display text-lg font-bold text-on-surface">Chưa có nhân viên đăng ký</p>
                 <p className="mt-2 text-sm text-on-surface-variant">
-                  Khi staff đăng ký ca, danh sách sẽ hiện tại đây.
+                  Khi nhân viên đăng ký ca, danh sách sẽ hiện tại đây.
                 </p>
               </div>
             ) : (

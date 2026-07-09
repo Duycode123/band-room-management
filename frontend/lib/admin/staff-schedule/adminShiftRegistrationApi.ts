@@ -59,7 +59,7 @@ function normalizeText(value?: string | null) {
 function mapRegistration(item: AdminShiftRegistration): AdminShiftRegistration {
   return {
     ...item,
-    staffName: normalizeText(item.staffName) || `Staff #${item.staffId}`,
+    staffName: normalizeText(item.staffName) || `Nhân viên #${item.staffId}`,
     staffEmail: normalizeText(item.staffEmail),
     startTime: normalizeTime(item.startTime),
     endTime: normalizeTime(item.endTime),
@@ -97,7 +97,7 @@ export async function fetchAdminShiftRegistrations(
 
     return applyClientFilters((response.data.data ?? []).map(mapRegistration), filters)
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the tai danh sach dang ky ca lam.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể tải danh sách đăng ký ca làm.'))
   }
 }
 
@@ -109,7 +109,7 @@ export async function decideAdminShiftRegistration(
   const normalizedReason = normalizeText(rejectionReason)
 
   if (!approved && !normalizedReason) {
-    throw new Error('Vui long nhap ly do tu choi.')
+    throw new Error('Vui lòng nhập lý do từ chối.')
   }
 
   try {
@@ -123,7 +123,7 @@ export async function decideAdminShiftRegistration(
 
     return mapRegistration(response.data.data)
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, approved ? 'Khong the duyet ca lam.' : 'Khong the tu choi ca lam.'))
+    throw new Error(getApiErrorMessage(error, approved ? 'Không thể duyệt ca làm.' : 'Không thể từ chối ca làm.'))
   }
 }
 

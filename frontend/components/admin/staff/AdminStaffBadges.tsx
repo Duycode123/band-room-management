@@ -4,14 +4,14 @@ export function StaffStatusBadge({ staff }: { staff: StaffAccountResponse }) {
   if (staff.enabled) {
     return (
       <span className="inline-flex rounded-full bg-secondary-container px-3 py-1 text-xs font-bold text-on-secondary-container">
-        Active
+        Đang hoạt động
       </span>
     )
   }
 
   return (
     <span className="inline-flex rounded-full bg-error-container px-3 py-1 text-xs font-bold text-error">
-      Disabled
+      Đã vô hiệu
     </span>
   )
 }
@@ -24,7 +24,7 @@ export function StaffVerificationBadge({ verified }: { verified: boolean }) {
         verified ? 'bg-primary-container text-on-primary-container' : 'bg-surface-container text-on-surface-variant',
       ].join(' ')}
     >
-      {verified ? 'Email verified' : 'Not verified'}
+      {verified ? 'Email đã xác minh' : 'Chưa xác minh'}
     </span>
   )
 }

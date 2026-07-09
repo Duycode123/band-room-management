@@ -101,12 +101,12 @@ export default function ReviewTable({
                   </td>
                   <td className="cursor-pointer px-4 py-3" onClick={() => onSelect(review)}>
                     <p className="font-medium text-on-surface">{review.customerName}</p>
-                    <p className="text-xs text-on-surface-variant">Booking #{review.bookingId}</p>
+                    <p className="text-xs text-on-surface-variant">Đơn #{review.bookingId}</p>
                   </td>
                   <td className="cursor-pointer px-4 py-3" onClick={() => onSelect(review)}>
                     <p className="font-medium text-on-surface">{review.roomName}</p>
                     {review.staffName && (
-                      <p className="text-xs text-on-surface-variant">Staff: {review.staffName}</p>
+                      <p className="text-xs text-on-surface-variant">Nhân viên: {review.staffName}</p>
                     )}
                   </td>
                   <td className="cursor-pointer px-4 py-3" onClick={() => onSelect(review)}>

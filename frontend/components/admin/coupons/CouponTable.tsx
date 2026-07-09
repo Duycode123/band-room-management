@@ -32,9 +32,9 @@ export default function CouponTable({ coupons, isLoading, selectedId, onSelect }
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-surface-container text-lg font-bold text-brand-orange">
           CP
         </div>
-        <p className="font-display text-lg font-bold text-on-surface">Không tìm thấy coupon</p>
+        <p className="font-display text-lg font-bold text-on-surface">Không tìm thấy mã giảm giá</p>
         <p className="mt-2 text-sm text-on-surface-variant">
-          Thử đổi bộ lọc hoặc tạo coupon mới.
+          Thử đổi bộ lọc hoặc tạo mã giảm giá mới.
         </p>
       </div>
     )

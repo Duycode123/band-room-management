@@ -1,12 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import AuthGuard from '@/components/AuthGuard'
 import AdminPageHeader from '@/components/admin/AdminPageHeader'
-import AdminShell from '@/components/admin/AdminShell'
 import AdminStatCard from '@/components/admin/AdminStatCard'
 import AdminToast from '@/components/admin/AdminToast'
-import { IconPlus, IconRooms } from '@/components/admin/AdminIcons'
+import { IconPlus, IconRefresh, IconRooms } from '@/components/admin/AdminIcons'
 import RoomDeleteConfirmModal from '@/components/admin/rooms/RoomDeleteConfirmModal'
 import RoomDetailPanel from '@/components/admin/rooms/RoomDetailPanel'
 import RoomFiltersBar from '@/components/admin/rooms/RoomFiltersBar'
@@ -90,7 +88,7 @@ export default function AdminRoomsPage() {
     } catch (error) {
       setRooms([])
       setSelected(null)
-      setToast(error instanceof Error ? error.message : 'Không thể tải danh sách phòng từ backend.')
+      setToast(error instanceof Error ? error.message : 'Không thể tải danh sách phòng từ hệ thống.')
     } finally {
       setIsLoading(false)
     }
@@ -162,10 +160,9 @@ export default function AdminRoomsPage() {
   }
 
   return (
-    <AuthGuard allowedRoles={['ADMIN']}>
-      <AdminShell>
+    <>
         <AdminPageHeader
-          eyebrow="ROOM MANAGEMENT"
+          eyebrow="Quản lý phòng"
           title="Quản lý phòng tập"
           description="Theo dõi danh sách phòng, trạng thái vận hành, lịch hôm nay và thao tác nhanh cho đội ngũ quản trị BandSpace."
           breadcrumbs={[
@@ -174,6 +171,26 @@ export default function AdminRoomsPage() {
           ]}
           actions={
             <>
+              <button
+                type="button"
+                onClick={() => void loadRooms()}
+                disabled={isLoading}
+                title="Làm mới"
+                aria-label="Làm mới"
+                className={[
+                  'group flex h-10 w-10 items-center justify-center rounded-full',
+                  'border border-outline-variant bg-white text-on-surface-variant shadow-sm',
+                  'transition-all hover:border-brand-orange/40 hover:text-brand-orange',
+                  'disabled:cursor-not-allowed disabled:opacity-50',
+                ].join(' ')}
+              >
+                <IconRefresh
+                  className={[
+                    'h-[15px] w-[15px] transition-transform duration-300',
+                    isLoading ? 'animate-spin' : 'group-hover:rotate-180',
+                  ].join(' ')}
+                />
+              </button>
               <button
                 type="button"
                 onClick={() => setToast('Đã chuẩn bị dữ liệu phòng tập để xuất.')}
@@ -255,7 +272,7 @@ export default function AdminRoomsPage() {
           </section>
 
           <p className="pb-4 text-center text-[11px] text-on-surface-variant">
-            * Danh sách, thêm, sửa, xóa, đổi trạng thái, sức chứa và ảnh phòng đã route qua backend. Giá vẫn theo hạng phòng, mã phòng sinh theo ID backend.
+            * Danh sách, thêm, sửa, xóa, đổi trạng thái, sức chứa và ảnh phòng đã đồng bộ với hệ thống. Giá vẫn theo hạng phòng, mã phòng sinh theo ID hệ thống.
           </p>
         </div>
 
@@ -281,7 +298,6 @@ export default function AdminRoomsPage() {
           onClose={() => setDeleteTarget(null)}
           onConfirm={handleDelete}
         />
-      </AdminShell>
-    </AuthGuard>
+    </>
   )
 }

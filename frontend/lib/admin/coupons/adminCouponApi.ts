@@ -225,9 +225,9 @@ export function validateCouponForm(data: CouponFormData): CouponFormErrors {
   const previewOrderAmount = data.previewOrderAmount.trim() ? Number(data.previewOrderAmount) : null
 
   if (!code) {
-    errors.code = 'Vui lòng nhập mã coupon.'
+    errors.code = 'Vui lòng nhập mã giảm giá.'
   } else if (code.length < 3 || code.length > 32) {
-    errors.code = 'Mã coupon phải từ 3 đến 32 ký tự.'
+    errors.code = 'Mã giảm giá phải từ 3 đến 32 ký tự.'
   }
 
   if (!Number.isFinite(value) || value <= 0) {
@@ -262,9 +262,9 @@ export function validateCouponPreview(data: CouponFormData): CouponFormErrors {
   const orderAmount = Number(data.previewOrderAmount)
 
   if (!code) {
-    errors.code = 'Vui lòng nhập mã coupon.'
+    errors.code = 'Vui lòng nhập mã giảm giá.'
   } else if (code.length < 3 || code.length > 32) {
-    errors.code = 'Mã coupon phải từ 3 đến 32 ký tự.'
+    errors.code = 'Mã giảm giá phải từ 3 đến 32 ký tự.'
   }
 
   if (!Number.isFinite(value) || value <= 0) {
@@ -294,7 +294,7 @@ export function previewCouponFromForm(data: CouponFormData, orderAmount: number)
       return {
         valid: false,
         code,
-        message: 'Coupon đã hết hạn theo ngày đã chọn.',
+        message: 'Mã giảm giá đã hết hạn theo ngày đã chọn.',
       }
     }
   }
@@ -341,7 +341,7 @@ export async function fetchAdminCoupons(filters: CouponFilters): Promise<AdminCo
     const response = await api.get<ApiResponse<BackendCoupon[]>>('/api/admin/coupons')
     return applyClientFilters((response.data.data ?? []).map(mapBackendCoupon), filters)
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Không thể tải danh sách coupon.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể tải danh sách mã giảm giá.'))
   }
 }
 
@@ -354,14 +354,14 @@ export async function fetchAdminCouponDetail(id: number): Promise<AdminCoupon | 
       return null
     }
 
-    throw new Error(getApiErrorMessage(error, 'Không thể tải chi tiết coupon.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể tải chi tiết mã giảm giá.'))
   }
 }
 
 export async function createAdminCoupon(data: CouponFormData): Promise<AdminCoupon> {
   const errors = validateCouponForm(data)
   if (Object.keys(errors).length > 0) {
-    throw new Error(Object.values(errors)[0] || 'Dữ liệu coupon không hợp lệ.')
+    throw new Error(Object.values(errors)[0] || 'Dữ liệu mã giảm giá không hợp lệ.')
   }
 
   try {
@@ -375,14 +375,14 @@ export async function createAdminCoupon(data: CouponFormData): Promise<AdminCoup
 
     return mapBackendCoupon(response.data.data)
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Không thể tạo coupon.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể tạo mã giảm giá.'))
   }
 }
 
 export async function updateAdminCoupon(id: number, data: CouponFormData): Promise<AdminCoupon | null> {
   const errors = validateCouponForm(data)
   if (Object.keys(errors).length > 0) {
-    throw new Error(Object.values(errors)[0] || 'Dữ liệu coupon không hợp lệ.')
+    throw new Error(Object.values(errors)[0] || 'Dữ liệu mã giảm giá không hợp lệ.')
   }
 
   try {
@@ -396,7 +396,7 @@ export async function updateAdminCoupon(id: number, data: CouponFormData): Promi
 
     return mapBackendCoupon(response.data.data)
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Không thể cập nhật coupon.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể cập nhật mã giảm giá.'))
   }
 }
 
@@ -404,7 +404,7 @@ export async function deleteAdminCoupon(id: number): Promise<void> {
   try {
     await api.delete(`/api/admin/coupons/${id}`)
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Không thể xóa coupon.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể xóa mã giảm giá.'))
   }
 }
 
@@ -430,7 +430,7 @@ export async function fetchCouponUsageReport(range: ReportDateRange): Promise<Co
       topCoupons: mapTopCoupons(report.topCoupons ?? []),
     }
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Không thể tải báo cáo coupon.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể tải báo cáo mã giảm giá.'))
   }
 }
 

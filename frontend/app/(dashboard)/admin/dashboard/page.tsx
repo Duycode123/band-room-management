@@ -1,24 +1,37 @@
 'use client'
 
-import AuthGuard from '@/components/AuthGuard'
 import AdminModuleCard from '@/components/admin/AdminModuleCard'
 import AdminPageHeader from '@/components/admin/AdminPageHeader'
-import AdminShell from '@/components/admin/AdminShell'
 import {
   IconBookings,
   IconEquipment,
+  IconRefresh,
   IconRooms,
   IconSparkle,
 } from '@/components/admin/AdminIcons'
 
 export default function AdminDashboardPage() {
   return (
-    <AuthGuard allowedRoles={['ADMIN']}>
-      <AdminShell>
+    <>
         <AdminPageHeader
           eyebrow="Kinh doanh"
-          title="Bảng điều khiển admin"
+          title="Bảng điều khiển quản trị"
           description="Truy cập nhanh các màn hình vận hành của BandHub Studio."
+          actions={
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              title="Làm mới"
+              aria-label="Làm mới"
+              className={[
+                'group flex h-10 w-10 items-center justify-center rounded-full',
+                'border border-outline-variant bg-white text-on-surface-variant shadow-sm',
+                'transition-all hover:border-brand-orange/40 hover:text-brand-orange',
+              ].join(' ')}
+            >
+              <IconRefresh className="h-[15px] w-[15px] transition-transform duration-300 group-hover:rotate-180" />
+            </button>
+          }
         />
 
         <div className="mx-auto max-w-7xl space-y-8 px-5 py-6 sm:px-8">
@@ -45,13 +58,13 @@ export default function AdminDashboardPage() {
               <div className="max-w-xl">
                 <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium backdrop-blur-sm">
                   <IconSparkle className="h-3.5 w-3.5 text-brand-orange" />
-                  BandSpace Control Center
+                  Trung tâm điều khiển BandSpace
                 </div>
                 <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
                   Bảng điều khiển quản trị
                 </h1>
                 <p className="mt-3 text-sm leading-relaxed text-inverse-on-surface/85 sm:text-base">
-                  Quản lý booking, phòng tập, thiết bị và lịch staff từ một nơi.
+                  Quản lý đơn đặt, phòng tập, thiết bị và lịch nhân viên từ một nơi.
                 </p>
               </div>
 
@@ -65,10 +78,10 @@ export default function AdminDashboardPage() {
                 </div>
                 <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-sm">
                   <p className="text-[10px] font-medium uppercase tracking-wider text-inverse-on-surface/70">
-                    Admin route
+                    Tuyến quản trị
                   </p>
-                  <p className="mt-1 font-display text-2xl font-bold">Protected</p>
-                  <p className="text-xs text-inverse-on-surface/70">chỉ role ADMIN được xem</p>
+                  <p className="mt-1 font-display text-2xl font-bold">Được bảo vệ</p>
+                  <p className="text-xs text-inverse-on-surface/70">Chỉ tài khoản ADMIN được xem</p>
                 </div>
               </div>
             </div>
@@ -86,11 +99,11 @@ export default function AdminDashboardPage() {
               <AdminModuleCard
                 href="/admin/bookings"
                 label="Đơn đặt phòng"
-                title="Quản lý booking"
-                description="Theo dõi đơn đặt, thanh toán và xử lý các booking cần can thiệp."
+                title="Quản lý đơn đặt phòng"
+                description="Theo dõi đơn đặt, thanh toán và xử lý các đơn cần can thiệp."
                 icon={<IconBookings className="h-6 w-6" />}
                 accent="orange"
-                badge="Live"
+                badge="Đang hoạt động"
               />
               <AdminModuleCard
                 href="/admin/equipment"
@@ -99,7 +112,7 @@ export default function AdminDashboardPage() {
                 description="Kiểm tra tài sản cho từng phòng và trạng thái thiết bị cho thuê."
                 icon={<IconEquipment className="h-6 w-6" />}
                 accent="green"
-                badge="Live"
+                badge="Đang hoạt động"
               />
               <AdminModuleCard
                 href="/admin/rooms"
@@ -108,12 +121,11 @@ export default function AdminDashboardPage() {
                 description="Tinh chỉnh giá, hạng phòng và trạng thái vận hành."
                 icon={<IconRooms className="h-6 w-6" />}
                 accent="amber"
-                badge="Active"
+                badge="Đang dùng"
               />
             </div>
           </section>
         </div>
-      </AdminShell>
-    </AuthGuard>
+    </>
   )
 }

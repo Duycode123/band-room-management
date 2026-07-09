@@ -1,12 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import AuthGuard from '@/components/AuthGuard'
 import AdminPageHeader from '@/components/admin/AdminPageHeader'
-import AdminShell from '@/components/admin/AdminShell'
 import AdminStatCard from '@/components/admin/AdminStatCard'
 import AdminToast from '@/components/admin/AdminToast'
-import { IconEquipment, IconPlus } from '@/components/admin/AdminIcons'
+import { IconEquipment, IconPlus, IconRefresh } from '@/components/admin/AdminIcons'
 import EquipmentDetailPanel from '@/components/admin/equipment/EquipmentDetailPanel'
 import EquipmentFiltersBar from '@/components/admin/equipment/EquipmentFiltersBar'
 import EquipmentFormModal from '@/components/admin/equipment/EquipmentFormModal'
@@ -134,25 +132,46 @@ export default function AdminEquipmentPage() {
   }
 
   return (
-    <AuthGuard allowedRoles={['ADMIN']}>
-      <AdminShell>
+    <>
         <AdminPageHeader
           eyebrow="Thiết bị"
           title="Quản lý thiết bị"
-          description="Danh sách thiết bị này đang đọc và ghi trực tiếp vào backend."
+          description="Danh sách thiết bị này đang đọc và ghi trực tiếp vào hệ thống."
           breadcrumbs={[
             { label: 'Tổng quan', href: '/admin/dashboard' },
             { label: 'Thiết bị' },
           ]}
           actions={
-            <button
-              type="button"
-              onClick={() => setFormModal({ open: true, mode: 'create', data: createInitialForm() })}
-              className="inline-flex items-center gap-2 rounded-xl bg-brand-orange px-5 py-2.5 font-display text-sm font-medium text-white shadow-lg shadow-brand-orange/25 transition-all hover:bg-brand-orangeHover active:scale-[0.98]"
-            >
-              <IconPlus className="h-4 w-4" />
-              Thêm mới
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void loadEquipment()}
+                disabled={isLoading}
+                title="Làm mới"
+                aria-label="Làm mới"
+                className={[
+                  'group flex h-10 w-10 items-center justify-center rounded-full',
+                  'border border-outline-variant bg-white text-on-surface-variant shadow-sm',
+                  'transition-all hover:border-brand-orange/40 hover:text-brand-orange',
+                  'disabled:cursor-not-allowed disabled:opacity-50',
+                ].join(' ')}
+              >
+                <IconRefresh
+                  className={[
+                    'h-[15px] w-[15px] transition-transform duration-300',
+                    isLoading ? 'animate-spin' : 'group-hover:rotate-180',
+                  ].join(' ')}
+                />
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormModal({ open: true, mode: 'create', data: createInitialForm() })}
+                className="inline-flex items-center gap-2 rounded-xl bg-brand-orange px-5 py-2.5 font-display text-sm font-medium text-white shadow-lg shadow-brand-orange/25 transition-all hover:bg-brand-orangeHover active:scale-[0.98]"
+              >
+                <IconPlus className="h-4 w-4" />
+                Thêm mới
+              </button>
+            </div>
           }
         />
 
@@ -177,7 +196,7 @@ export default function AdminEquipmentPage() {
               value={stats.good}
               hint="Sẵn sàng sử dụng"
               accent="secondary"
-              icon={<span className="text-base">OK</span>}
+              icon={<span className="text-base">✓</span>}
             />
             <AdminStatCard
               label="Hư hỏng"
@@ -191,7 +210,7 @@ export default function AdminEquipmentPage() {
               value={stats.maintenance}
               hint="Tạm dừng"
               accent="tertiary"
-              icon={<span className="text-base">MT</span>}
+              icon={<span className="text-base">⚙</span>}
             />
           </div>
 
@@ -228,7 +247,6 @@ export default function AdminEquipmentPage() {
           onClose={() => setFormModal({ open: false })}
           onSubmit={formModal.open && formModal.mode === 'edit' ? handleUpdate : handleCreate}
         />
-      </AdminShell>
-    </AuthGuard>
+    </>
   )
 }

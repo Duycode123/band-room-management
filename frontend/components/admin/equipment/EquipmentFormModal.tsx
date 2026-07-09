@@ -101,7 +101,7 @@ export default function EquipmentFormModal({
               {mode === 'create' ? 'Thêm thiết bị mới' : 'Cập nhật thiết bị'}
             </h2>
             <p className="relative mt-1 text-xs text-inverse-on-surface/80">
-              Đồng bộ trực tiếp với API quản lý thiết bị của backend.
+              Đồng bộ trực tiếp với API quản lý thiết bị của hệ thống.
             </p>
           </header>
 

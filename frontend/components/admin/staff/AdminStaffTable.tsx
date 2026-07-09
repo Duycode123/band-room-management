@@ -37,9 +37,9 @@ export default function AdminStaffTable({
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-container font-display text-2xl font-bold text-brand-orange">
           ST
         </div>
-        <p className="font-display text-lg font-bold text-on-surface">No staff accounts found</p>
+        <p className="font-display text-lg font-bold text-on-surface">Không tìm thấy nhân viên</p>
         <p className="mt-2 text-sm text-on-surface-variant">
-          Try another filter or create a new staff account for operations.
+          Thử đổi bộ lọc hoặc tạo tài khoản nhân viên mới.
         </p>
       </div>
     )
@@ -47,18 +47,18 @@ export default function AdminStaffTable({
 
   return (
     <>
-      <div className="hidden overflow-hidden rounded-2xl border border-outline-variant/80 bg-white shadow-[var(--shadow-card)] lg:block">
-        <div className="overflow-x-auto">
+      <div className="hidden lg:flex max-h-[min(70vh,680px)] flex-col overflow-hidden rounded-2xl border border-outline-variant/80 bg-white shadow-[var(--shadow-card)]">
+        <div className="min-h-0 flex-1 overflow-auto">
           <table className="min-w-[1040px] w-full border-collapse text-left">
-            <thead className="bg-surface-container-low text-[10px] uppercase tracking-[0.12em] text-on-surface-variant">
-              <tr>
-                <th className="px-4 py-3 font-display font-semibold">Staff</th>
-                <th className="px-4 py-3 font-display font-semibold">Contact</th>
-                <th className="px-4 py-3 font-display font-semibold">DOB</th>
-                <th className="px-4 py-3 font-display font-semibold">Status</th>
-                <th className="px-4 py-3 font-display font-semibold">Email</th>
-                <th className="px-4 py-3 font-display font-semibold">Created</th>
-                <th className="px-4 py-3 font-display font-semibold">Actions</th>
+            <thead className="sticky top-0 z-10">
+              <tr className="border-b border-outline-variant bg-surface-container-low text-[10px] uppercase tracking-[0.12em] text-on-surface-variant">
+                <th className="bg-surface-container-low px-4 py-3 font-display font-semibold">Nhân viên</th>
+                <th className="bg-surface-container-low px-4 py-3 font-display font-semibold">Liên hệ</th>
+                <th className="bg-surface-container-low px-4 py-3 font-display font-semibold">Ngày sinh</th>
+                <th className="bg-surface-container-low px-4 py-3 font-display font-semibold">Trạng thái</th>
+                <th className="bg-surface-container-low px-4 py-3 font-display font-semibold">Email</th>
+                <th className="bg-surface-container-low px-4 py-3 font-display font-semibold">Ngày tạo</th>
+                <th className="bg-surface-container-low px-4 py-3 font-display font-semibold">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/70">
@@ -80,7 +80,7 @@ export default function AdminStaffTable({
                     </td>
                     <td className="px-4 py-4">
                       <p className="text-sm font-semibold text-on-surface">{item.email}</p>
-                      <p className="mt-0.5 text-xs text-on-surface-variant">{item.phone || 'No phone'}</p>
+                      <p className="mt-0.5 text-xs text-on-surface-variant">{item.phone || 'Chưa có SĐT'}</p>
                     </td>
                     <td className="px-4 py-4 text-sm text-on-surface-variant">{formatStaffDate(item.dateOfBirth)}</td>
                     <td className="px-4 py-4">
@@ -93,7 +93,7 @@ export default function AdminStaffTable({
                     <td className="px-4 py-4">
                       <div className="flex flex-wrap gap-2">
                         <button type="button" onClick={() => onSelect(item)} className={actionClass}>
-                          Detail
+                          Chi tiết
                         </button>
                         <button
                           type="button"
@@ -106,7 +106,7 @@ export default function AdminStaffTable({
                               : 'cursor-not-allowed border-outline-variant text-on-surface-variant opacity-45',
                           ].join(' ')}
                         >
-                          Disable
+                          Vô hiệu hóa
                         </button>
                       </div>
                     </td>
@@ -116,9 +116,13 @@ export default function AdminStaffTable({
             </tbody>
           </table>
         </div>
+
+        <div className="shrink-0 border-t border-outline-variant bg-surface-container-low/60 px-4 py-2.5 text-xs text-on-surface-variant">
+          {staff.length} nhân viên
+        </div>
       </div>
 
-      <div className="grid gap-4 lg:hidden">
+      <div className="grid max-h-[min(70vh,680px)] gap-4 overflow-auto lg:hidden">
         {staff.map((item) => (
           <article
             key={item.staffId}
@@ -140,13 +144,13 @@ export default function AdminStaffTable({
               <StaffStatusBadge staff={item} />
               <StaffVerificationBadge verified={item.emailVerified} />
               <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-on-surface-variant">
-                {item.phone || 'No phone'}
+                {item.phone || 'Chưa có SĐT'}
               </span>
             </div>
 
             <div className="flex flex-wrap gap-2 p-4">
               <button type="button" onClick={() => onSelect(item)} className={actionClass}>
-                Detail
+                Chi tiết
               </button>
               <button
                 type="button"
@@ -159,7 +163,7 @@ export default function AdminStaffTable({
                     : 'cursor-not-allowed border-outline-variant text-on-surface-variant opacity-45',
                 ].join(' ')}
               >
-                Disable
+                Vô hiệu hóa
               </button>
             </div>
           </article>

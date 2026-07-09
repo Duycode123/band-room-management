@@ -45,8 +45,8 @@ export default function RoomDetailPanel({ room, onClose, onEdit }: RoomDetailPan
                 {room.name}
               </h2>
               <div className="mt-3 flex flex-wrap gap-2">
-                <RoomCategoryBadge category={room.category} size="md" />
-                <RoomStatusBadge status={room.status} size="md" />
+                <RoomCategoryBadge category={room.category} size="md" tone="overlay" />
+                <RoomStatusBadge status={room.status} size="md" tone="overlay" />
               </div>
             </div>
           </div>

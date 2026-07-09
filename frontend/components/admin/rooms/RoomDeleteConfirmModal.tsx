@@ -63,12 +63,12 @@ export default function RoomDeleteConfirmModal({
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-on-surface-variant">
             Bạn đang xóa <strong className="text-on-surface">{room.name}</strong> ({room.code}).
-            Thao tác này sẽ gọi API backend thực tế và có thể bị chặn nếu phòng đã có booking hoặc thiết bị liên kết.
+            Thao tác này sẽ gọi API thực tế và có thể bị chặn nếu phòng đã có đơn đặt hoặc thiết bị liên kết.
           </p>
 
           {room.status === 'occupied' && (
             <p className="mt-4 rounded-2xl border border-tertiary-container bg-tertiary-container/30 px-4 py-3 text-xs text-on-tertiary-container">
-              Phòng đang có lịch sử dụng. Backend có thể từ chối xóa để bảo toàn dữ liệu vận hành.
+              Phòng đang có lịch sử sử dụng. Hệ thống có thể từ chối xóa để bảo toàn dữ liệu vận hành.
             </p>
           )}
 

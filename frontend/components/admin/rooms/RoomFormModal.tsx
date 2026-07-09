@@ -128,7 +128,7 @@ export default function RoomFormModal({
     } catch (error) {
       setErrors((current) => ({
         ...current,
-        image: error instanceof Error ? error.message : 'Không thể tải ảnh phòng lên Cloudinary.',
+        image: error instanceof Error ? error.message : 'Không thể tải ảnh phòng lên máy chủ lưu trữ.',
       }))
     } finally {
       setIsUploadingImage(false)
@@ -159,16 +159,16 @@ export default function RoomFormModal({
               {mode === 'create' ? 'Thêm phòng tập mới' : 'Cập nhật phòng tập'}
             </h2>
             <p className="mt-1 text-xs text-inverse-on-surface/80">
-              Đồng bộ dữ liệu phòng với backend thay vì chỉ sửa mock ở frontend.
+              Đồng bộ dữ liệu phòng với hệ thống thay vì chỉ chỉnh sửa dữ liệu tạm trên giao diện.
             </p>
           </header>
 
           <form onSubmit={(event) => void handleSubmit(event)} className="flex flex-1 flex-col overflow-hidden">
             <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
               <div className="rounded-2xl border border-brand-orange/20 bg-primary-container/30 px-4 py-3 text-xs leading-6 text-on-surface-variant">
-                Backend hiện lưu <strong>tên phòng</strong>, <strong>hạng phòng</strong>, <strong>sức chứa</strong>,
-                <strong> trạng thái</strong> và <strong>link ảnh Cloudinary</strong>.
-                Mã phòng được sinh theo ID backend, giá theo giờ vẫn đi theo hạng phòng.
+                Hệ thống hiện lưu <strong>tên phòng</strong>, <strong>hạng phòng</strong>, <strong>sức chứa</strong>,
+                <strong> trạng thái</strong> và <strong>đường dẫn ảnh</strong>.
+                Mã phòng được sinh theo ID hệ thống, giá theo giờ vẫn đi theo hạng phòng.
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -197,7 +197,7 @@ export default function RoomFormModal({
                     className={readonlyClass}
                     placeholder="Sẽ sinh tự động sau khi tạo"
                   />
-                  <p className="mt-1 text-[11px] text-on-surface-variant">Field này chỉ để hiển thị.</p>
+                  <p className="mt-1 text-[11px] text-on-surface-variant">Trường này chỉ để hiển thị.</p>
                 </label>
               </div>
 
@@ -263,14 +263,14 @@ export default function RoomFormModal({
                     onChange={(event) => set({ capacity: Number(event.target.value) })}
                     className={inputClass}
                   />
-                  <p className="mt-1 text-[11px] text-on-surface-variant">Lưu trực tiếp vào trường max_people của phòng.</p>
+                  <p className="mt-1 text-[11px] text-on-surface-variant">Lưu trực tiếp vào trường sức chứa tối đa của phòng.</p>
                   {errors.capacity && <p className="mt-1 text-xs text-error">{errors.capacity}</p>}
                 </label>
 
                 <label className="block">
                   <span className={labelClass}>Giá/giờ (VND)</span>
                   <input type="number" value={form.pricePerHour} readOnly disabled className={readonlyClass} />
-                  <p className="mt-1 text-[11px] text-on-surface-variant">Đồng bộ từ hạng phòng backend.</p>
+                  <p className="mt-1 text-[11px] text-on-surface-variant">Đồng bộ từ hạng phòng trên hệ thống.</p>
                 </label>
               </div>
 
@@ -282,7 +282,7 @@ export default function RoomFormModal({
                   disabled
                   rows={4}
                   className="w-full cursor-not-allowed rounded-xl border border-outline bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface opacity-70 outline-none transition-all"
-                  placeholder="Cảnh này chưa lưu qua backend"
+                  placeholder="Chưa lưu qua hệ thống"
                 />
                 <p className="mt-1 text-[11px] text-on-surface-variant">Chỉ để tham chiếu hiển thị.</p>
               </label>
@@ -296,7 +296,7 @@ export default function RoomFormModal({
                   rows={3}
                   maxLength={500}
                   className="w-full cursor-not-allowed rounded-xl border border-outline bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface opacity-70 outline-none transition-all"
-                  placeholder="Backend chưa lưu mô tả phòng trong flow này"
+                  placeholder="Hệ thống chưa lưu mô tả phòng trong luồng này"
                 />
                 <p className="mt-1 text-right text-[10px] text-on-surface-variant">{form.description.length}/500</p>
                 <p className="mt-1 text-[11px] text-on-surface-variant">Chỉ để tham chiếu hiển thị.</p>
@@ -324,18 +324,18 @@ export default function RoomFormModal({
                       className="block w-full text-sm text-on-surface-variant file:mr-3 file:rounded-xl file:border-0 file:bg-brand-orange file:px-4 file:py-2.5 file:font-display file:text-sm file:font-medium file:text-white hover:file:bg-brand-orangeHover disabled:opacity-60"
                     />
                     <p className="mt-1 text-[11px] text-on-surface-variant">
-                      {isUploadingImage ? 'Đang tải ảnh lên Cloudinary...' : 'Tối đa 5MB. Link trả về sẽ được lưu cùng phòng.'}
+                      {isUploadingImage ? 'Đang tải ảnh lên...' : 'Tối đa 5MB. Link trả về sẽ được lưu cùng phòng.'}
                     </p>
                   </label>
 
                   <label className="block">
-                    <span className={labelClass}>URL hình ảnh</span>
+                    <span className={labelClass}>Đường dẫn hình ảnh</span>
                     <input
                       type="text"
                       value={form.image}
                       onChange={(event) => set({ image: event.target.value })}
                       className={inputClass}
-                      placeholder="https://res.cloudinary.com/..."
+                      placeholder="https://..."
                     />
                   </label>
                   {errors.image && <p className="text-xs text-error">{errors.image}</p>}

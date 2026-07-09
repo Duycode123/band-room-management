@@ -140,7 +140,7 @@ export default function CouponFormModal({
       await onSubmit(form)
       onClose()
     } catch (error) {
-      setServerError(error instanceof Error ? error.message : 'Không thể lưu coupon.')
+      setServerError(error instanceof Error ? error.message : 'Không thể lưu mã giảm giá.')
     } finally {
       setIsSaving(false)
     }
@@ -173,7 +173,7 @@ export default function CouponFormModal({
               {mode === 'create' ? 'Thêm mới' : 'Chỉnh sửa'}
             </p>
             <h2 id="coupon-form-title" className="relative font-display text-xl font-bold">
-              {mode === 'create' ? 'Tạo coupon mới' : 'Cập nhật coupon'}
+              {mode === 'create' ? 'Tạo mã giảm giá mới' : 'Cập nhật mã giảm giá'}
             </h2>
           </header>
 
@@ -181,7 +181,7 @@ export default function CouponFormModal({
             <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
               <label className="block">
                 <span className={labelClass}>
-                  Mã coupon <span className="text-error">*</span>
+                  Mã giảm giá <span className="text-error">*</span>
                 </span>
                 <input
                   type="text"
@@ -259,7 +259,7 @@ export default function CouponFormModal({
                   <div>
                     <h3 className="font-display text-sm font-bold text-on-surface">Phòng áp dụng</h3>
                     <p className="mt-1 text-xs text-on-surface-variant">
-                      Không chọn phòng = áp dụng toàn bộ phòng. Backend hiện lưu coupon toàn hệ thống; phần chọn phòng
+                      Không chọn phòng = áp dụng toàn bộ phòng. Hệ thống hiện lưu mã giảm giá toàn hệ thống; phần chọn phòng
                       giúp ghi nhận phạm vi dự kiến trên UI.
                     </p>
                   </div>
@@ -297,7 +297,7 @@ export default function CouponFormModal({
               <section className="rounded-2xl border border-brand-orange/20 bg-primary-container/20 p-4">
                 <h3 className="font-display text-sm font-bold text-on-surface">Xem trước giảm giá</h3>
                 <p className="mt-1 text-xs text-on-surface-variant">
-                  Ước tính mức giảm theo thông tin đang nhập — không cần lưu coupon trước.
+                  Ước tính mức giảm theo thông tin đang nhập — không cần lưu mã giảm giá trước.
                 </p>
 
                 <div className="mt-3 flex flex-col gap-3 sm:flex-row">
@@ -359,7 +359,7 @@ export default function CouponFormModal({
                 disabled={isSaving}
                 className="rounded-xl bg-brand-orange px-5 py-2.5 font-display text-sm font-medium text-white shadow-md shadow-brand-orange/20 hover:bg-brand-orangeHover disabled:opacity-50"
               >
-                {isSaving ? 'Đang lưu...' : 'Lưu coupon'}
+                {isSaving ? 'Đang lưu...' : 'Lưu mã giảm giá'}
               </button>
             </footer>
           </form>

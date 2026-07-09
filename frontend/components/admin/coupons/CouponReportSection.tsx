@@ -28,7 +28,7 @@ export default function CouponReportSection() {
       setErrorMessage('')
     } catch (error) {
       setReport(null)
-      setErrorMessage(error instanceof Error ? error.message : 'Không thể tải báo cáo coupon.')
+      setErrorMessage(error instanceof Error ? error.message : 'Không thể tải báo cáo mã giảm giá.')
     } finally {
       setIsLoading(false)
     }
@@ -42,9 +42,9 @@ export default function CouponReportSection() {
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="font-display text-lg font-bold text-on-surface">Báo cáo sử dụng coupon</h2>
+        <h2 className="font-display text-lg font-bold text-on-surface">Báo cáo sử dụng mã giảm giá</h2>
         <p className="text-sm text-on-surface-variant">
-          Theo dõi lượt dùng, tổng tiền giảm và coupon hiệu quả nhất.
+          Theo dõi lượt dùng, tổng tiền giảm và mã giảm giá hiệu quả nhất.
         </p>
       </div>
 
@@ -60,7 +60,7 @@ export default function CouponReportSection() {
         <AdminStatCard
           label="Tổng lượt dùng"
           value={report?.totalUsed ?? 0}
-          hint="Coupon đã áp dụng thành công"
+          hint="Mã giảm giá đã áp dụng thành công"
           accent="primary"
           icon={<span className="text-base">#</span>}
         />
@@ -84,7 +84,7 @@ export default function CouponReportSection() {
         </div>
 
         <div className="rounded-2xl border border-outline-variant bg-white p-5 shadow-[var(--shadow-card)]">
-          <h3 className="mb-4 font-display text-sm font-bold text-on-surface">Top coupon</h3>
+          <h3 className="mb-4 font-display text-sm font-bold text-on-surface">Mã giảm giá dùng nhiều nhất</h3>
           {isLoading ? (
             <div className="h-56 animate-pulse rounded-xl bg-surface-container" />
           ) : (

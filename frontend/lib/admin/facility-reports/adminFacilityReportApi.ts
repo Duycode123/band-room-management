@@ -32,7 +32,7 @@ export async function fetchAdminFacilityReports(maintenanceSuggested?: boolean):
 
     return (response.data.data ?? []).map(normalizeFacilityReport)
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the tai lich su bao cao co so vat chat.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể tải lịch sử báo cáo cơ sở vật chất.'))
   }
 }
 
@@ -52,7 +52,7 @@ export async function updateAdminFacilityReportStatus(
 
     return normalizeFacilityReport(response.data.data)
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the cap nhat bao cao co so vat chat.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể cập nhật báo cáo cơ sở vật chất.'))
   }
 }
 

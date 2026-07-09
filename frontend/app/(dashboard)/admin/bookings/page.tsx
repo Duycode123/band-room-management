@@ -1,12 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import AuthGuard from '@/components/AuthGuard'
 import AdminPageHeader from '@/components/admin/AdminPageHeader'
-import AdminShell from '@/components/admin/AdminShell'
 import AdminStatCard from '@/components/admin/AdminStatCard'
 import AdminToast from '@/components/admin/AdminToast'
-import { IconBookings, IconCheckCircle, IconClock } from '@/components/admin/AdminIcons'
+import { IconBookings, IconCheckCircle, IconClock, IconRefresh } from '@/components/admin/AdminIcons'
 import BookingDetailPanel from '@/components/admin/bookings/BookingDetailPanel'
 import BookingFiltersBar from '@/components/admin/bookings/BookingFiltersBar'
 import BookingTable from '@/components/admin/bookings/BookingTable'
@@ -42,7 +40,7 @@ export default function AdminBookingsPage() {
     } catch (error) {
       setBookings([])
       setSelected(null)
-      setErrorMessage(error instanceof Error ? error.message : 'Không thể tải danh sách booking.')
+      setErrorMessage(error instanceof Error ? error.message : 'Không thể tải danh sách đơn đặt.')
     } finally {
       setIsLoading(false)
     }
@@ -76,32 +74,53 @@ export default function AdminBookingsPage() {
         setSelected(detail)
       }
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Không thể tải chi tiết booking.')
+      setErrorMessage(error instanceof Error ? error.message : 'Không thể tải chi tiết đơn đặt.')
     }
   }, [])
 
   const handleStatusChange = async (bookingId: number, status: BookingStatus) => {
     const updated = await updateAdminBookingStatus(bookingId, status)
     if (!updated) {
-      throw new Error('Không tìm thấy booking cần cập nhật.')
+      throw new Error('Không tìm thấy đơn cần cập nhật.')
     }
 
-    setToast('Cập nhật trạng thái booking thành công.')
+    setToast('Cập nhật trạng thái đơn thành công.')
     await loadBookings()
     setSelected(updated)
   }
 
   return (
-    <AuthGuard allowedRoles={['ADMIN']}>
-      <AdminShell>
+    <>
         <AdminPageHeader
           eyebrow="Đơn đặt phòng"
-          title="Quản lý booking"
+          title="Quản lý đơn đặt phòng"
           description="Danh sách theo ngày sử dụng — lọc nhanh hôm nay/mai, theo dõi thanh toán và trạng thái đơn."
           breadcrumbs={[
             { label: 'Tổng quan', href: '/admin/dashboard' },
-            { label: 'Booking' },
+            { label: 'Đơn đặt phòng' },
           ]}
+          actions={
+            <button
+              type="button"
+              onClick={() => void loadBookings()}
+              disabled={isLoading}
+              title="Làm mới"
+              aria-label="Làm mới"
+              className={[
+                'group flex h-10 w-10 items-center justify-center rounded-full',
+                'border border-outline-variant bg-white text-on-surface-variant shadow-sm',
+                'transition-all hover:border-brand-orange/40 hover:text-brand-orange',
+                'disabled:cursor-not-allowed disabled:opacity-50',
+              ].join(' ')}
+            >
+              <IconRefresh
+                className={[
+                  'h-[15px] w-[15px] transition-transform duration-300',
+                  isLoading ? 'animate-spin' : 'group-hover:rotate-180',
+                ].join(' ')}
+              />
+            </button>
+          }
         />
 
         <div className="mx-auto max-w-7xl space-y-6 px-5 py-6 sm:px-8">
@@ -123,7 +142,7 @@ export default function AdminBookingsPage() {
             <AdminStatCard
               label="Đang sử dụng"
               value={isLoading ? '…' : stats.active}
-              hint="Checked-in"
+              hint="Đang sử dụng phòng"
               accent="secondary"
               icon={<IconCheckCircle className="h-5 w-5" />}
             />
@@ -151,7 +170,6 @@ export default function AdminBookingsPage() {
           onClose={() => setSelected(null)}
           onStatusChange={handleStatusChange}
         />
-      </AdminShell>
-    </AuthGuard>
+    </>
   )
 }

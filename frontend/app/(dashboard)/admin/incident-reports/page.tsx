@@ -1,13 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import AuthGuard from '@/components/AuthGuard'
 import AdminPageHeader from '@/components/admin/AdminPageHeader'
-import AdminShell from '@/components/admin/AdminShell'
 import AdminStatCard from '@/components/admin/AdminStatCard'
 import AdminToast from '@/components/admin/AdminToast'
 import AdminFacilityReportsPanel from '@/components/admin/facility/AdminFacilityReportsPanel'
-import { IconIncidentReports, IconSearch } from '@/components/admin/AdminIcons'
+import { IconIncidentReports, IconRefresh, IconSearch } from '@/components/admin/AdminIcons'
 import {
   fetchAdminIncidentReportDetail,
   fetchAdminIncidentReports,
@@ -106,8 +104,7 @@ export default function AdminIncidentReportsPage() {
   }
 
   return (
-    <AuthGuard allowedRoles={['ADMIN']}>
-      <AdminShell>
+    <>
         <AdminPageHeader
           eyebrow="Báo cáo sự cố"
           title="Báo cáo sự cố"
@@ -116,6 +113,28 @@ export default function AdminIncidentReportsPage() {
             { label: 'Tổng quan', href: '/admin/dashboard' },
             { label: 'Báo cáo sự cố' },
           ]}
+          actions={
+            <button
+              type="button"
+              onClick={() => void loadReports()}
+              disabled={isLoading}
+              title="Làm mới"
+              aria-label="Làm mới"
+              className={[
+                'group flex h-10 w-10 items-center justify-center rounded-full',
+                'border border-outline-variant bg-white text-on-surface-variant shadow-sm',
+                'transition-all hover:border-brand-orange/40 hover:text-brand-orange',
+                'disabled:cursor-not-allowed disabled:opacity-50',
+              ].join(' ')}
+            >
+              <IconRefresh
+                className={[
+                  'h-[15px] w-[15px] transition-transform duration-300',
+                  isLoading ? 'animate-spin' : 'group-hover:rotate-180',
+                ].join(' ')}
+              />
+            </button>
+          }
         />
 
         <div className="mx-auto max-w-7xl space-y-6 px-5 py-6 sm:px-8">
@@ -164,8 +183,7 @@ export default function AdminIncidentReportsPage() {
           onClose={() => setSelected(null)}
           onSave={(status, adminNote) => void handleSaveReport(status, adminNote)}
         />
-      </AdminShell>
-    </AuthGuard>
+    </>
   )
 }
 
@@ -309,7 +327,7 @@ function IncidentReportTable({
               {[
                 'Mã báo cáo',
                 'Khách hàng',
-                'Phòng / Booking liên quan',
+                'Phòng / Đơn liên quan',
                 'Tiêu đề sự cố',
                 'Mức độ',
                 'Trạng thái',
@@ -344,7 +362,7 @@ function IncidentReportTable({
                   </td>
                   <td className="px-4 py-3">
                     <p className="font-medium text-on-surface">{report.roomName}</p>
-                    <p className="text-xs text-on-surface-variant">{report.bookingId ?? 'Không gắn booking'}</p>
+                    <p className="text-xs text-on-surface-variant">{report.bookingId ?? 'Không gắn đơn đặt'}</p>
                   </td>
                   <td className="max-w-xs px-4 py-3">
                     <p className="font-medium text-on-surface">{report.title}</p>
@@ -440,7 +458,7 @@ function IncidentDetailDrawer({
             <InfoRow label="Khách hàng" value={report.customerName} />
             <InfoRow label="Email / SĐT" value={[report.customerEmail, report.customerPhone].filter(Boolean).join(' / ') || 'Chưa có'} />
             <InfoRow label="Phòng liên quan" value={report.roomName} />
-            <InfoRow label="Booking ID" value={report.bookingId ?? 'Không gắn booking'} />
+            <InfoRow label="Mã đơn đặt" value={report.bookingId ?? 'Không gắn đơn đặt'} />
             <InfoRow label="Thời gian gửi" value={formatIncidentDateTime(report.submittedAt)} />
           </DetailSection>
 

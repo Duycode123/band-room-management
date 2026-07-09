@@ -192,7 +192,7 @@ export function AdminBrandMark({ className }: { className?: string }) {
       <div>
         <p className="font-display text-sm font-bold leading-tight text-white">BandSpace</p>
         <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-inverse-on-surface/70">
-          Admin
+          Quản trị
         </p>
       </div>
     </div>

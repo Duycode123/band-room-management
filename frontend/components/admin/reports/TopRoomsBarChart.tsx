@@ -41,7 +41,7 @@ export default function TopRoomsBarChart({ data }: TopRoomsBarChartProps) {
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         className="h-auto w-full"
         role="img"
-        aria-label="Bieu do tan suat su dung phong"
+        aria-label="Biểu đồ tần suất sử dụng phòng"
         onMouseLeave={() => setTooltip(null)}
       >
         <line
@@ -84,7 +84,7 @@ export default function TopRoomsBarChart({ data }: TopRoomsBarChartProps) {
               textAnchor="middle"
               className="fill-on-surface text-[10px] font-medium"
             >
-              {bar.room.orderCount} luot
+              {bar.room.orderCount} lượt
             </text>
           </g>
         ))}

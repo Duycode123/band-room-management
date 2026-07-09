@@ -93,7 +93,7 @@ export default function ReviewDetailPanel({
         <div className="flex-1 overflow-y-auto px-5 py-4">
           <Section title="Thông tin">
             <InfoRow label="Phòng" value={review.roomName} />
-            <InfoRow label="Booking" value={`#${review.bookingId}`} />
+            <InfoRow label="Đơn đặt" value={`#${review.bookingId}`} />
             <InfoRow label="Nhân viên" value={review.staffName ?? 'Chưa gán'} />
             <InfoRow label="Thời gian" value={new Date(review.createdAt).toLocaleString('vi-VN')} />
           </Section>
