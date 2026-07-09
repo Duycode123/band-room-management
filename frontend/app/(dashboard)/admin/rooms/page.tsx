@@ -8,20 +8,41 @@ import { IconPlus, IconRefresh, IconRooms } from '@/components/admin/AdminIcons'
 import RoomDeleteConfirmModal from '@/components/admin/rooms/RoomDeleteConfirmModal'
 import RoomDetailPanel from '@/components/admin/rooms/RoomDetailPanel'
 import RoomFiltersBar from '@/components/admin/rooms/RoomFiltersBar'
+import EquipmentFormModal from '@/components/admin/equipment/EquipmentFormModal'
+import RoomEquipmentManager from '@/components/admin/rooms/RoomEquipmentManager'
 import RoomFormModal from '@/components/admin/rooms/RoomFormModal'
 import RoomTable from '@/components/admin/rooms/RoomTable'
+import RoomTierManager from '@/components/admin/rooms/RoomTierManager'
+import {
+  createAdminEquipment,
+  deleteAdminEquipment,
+  EMPTY_EQUIPMENT_FORM,
+  fetchAdminEquipment,
+  toFormData as toEquipmentFormData,
+  updateAdminEquipment,
+} from '@/lib/admin/equipment/adminEquipmentApi'
+import type { AdminEquipment, EquipmentFormData, EquipmentRoomOption } from '@/lib/admin/equipment/types'
 import {
   createAdminRoom,
+  createAdminRoomType,
   deleteAdminRoom,
+  deleteAdminRoomType,
   EMPTY_ROOM_FORM,
   getAdminRoomTypes,
   getAdminRooms,
   getDefaultRoomForm,
   toRoomFormData,
+  updateAdminRoomType,
   updateAdminRoom,
   updateRoomStatus,
 } from '@/lib/admin/rooms/adminRoomApi'
-import type { AdminRoom, AdminRoomTypeOption, RoomFilters, RoomFormData } from '@/lib/admin/rooms/types'
+import type {
+  AdminRoom,
+  AdminRoomTypeOption,
+  RoomFilters,
+  RoomFormData,
+  RoomTypeFormData,
+} from '@/lib/admin/rooms/types'
 
 const DEFAULT_FILTERS: RoomFilters = {
   query: '',
@@ -34,6 +55,11 @@ type FormModalState =
   | { open: false }
   | { open: true; mode: 'create'; data: RoomFormData }
   | { open: true; mode: 'edit'; roomId: string; data: RoomFormData }
+
+type EquipmentModalState =
+  | { open: false }
+  | { open: true; mode: 'create'; data: EquipmentFormData }
+  | { open: true; mode: 'edit'; equipmentId: number; data: EquipmentFormData }
 
 function normalize(value: string) {
   return value.trim().toLowerCase()
@@ -62,31 +88,61 @@ function filterAndSortRooms(rooms: AdminRoom[], filters: RoomFilters) {
   })
 }
 
+function applyEquipmentToRooms(rooms: AdminRoom[], equipment: AdminEquipment[]) {
+  const equipmentByRoomId = new Map<number, AdminEquipment[]>()
+
+  equipment.forEach((item) => {
+    equipmentByRoomId.set(item.roomId, [...(equipmentByRoomId.get(item.roomId) ?? []), item])
+  })
+
+  return rooms.map((room) => {
+    const roomEquipment = equipmentByRoomId.get(Number(room.id)) ?? []
+
+    return {
+      ...room,
+      equipmentCount: roomEquipment.length,
+      equipments: roomEquipment.map((item) => item.equipmentName),
+    }
+  })
+}
+
 export default function AdminRoomsPage() {
   const [rooms, setRooms] = useState<AdminRoom[]>([])
   const [roomTypes, setRoomTypes] = useState<AdminRoomTypeOption[]>([])
+  const [equipment, setEquipment] = useState<AdminEquipment[]>([])
   const [filters, setFilters] = useState<RoomFilters>(DEFAULT_FILTERS)
   const [isLoading, setIsLoading] = useState(true)
   const [selected, setSelected] = useState<AdminRoom | null>(null)
   const [formModal, setFormModal] = useState<FormModalState>({ open: false })
+  const [equipmentModal, setEquipmentModal] = useState<EquipmentModalState>({ open: false })
   const [deleteTarget, setDeleteTarget] = useState<AdminRoom | null>(null)
   const [toast, setToast] = useState('')
 
   const loadRooms = useCallback(async () => {
     setIsLoading(true)
     try {
-      const [data, typeData] = await Promise.all([
+      const [data, typeData, equipmentData] = await Promise.all([
         getAdminRooms(),
         getAdminRoomTypes().catch(() => []),
+        fetchAdminEquipment({
+          query: '',
+          equipmentType: 'ALL',
+          status: 'ALL',
+          sortBy: 'room',
+          sortOrder: 'asc',
+        }).catch(() => []),
       ])
-      setRooms(data)
+      setEquipment(equipmentData)
+      const roomsWithEquipment = applyEquipmentToRooms(data, equipmentData)
+      setRooms(roomsWithEquipment)
       setRoomTypes(typeData)
       setSelected((current) => {
         if (!current) return null
-        return data.find((room) => room.id === current.id) ?? null
+        return roomsWithEquipment.find((room) => room.id === current.id) ?? null
       })
     } catch (error) {
       setRooms([])
+      setEquipment([])
       setSelected(null)
       setToast(error instanceof Error ? error.message : 'Không thể tải danh sách phòng từ hệ thống.')
     } finally {
@@ -146,6 +202,61 @@ export default function AdminRoomsPage() {
     await loadRooms()
   }
 
+  const handleCreateRoomType = async (data: RoomTypeFormData) => {
+    await createAdminRoomType(data)
+    setToast('Thêm hạng phòng thành công.')
+    await loadRooms()
+  }
+
+  const handleUpdateRoomType = async (id: number, data: RoomTypeFormData) => {
+    await updateAdminRoomType(id, data)
+    setToast('Cập nhật hạng phòng thành công.')
+    await loadRooms()
+  }
+
+  const handleDeleteRoomType = async (id: number) => {
+    await deleteAdminRoomType(id)
+    setToast('Xóa hạng phòng thành công.')
+    await loadRooms()
+  }
+
+  const equipmentRoomOptions = useMemo<EquipmentRoomOption[]>(
+    () => rooms.map((room) => ({ roomId: Number(room.id), roomName: room.name })),
+    [rooms],
+  )
+
+  const createEquipmentInitialForm = useCallback(
+    (roomId: number | null = null) => ({
+      ...EMPTY_EQUIPMENT_FORM,
+      roomId: roomId ?? equipmentRoomOptions[0]?.roomId ?? null,
+    }),
+    [equipmentRoomOptions],
+  )
+
+  const handleCreateEquipment = async (data: EquipmentFormData) => {
+    await createAdminEquipment(data)
+    setToast('Thêm thiết bị thành công.')
+    await loadRooms()
+  }
+
+  const handleUpdateEquipment = async (data: EquipmentFormData) => {
+    if (!equipmentModal.open || equipmentModal.mode !== 'edit') return
+
+    const updated = await updateAdminEquipment(equipmentModal.equipmentId, data)
+    if (!updated) {
+      throw new Error('Không tìm thấy thiết bị.')
+    }
+
+    setToast('Cập nhật thiết bị thành công.')
+    await loadRooms()
+  }
+
+  const handleDeleteEquipment = async (id: number) => {
+    await deleteAdminEquipment(id)
+    setToast('Xóa thiết bị thành công.')
+    await loadRooms()
+  }
+
   const handleMaintenance = async (room: AdminRoom) => {
     try {
       const updated = await updateRoomStatus(room.id, 'maintenance')
@@ -190,13 +301,6 @@ export default function AdminRoomsPage() {
                     isLoading ? 'animate-spin' : 'group-hover:rotate-180',
                   ].join(' ')}
                 />
-              </button>
-              <button
-                type="button"
-                onClick={() => setToast('Đã chuẩn bị dữ liệu phòng tập để xuất.')}
-                className="rounded-xl border border-outline bg-white px-4 py-2.5 font-display text-sm font-medium text-on-surface-variant shadow-sm transition-colors hover:border-brand-orange/30 hover:text-brand-orange"
-              >
-                Xuất dữ liệu
               </button>
               <button
                 type="button"
@@ -245,6 +349,15 @@ export default function AdminRoomsPage() {
             />
           </div>
 
+          <RoomTierManager
+            roomTypes={roomTypes}
+            rooms={rooms}
+            isLoading={isLoading}
+            onCreate={handleCreateRoomType}
+            onUpdate={handleUpdateRoomType}
+            onDelete={handleDeleteRoomType}
+          />
+
           <RoomFiltersBar filters={filters} onChange={setFilters} resultCount={visibleRooms.length} />
 
           <section>
@@ -271,8 +384,26 @@ export default function AdminRoomsPage() {
             />
           </section>
 
+          <RoomEquipmentManager
+            rooms={rooms}
+            equipment={equipment}
+            isLoading={isLoading}
+            onCreate={(roomId) =>
+              setEquipmentModal({ open: true, mode: 'create', data: createEquipmentInitialForm(roomId) })
+            }
+            onEdit={(item) =>
+              setEquipmentModal({
+                open: true,
+                mode: 'edit',
+                equipmentId: item.equipmentId,
+                data: toEquipmentFormData(item),
+              })
+            }
+            onDelete={handleDeleteEquipment}
+          />
+
           <p className="pb-4 text-center text-[11px] text-on-surface-variant">
-            * Danh sách, thêm, sửa, xóa, đổi trạng thái, sức chứa và ảnh phòng đã đồng bộ với hệ thống. Giá vẫn theo hạng phòng, mã phòng sinh theo ID hệ thống.
+            * Danh sách, thêm, sửa, xóa, đổi trạng thái, sức chứa, ảnh phòng và thiết bị đã đồng bộ với hệ thống. Giá vẫn theo hạng phòng, mã phòng sinh theo ID hệ thống.
           </p>
         </div>
 
@@ -297,6 +428,15 @@ export default function AdminRoomsPage() {
           room={deleteTarget}
           onClose={() => setDeleteTarget(null)}
           onConfirm={handleDelete}
+        />
+
+        <EquipmentFormModal
+          open={equipmentModal.open}
+          mode={equipmentModal.open ? equipmentModal.mode : 'create'}
+          initialData={equipmentModal.open ? equipmentModal.data : createEquipmentInitialForm()}
+          rooms={equipmentRoomOptions}
+          onClose={() => setEquipmentModal({ open: false })}
+          onSubmit={equipmentModal.open && equipmentModal.mode === 'edit' ? handleUpdateEquipment : handleCreateEquipment}
         />
     </>
   )

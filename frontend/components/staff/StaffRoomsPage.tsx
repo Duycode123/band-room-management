@@ -410,7 +410,7 @@ export default function StaffRoomsPage() {
       setRooms(mapBackendRoomsToStaffRooms(backendRooms, backendEquipment))
       setEquipment(backendEquipment.map(mapBackendEquipmentToStaffEquipment))
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Khong the tai du lieu van hanh tu backend.')
+      showToast(error instanceof Error ? error.message : 'Không thể tải dữ liệu vận hành từ backend.')
     } finally {
       setIsLoading(false)
     }
@@ -437,7 +437,7 @@ export default function StaffRoomsPage() {
       await updateStaffRoomStatus(backendRoomId, mapRoomStatusToBackend(nextStatus), `Staff changed status to ${nextStatus}`)
       showToast(`Da dong bo trang thai ${room.name} voi backend.`)
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Khong the dong bo trang thai phong.')
+      showToast(error instanceof Error ? error.message : 'Không thể đồng bộ trạng thái phòng.')
     }
   }
 
@@ -466,7 +466,7 @@ export default function StaffRoomsPage() {
       )
       showToast(`Da dong bo tinh trang ${item.name} voi backend.`)
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Khong the dong bo tinh trang thiet bi.')
+      showToast(error instanceof Error ? error.message : 'Không thể đồng bộ tình trạng thiết bị.')
     }
   }
 
@@ -511,7 +511,7 @@ export default function StaffRoomsPage() {
 
       showToast('Da ghi nhan su co va dong bo backend.')
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Khong the dong bo su co voi backend.')
+      showToast(error instanceof Error ? error.message : 'Không thể đồng bộ sự cố với backend.')
     }
   }
 

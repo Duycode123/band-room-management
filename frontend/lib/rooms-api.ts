@@ -43,6 +43,12 @@ export type UpdateBackendRoomPayload = {
   status: BackendRoomStatus
 }
 
+export type SaveBackendRoomTypePayload = {
+  typeName: string
+  description?: string | null
+  pricePerHour: number
+}
+
 export type RoomImageUploadResult = {
   publicId: string
   secureUrl: string
@@ -81,6 +87,20 @@ export async function fetchRoom(roomId: string | number) {
 export async function fetchRoomTypes() {
   const response = await api.get<ApiResponse<BackendRoomType[]> | BackendRoomType[]>('/api/room-types')
   return readApiData(response.data) ?? []
+}
+
+export async function createRoomType(payload: SaveBackendRoomTypePayload) {
+  const response = await api.post<ApiResponse<BackendRoomType> | BackendRoomType>('/api/room-types', payload)
+  return readApiData(response.data)
+}
+
+export async function updateRoomType(roomTypeId: string | number, payload: SaveBackendRoomTypePayload) {
+  const response = await api.put<ApiResponse<BackendRoomType> | BackendRoomType>(`/api/room-types/${roomTypeId}`, payload)
+  return readApiData(response.data)
+}
+
+export async function deleteRoomType(roomTypeId: string | number) {
+  await api.delete(`/api/room-types/${roomTypeId}`)
 }
 
 export async function createRoom(payload: CreateBackendRoomPayload) {

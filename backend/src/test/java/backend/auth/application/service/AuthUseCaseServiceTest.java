@@ -20,11 +20,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDate;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -82,6 +84,28 @@ class AuthUseCaseServiceTest {
                 eq("customer@example.com"),
                 org.mockito.ArgumentMatchers.startsWith("http://localhost:3000/verify-email?token=")
         );
+    }
+
+    @Test
+    void registerDoesNotFailWhenVerificationEmailCannotBeSent() {
+        when(authAccountPort.existsUserByEmail("customer@example.com")).thenReturn(false);
+        when(authAccountPort.existsCustomerByPhone("0912345678")).thenReturn(false);
+        when(authSecurityPort.encodePassword("secret123")).thenReturn("encoded");
+        when(authAccountPort.saveUser(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        doThrow(new RuntimeException("SMTP unavailable"))
+                .when(emailVerificationNotificationPort)
+                .sendVerificationEmail(eq("customer@example.com"), any());
+
+        assertDoesNotThrow(() -> authUseCaseService.register(new RegisterUserCommand(
+                "Nguyen Van A",
+                "customer@example.com",
+                "0912345678",
+                LocalDate.of(2000, 1, 1),
+                "secret123",
+                "http://localhost:3000/verify-email?token="
+        )));
+
+        verify(authAccountPort).saveCustomer(any());
     }
 
     @Test

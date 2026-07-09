@@ -23,6 +23,10 @@ public interface RoomCatalogPort {
 
     boolean existsEquipmentForRoom(Integer roomId);
 
+    boolean existsRoomTypeName(String typeName);
+
+    boolean existsRoomForRoomType(Integer roomTypeId);
+
     List<RoomType> loadRoomTypes();
 
     Optional<RoomType> loadRoomType(Integer roomTypeId);

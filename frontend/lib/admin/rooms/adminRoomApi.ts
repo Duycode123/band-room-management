@@ -7,11 +7,14 @@ import {
 import api from '@/lib/api'
 import { fetchRoomReviewSummaries } from '@/lib/public-room-review-service'
 import {
+  createRoomType,
   createRoom,
+  deleteRoomType,
   deleteRoom,
   fetchRooms,
   fetchRoomTypes,
   getRoomApiErrorMessage,
+  updateRoomType,
   updateRoom,
   updateRoomOperationalStatus,
   uploadRoomImage,
@@ -22,6 +25,8 @@ import type {
   RoomFormData,
   RoomFormErrors,
   RoomStatus,
+  RoomTypeFormData,
+  RoomTypeFormErrors,
 } from './types'
 
 type ApiResponse<T> = {
@@ -90,12 +95,75 @@ export function validateRoomForm(data: RoomFormData): RoomFormErrors {
   return errors
 }
 
+export function validateRoomTypeForm(data: RoomTypeFormData): RoomTypeFormErrors {
+  const errors: RoomTypeFormErrors = {}
+  const typeName = data.typeName.trim()
+
+  if (typeName.length < 2 || typeName.length > 255) {
+    errors.typeName = 'Tên hạng phòng phải từ 2-255 ký tự.'
+  }
+
+  if (!Number.isFinite(data.pricePerHour) || data.pricePerHour <= 0) {
+    errors.pricePerHour = 'Giá theo giờ phải lớn hơn 0.'
+  }
+
+  if (data.description.length > 2000) {
+    errors.description = 'Mô tả tối đa 2000 ký tự.'
+  }
+
+  return errors
+}
+
 export async function getAdminRoomTypes(): Promise<AdminRoomTypeOption[]> {
   try {
     const roomTypes = await fetchRoomTypes()
     return roomTypes.map(mapRoomTypeToAdminOption)
   } catch (error) {
     throw new Error(getRoomApiErrorMessage(error, 'Không thể tải hạng phòng từ hệ thống.'))
+  }
+}
+
+export async function createAdminRoomType(data: RoomTypeFormData): Promise<AdminRoomTypeOption> {
+  const errors = validateRoomTypeForm(data)
+  if (Object.keys(errors).length > 0) {
+    throw new Error(Object.values(errors)[0])
+  }
+
+  try {
+    const roomType = await createRoomType({
+      typeName: data.typeName.trim(),
+      description: normalizeOptionalText(data.description),
+      pricePerHour: data.pricePerHour,
+    })
+    return mapRoomTypeToAdminOption(roomType)
+  } catch (error) {
+    throw new Error(getRoomApiErrorMessage(error, 'Không thể thêm hạng phòng trên hệ thống.'))
+  }
+}
+
+export async function updateAdminRoomType(id: number, data: RoomTypeFormData): Promise<AdminRoomTypeOption> {
+  const errors = validateRoomTypeForm(data)
+  if (Object.keys(errors).length > 0) {
+    throw new Error(Object.values(errors)[0])
+  }
+
+  try {
+    const roomType = await updateRoomType(id, {
+      typeName: data.typeName.trim(),
+      description: normalizeOptionalText(data.description),
+      pricePerHour: data.pricePerHour,
+    })
+    return mapRoomTypeToAdminOption(roomType)
+  } catch (error) {
+    throw new Error(getRoomApiErrorMessage(error, 'Không thể cập nhật hạng phòng trên hệ thống.'))
+  }
+}
+
+export async function deleteAdminRoomType(id: number): Promise<void> {
+  try {
+    await deleteRoomType(id)
+  } catch (error) {
+    throw new Error(getRoomApiErrorMessage(error, 'Không thể xóa hạng phòng trên hệ thống.'))
   }
 }
 
@@ -236,6 +304,11 @@ export async function uploadAdminRoomImage(file: File) {
 
 function normalizeOptionalImageUrl(imageUrl: string) {
   const normalized = imageUrl.trim()
+  return normalized ? normalized : null
+}
+
+function normalizeOptionalText(value: string) {
+  const normalized = value.trim()
   return normalized ? normalized : null
 }
 

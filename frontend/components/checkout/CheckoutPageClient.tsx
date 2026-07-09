@@ -31,6 +31,8 @@ import {
 } from '@/components/booking/quick-booking-draft'
 import {
   createPaymentSession,
+  getPaymentTransactionDetail,
+  type CreatePaymentSessionResponse,
   type PaymentMethod,
   type PaymentOption,
 } from '@/lib/payment-service'
@@ -47,7 +49,10 @@ export default function CheckoutPageClient() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(getInitialPaymentMethod(searchParams.get('method')))
   const [paymentOption, setPaymentOption] = useState<PaymentOption>(getInitialPaymentOption(searchParams.get('paymentOption')))
   const [isPaying, setIsPaying] = useState(false)
+  const [paymentSession, setPaymentSession] = useState<CreatePaymentSessionResponse | null>(null)
+  const [isCheckingPayment, setIsCheckingPayment] = useState(false)
   const [paymentError, setPaymentError] = useState('')
+  const [now, setNow] = useState(() => Date.now())
   const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null)
   const [missingCheckoutReturnHref, setMissingCheckoutReturnHref] = useState('/')
 
@@ -141,11 +146,94 @@ export default function CheckoutPageClient() {
   }, [searchParams])
 
   useEffect(() => {
-    // Cả đặt cọc lẫn thanh toán toàn bộ đều đi qua portal SePay bằng chuyển khoản.
+    // Ca dat coc lan thanh toan toan bo deu di qua VietQR/SePay bang chuyen khoan.
     if (paymentMethod !== 'bank_transfer') {
       setPaymentMethod('bank_transfer')
     }
   }, [paymentMethod])
+
+  useEffect(() => {
+    if (!paymentSession || paymentSession.status !== 'pending') {
+      return
+    }
+
+    const activePaymentSession = paymentSession
+    let cancelled = false
+
+    async function checkPayment() {
+      setIsCheckingPayment(true)
+      try {
+        const transaction = await getPaymentTransactionDetail(activePaymentSession.paymentId)
+        if (cancelled) return
+
+        if (transaction.status === 'success') {
+          clearPendingBooking()
+          clearCheckoutSession()
+          const params = new URLSearchParams({
+            paymentId: transaction.paymentId,
+            bookingId: transaction.bookingCode,
+            backendBookingId: String(transaction.bookingId),
+            method: transaction.method,
+            paymentOption: transaction.paymentOption,
+            amount: String(transaction.amount),
+            status: 'success',
+          })
+          router.push(`/payment/return?${params.toString()}`)
+          return
+        }
+
+        if (transaction.status === 'failed' || transaction.status === 'cancelled') {
+          setPaymentSession((current) =>
+            current?.paymentId === transaction.paymentId
+              ? { ...current, status: transaction.status }
+              : current,
+          )
+          setPaymentError(
+            transaction.status === 'cancelled'
+              ? 'Phiên thanh toán đã hết hạn hoặc đã bị hủy. Vui lòng tạo lại giao dịch.'
+              : 'Giao dịch thanh toán thất bại. Vui lòng tạo lại giao dịch.',
+          )
+        }
+      } catch (pollError) {
+        if (!cancelled) {
+          setPaymentError(
+            pollError instanceof Error
+              ? pollError.message
+              : 'Không thể kiểm tra trạng thái thanh toán. Hệ thống sẽ thử lại sau.',
+          )
+        }
+      } finally {
+        if (!cancelled) {
+          setIsCheckingPayment(false)
+        }
+      }
+    }
+
+    void checkPayment()
+    const intervalId = window.setInterval(() => {
+      void checkPayment()
+    }, 10000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(intervalId)
+    }
+  }, [paymentSession, router])
+
+  useEffect(() => {
+    if (!paymentSession?.expiresAt || paymentSession.status !== 'pending') {
+      return
+    }
+
+    setNow(Date.now())
+    const intervalId = window.setInterval(() => {
+      setNow(Date.now())
+    }, 1000)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [paymentSession?.expiresAt, paymentSession?.status])
 
   const summary = useMemo(
     () => (booking ? calculateCheckoutSummary(booking, appliedDiscount) : null),
@@ -155,6 +243,10 @@ export default function CheckoutPageClient() {
     if (!summary) return 0
     return paymentOption === 'deposit' ? Math.min(DEPOSIT_AMOUNT, summary.total) : summary.total
   }, [paymentOption, summary])
+  const secondsUntilExpiry = useMemo(
+    () => getSecondsUntilExpiry(paymentSession?.expiresAt, now),
+    [now, paymentSession?.expiresAt],
+  )
 
   const handleApplyCoupon = (discount: AppliedDiscount) => {
     if (!booking) return
@@ -204,6 +296,7 @@ export default function CheckoutPageClient() {
 
     setIsPaying(true)
     setPaymentError('')
+    setPaymentSession(null)
 
     try {
       const session = await createPaymentSession({
@@ -214,15 +307,20 @@ export default function CheckoutPageClient() {
 
       if (session.status === 'success') {
         clearPendingBooking()
+        const params = new URLSearchParams({
+          paymentId: session.paymentId,
+          bookingId: session.bookingCode,
+          backendBookingId: String(session.bookingId),
+          method: session.method,
+          paymentOption: session.paymentOption,
+          amount: String(session.amount),
+          status: 'success',
+        })
+        router.push(`/payment/return?${params.toString()}`)
+        return
       }
 
-      if (session.paymentUrl.startsWith('/payment')) {
-        router.push(session.paymentUrl)
-      } else {
-        // Backend checkout endpoint (/api/...) or external gateway URL: needs a
-        // full document navigation so the Next.js rewrite proxy and cookies apply.
-        window.location.assign(session.paymentUrl)
-      }
+      setPaymentSession(session)
     } catch (paymentSessionError) {
       setPaymentError(
         paymentSessionError instanceof Error
@@ -320,7 +418,7 @@ export default function CheckoutPageClient() {
                     <PaymentOptionButton
                       active={paymentOption === 'deposit'}
                       title="Đặt cọc 50.000 VND"
-                      description="Thanh toán online qua portal riêng của SePay."
+                      description="Thanh toán online bằng VietQR và tự xác nhận qua SePay."
                       onClick={() => {
                         setPaymentOption('deposit')
                         setPaymentError('')
@@ -329,7 +427,7 @@ export default function CheckoutPageClient() {
                     <PaymentOptionButton
                       active={paymentOption === 'full'}
                       title="Thanh toán toàn bộ"
-                      description="Chuyển khoản toàn bộ qua portal SePay."
+                      description="Chuyển khoản toàn bộ bằng mã QR cho booking này."
                       onClick={() => {
                         setPaymentOption('full')
                         setPaymentError('')
@@ -346,10 +444,54 @@ export default function CheckoutPageClient() {
                     </span>
                   </div>
                   <p className="mt-2 text-xs leading-5 text-[#5C5348]">
-                    Sau khi hoàn tất ở portal SePay, webhook sẽ cập nhật trạng thái booking trong hệ thống.
+                    Quét mã QR bên dưới và giữ nguyên nội dung chuyển khoản để hệ thống tự cập nhật trạng thái.
                   </p>
                 </div>
               </div>
+
+              {paymentSession && (
+                <div className="mt-5 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-display text-sm font-bold text-[#1A1C1E]">Quét QR thanh toán</p>
+                      <p className="mt-1 text-xs leading-5 text-[#5C5348]">
+                        Hệ thống sẽ tự kiểm tra giao dịch mỗi 10 giây.
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-white px-3 py-1 font-display text-xs font-bold text-[#6B3200]">
+                      {paymentSession.status === 'pending' ? 'Đang chờ' : paymentSession.status}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 overflow-hidden rounded-2xl border border-[#E8E4DC] bg-white p-3">
+                    <img
+                      src={paymentSession.paymentUrl}
+                      alt={`Mã QR thanh toán ${paymentSession.paymentId}`}
+                      className="mx-auto aspect-square w-full max-w-[260px] object-contain"
+                    />
+                  </div>
+
+                  <div className="mt-4 grid gap-2 text-sm">
+                    <PaymentSessionRow label="Nội dung chuyển khoản" value={paymentSession.paymentId} />
+                    <PaymentSessionRow label="Số tiền" value={formatCurrency(paymentSession.amount)} />
+                    {secondsUntilExpiry !== null && (
+                      <PaymentSessionRow
+                        label="Còn lại"
+                        value={secondsUntilExpiry > 0 ? formatCountdown(secondsUntilExpiry) : 'Đã hết hạn'}
+                      />
+                    )}
+                    {paymentSession.expiresAt && (
+                      <PaymentSessionRow label="Hết hạn" value={formatPaymentDate(paymentSession.expiresAt)} />
+                    )}
+                  </div>
+
+                  <p className="mt-3 text-xs leading-5 text-[#5C5348]">
+                    {isCheckingPayment
+                      ? 'Đang kiểm tra giao dịch với SePay...'
+                      : 'Sau khi chuyển khoản, trang này sẽ tự chuyển sang kết quả thanh toán.'}
+                  </p>
+                </div>
+              )}
 
               <div className="mt-5">
                 <CheckoutPaymentMethods
@@ -377,7 +519,9 @@ export default function CheckoutPageClient() {
               >
                 {isPaying
                   ? 'Đang tạo giao dịch...'
-                  : `Sang portal SePay ${formatCurrency(amountToPayNow)}`}
+                  : paymentSession?.status === 'pending'
+                    ? 'Tạo lại mã QR'
+                    : `Tạo mã QR ${formatCurrency(amountToPayNow)}`}
               </button>
             </aside>
           </div>
@@ -385,6 +529,50 @@ export default function CheckoutPageClient() {
       </section>
     </main>
   )
+}
+
+function PaymentSessionRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3 rounded-xl bg-white px-3 py-2">
+      <span className="text-[#5C5348]">{label}</span>
+      <span className="text-right font-display font-bold text-[#1A1C1E]">{value}</span>
+    </div>
+  )
+}
+
+function formatPaymentDate(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+
+  return new Intl.DateTimeFormat('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date)
+}
+
+function getSecondsUntilExpiry(expiresAt: string | null | undefined, now: number) {
+  if (!expiresAt) {
+    return null
+  }
+
+  const expiryTime = new Date(expiresAt).getTime()
+  if (Number.isNaN(expiryTime)) {
+    return null
+  }
+
+  return Math.max(0, Math.ceil((expiryTime - now) / 1000))
+}
+
+function formatCountdown(totalSeconds: number) {
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`
 }
 
 function PaymentOptionButton({

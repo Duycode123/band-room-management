@@ -264,8 +264,13 @@ export async function fetchAvailableSlots(roomId: string, date: string): Promise
 }
 
 export async function createBooking(payload: CreateBookingPayload): Promise<BookingResponse> {
+  const roomId = Number(payload.roomId)
+  if (!Number.isInteger(roomId) || roomId <= 0) {
+    throw new Error('Khong tim thay ma phong hop le de tao booking. Vui long chon lai phong.')
+  }
+
   const request: CreateBookingRequest = {
-    roomId: Number(payload.roomId),
+    roomId,
     startTime: toBackendIso(payload.date, payload.startTime),
     endTime: toBackendIso(payload.date, payload.endTime),
     paymentMethod: payload.paymentMethod,

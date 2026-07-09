@@ -123,6 +123,16 @@ public class RoomPersistenceAdapter implements
     }
 
     @Override
+    public boolean existsRoomTypeName(String typeName) {
+        return roomTypeRepository.existsByTypeName(typeName);
+    }
+
+    @Override
+    public boolean existsRoomForRoomType(Integer roomTypeId) {
+        return roomRepository.existsByRoomType_Id(roomTypeId);
+    }
+
+    @Override
     public List<RoomType> loadRoomTypes() {
         return roomTypeRepository.findAllByOrderByTypeNameAsc();
     }
@@ -140,6 +150,16 @@ public class RoomPersistenceAdapter implements
     @Override
     public void deleteRoom(Room room) {
         roomRepository.delete(room);
+    }
+
+    @Override
+    public RoomType saveRoomType(RoomType roomType) {
+        return roomTypeRepository.save(roomType);
+    }
+
+    @Override
+    public void deleteRoomType(RoomType roomType) {
+        roomTypeRepository.delete(roomType);
     }
 
     @Override

@@ -51,10 +51,19 @@ export type RoomFormErrors = Partial<Record<keyof RoomFormData, string>>
 export type AdminRoomTypeOption = {
   id: number
   label: string
+  description: string
   category: RoomCategory
   pricePerHour: number
   capacity: number
 }
+
+export type RoomTypeFormData = {
+  typeName: string
+  description: string
+  pricePerHour: number
+}
+
+export type RoomTypeFormErrors = Partial<Record<keyof RoomTypeFormData, string>>
 
 export const roomCategoryOptions: RoomCategory[] = ['standard', 'band', 'recording', 'premium']
 

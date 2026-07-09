@@ -68,6 +68,15 @@ payment.sepay.checkout-url=${SEPAY_CHECKOUT_URL:}
 payment.sepay.qr-bank-account=${SEPAY_QR_BANK_ACCOUNT:}
 payment.sepay.qr-bank-code=${SEPAY_QR_BANK_CODE:}
 payment.sepay.qr-template=${SEPAY_QR_TEMPLATE:compact}
+# Frontend renders the VietQR image returned by POST /api/payments/sessions, then polls
+# GET /api/payments/transactions/{paymentId}. When api-access-token is configured, that
+# poll queries SePay userapi Transactions API v2 first, then falls back to the legacy v1
+# endpoint, and syncs booking/payment status immediately.
+payment.sepay.api-access-token=${SEPAY_API_ACCESS_TOKEN:}
+# Optional: only set this to the v2 UUID bank_account_id. Leave blank when you only have
+# the legacy numeric id; account-number is enough for matching.
+payment.sepay.api-bank-account-id=${SEPAY_API_BANK_ACCOUNT_ID:}
+payment.sepay.api-account-number=${SEPAY_API_ACCOUNT_NUMBER:}
 payment.sepay.merchant-id=${SEPAY_MERCHANT_ID:}
 payment.sepay.secret-key=${SEPAY_SECRET_KEY:}
 payment.sepay.success-url=${SEPAY_SUCCESS_URL:http://localhost:3000/payment/return}

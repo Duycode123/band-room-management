@@ -26,6 +26,8 @@ import backend.entity.Role;
 import backend.entity.User;
 import backend.exception.AuthException;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,6 +57,7 @@ public class AuthUseCaseService implements
     private static final int EMAIL_VERIFICATION_EXPIRATION_HOURS = 24;
     private static final int RESEND_COOLDOWN_SECONDS = 60;
     private static final int MIN_CUSTOMER_AGE = 13;
+    private static final Logger LOGGER = LoggerFactory.getLogger(AuthUseCaseService.class);
     private static final Set<String> BLOCKED_EMAIL_DOMAINS = Set.of(
             "10minutemail.com",
             "guerrillamail.com",
@@ -109,7 +112,7 @@ public class AuthUseCaseService implements
                 .build();
 
         authAccountPort.saveCustomer(customer);
-        emailVerificationNotificationPort.sendVerificationEmail(
+        sendVerificationEmailSafely(
                 savedUser.getEmail(),
                 emailVerificationUrlBase + verificationToken
         );
@@ -308,6 +311,14 @@ public class AuthUseCaseService implements
         user.setEmailVerificationExpiresAt(LocalDateTime.now().plusHours(EMAIL_VERIFICATION_EXPIRATION_HOURS));
         user.setEmailVerificationSentAt(LocalDateTime.now());
         return token;
+    }
+
+    private void sendVerificationEmailSafely(String email, String verificationLink) {
+        try {
+            emailVerificationNotificationPort.sendVerificationEmail(email, verificationLink);
+        } catch (RuntimeException ex) {
+            LOGGER.warn("Could not send verification email to {}", email, ex);
+        }
     }
 
     private void clearEmailVerification(User user) {

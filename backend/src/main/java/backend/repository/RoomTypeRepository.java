@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface RoomTypeRepository extends JpaRepository<RoomType, Integer> {
     List<RoomType> findAllByOrderByTypeNameAsc();
+
+    boolean existsByTypeName(String typeName);
 }

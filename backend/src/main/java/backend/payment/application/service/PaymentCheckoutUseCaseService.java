@@ -8,11 +8,15 @@ import backend.entity.PaymentProvider;
 import backend.entity.PaymentTransaction;
 import backend.entity.PaymentTransactionStatus;
 import backend.exception.ResourceNotFoundException;
-import backend.payment.application.model.SePayCheckoutForm;
 import backend.payment.application.model.PaymentSessionResult;
 import backend.payment.application.model.PaymentTransactionDetail;
+import backend.payment.application.model.SePayCheckoutForm;
+import backend.payment.application.port.out.FindSePayIncomingPaymentPort;
+import backend.payment.application.port.out.model.SePayIncomingPayment;
+import backend.payment.application.port.out.model.SePayIncomingPaymentQuery;
 import backend.repository.BookingRepository;
 import backend.repository.PaymentTransactionRepository;
+import backend.service.CouponUsageTrackingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -30,6 +34,7 @@ import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -40,6 +45,8 @@ public class PaymentCheckoutUseCaseService {
     private final BookingRepository bookingRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final SePayProperties sePayProperties;
+    private final FindSePayIncomingPaymentPort findSePayIncomingPaymentPort;
+    private final CouponUsageTrackingService couponUsageTrackingService;
 
     @Value("${app.booking.payment-expiration-seconds:300}")
     private long paymentExpirationSeconds;
@@ -136,13 +143,14 @@ public class PaymentCheckoutUseCaseService {
                 paymentOption.apiValue,
                 mapStatus(paymentTransaction.getStatus(), booking),
                 paymentTransaction.getAmount(),
-                buildSePayPortalUrl(paymentId, paymentTransaction.getAmount()),
+                buildVietQrUrl(paymentId, paymentTransaction.getAmount()),
                 paymentTransaction.getCreatedAt(),
                 resolveExpiresAt(paymentTransaction.getCreatedAt()),
                 paymentTransaction.getPaidAt()
         );
     }
 
+    @Transactional
     public PaymentTransactionDetail getPaymentTransactionDetail(String paymentId, String customerEmail) {
         if (paymentId == null || paymentId.trim().isBlank()) {
             throw new IllegalArgumentException("paymentId khong duoc de trong");
@@ -152,6 +160,7 @@ public class PaymentCheckoutUseCaseService {
                 .findByTransactionReferenceAndBooking_Customer_Account_Email(paymentId.trim(), customerEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay giao dich thanh toan"));
 
+        syncSePayTransaction(paymentTransaction);
         return toPaymentTransactionDetail(paymentTransaction);
     }
 
@@ -253,18 +262,6 @@ public class PaymentCheckoutUseCaseService {
         return "PAY" + UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase();
     }
 
-    private String buildSePayPortalUrl(
-            String paymentId,
-            BigDecimal amount
-    ) {
-        String checkoutUrl = blankToNull(sePayProperties.getCheckoutUrl());
-        if (checkoutUrl == null) {
-            return buildVietQrUrl(paymentId, amount);
-        }
-
-        return "/api/payments/sepay/checkout/" + encode(paymentId);
-    }
-
     private String buildVietQrUrl(String paymentId, BigDecimal amount) {
         String bankAccount = blankToNull(sePayProperties.getQrBankAccount());
         String bankCode = blankToNull(sePayProperties.getQrBankCode());
@@ -284,6 +281,94 @@ public class PaymentCheckoutUseCaseService {
         }
 
         return url.toString();
+    }
+
+    private void syncSePayTransaction(PaymentTransaction transaction) {
+        if (transaction.getProvider() != PaymentProvider.SEPAY
+                || transaction.getStatus() == PaymentTransactionStatus.SUCCEEDED
+                || transaction.getStatus() == PaymentTransactionStatus.FAILED
+                || transaction.getStatus() == PaymentTransactionStatus.CANCELLED) {
+            return;
+        }
+
+        LocalDateTime expiresAt = resolveExpiresAt(transaction.getCreatedAt());
+        SePayIncomingPaymentQuery query = new SePayIncomingPaymentQuery(
+                transaction.getTransactionReference(),
+                transaction.getAmount(),
+                transaction.getCreatedAt() == null ? LocalDateTime.now().toLocalDate() : transaction.getCreatedAt().toLocalDate(),
+                LocalDateTime.now().toLocalDate(),
+                transaction.getCreatedAt()
+        );
+
+        findSePayIncomingPaymentPort.findIncomingPayment(query)
+                .ifPresentOrElse(
+                        payment -> confirmSePayPayment(transaction, payment, expiresAt),
+                        () -> timeoutTransactionIfExpired(transaction, expiresAt)
+                );
+    }
+
+    private void confirmSePayPayment(
+            PaymentTransaction transaction,
+            SePayIncomingPayment payment,
+            LocalDateTime expiresAt
+    ) {
+        if (expiresAt != null && payment.transactionDate() != null && payment.transactionDate().isAfter(expiresAt)) {
+            timeoutTransactionIfExpired(transaction, expiresAt);
+            return;
+        }
+
+        String providerTransactionId = blankToNull(payment.providerTransactionId());
+        if (providerTransactionId != null) {
+            Optional<PaymentTransaction> existingTransaction =
+                    paymentTransactionRepository.findByProviderTransactionId(providerTransactionId);
+            if (existingTransaction.isPresent()
+                    && !existingTransaction.get().getTransactionReference().equals(transaction.getTransactionReference())) {
+                return;
+            }
+        }
+
+        transaction.setProviderTransactionId(providerTransactionId);
+        transaction.setResponseCode("SEPAY_API_SUCCESS");
+        transaction.setStatus(PaymentTransactionStatus.SUCCEEDED);
+        transaction.setPaidAt(payment.transactionDate() == null ? LocalDateTime.now() : payment.transactionDate());
+
+        Booking booking = transaction.getBooking();
+        if (booking.getStatus() == BookingStatus.PENDING_PAYMENT) {
+            booking.setStatus(resolveSuccessfulBookingStatus(transaction));
+            bookingRepository.save(booking);
+        }
+
+        couponUsageTrackingService.recordPaidBookingUsage(booking);
+        paymentTransactionRepository.save(transaction);
+    }
+
+    private void timeoutTransactionIfExpired(PaymentTransaction transaction, LocalDateTime expiresAt) {
+        if (expiresAt == null || LocalDateTime.now().isBefore(expiresAt)) {
+            return;
+        }
+
+        transaction.setStatus(PaymentTransactionStatus.CANCELLED);
+        transaction.setResponseCode("PAYMENT_TIMEOUT");
+
+        Booking booking = transaction.getBooking();
+        if (booking != null && booking.getStatus() == BookingStatus.PENDING_PAYMENT) {
+            booking.setStatus(BookingStatus.CANCELLED);
+            bookingRepository.save(booking);
+        }
+
+        paymentTransactionRepository.save(transaction);
+    }
+
+    private BookingStatus resolveSuccessfulBookingStatus(PaymentTransaction transaction) {
+        Booking booking = transaction.getBooking();
+        BigDecimal totalAmount = booking == null ? null : booking.getTotalAmount();
+        BigDecimal paidAmount = transaction.getAmount();
+        if (totalAmount != null && paidAmount != null
+                && paidAmount.compareTo(totalAmount.setScale(2, RoundingMode.HALF_UP)) < 0) {
+            return BookingStatus.DEPOSIT_PAID;
+        }
+
+        return BookingStatus.PAID;
     }
 
     private Map<String, String> buildSePayPortalFields(

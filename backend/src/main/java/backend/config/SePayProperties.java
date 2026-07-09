@@ -21,6 +21,9 @@ public class SePayProperties {
     private String qrBankAccount;
     private String qrBankCode;
     private String qrTemplate = "compact";
+    private String apiAccessToken;
+    private String apiBankAccountId;
+    private String apiAccountNumber;
 
     /**
      * Shared secret that SePay sends back on each webhook call via the
