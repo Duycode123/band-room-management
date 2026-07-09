@@ -20,7 +20,7 @@ export default function AdminPageHeader({
   actions,
 }: AdminPageHeaderProps) {
   return (
-    <header className="border-b border-outline-variant/80 bg-white/80 backdrop-blur-sm">
+    <header className="sticky top-14 z-20 border-b border-outline-variant/80 bg-white/90 backdrop-blur-md lg:top-0">
       <div className="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-4 px-5 py-6 sm:px-8">
         <div className="min-w-0">
           {breadcrumbs && breadcrumbs.length > 0 && (

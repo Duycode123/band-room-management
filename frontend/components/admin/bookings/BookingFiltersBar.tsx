@@ -4,6 +4,7 @@ import {
   PAYMENT_STATUS_LABELS,
   PAYMENT_STATUS_OPTIONS,
 } from '@/lib/admin/bookingLabels'
+import { toLocalDateInputValue } from '@/lib/admin/adminBookingApi'
 import type { BookingFilters } from '@/lib/admin/types'
 
 type BookingFiltersBarProps = {
@@ -15,8 +16,47 @@ type BookingFiltersBarProps = {
 export default function BookingFiltersBar({ filters, onChange, resultCount }: BookingFiltersBarProps) {
   const set = (patch: Partial<BookingFilters>) => onChange({ ...filters, ...patch })
 
+  const today = toLocalDateInputValue()
+  const tomorrowDate = new Date()
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1)
+  const tomorrow = toLocalDateInputValue(tomorrowDate)
+
+  const quickDates: { label: string; value: string }[] = [
+    { label: 'Hôm nay', value: today },
+    { label: 'Ngày mai', value: tomorrow },
+  ]
+
   return (
     <div className="rounded-xl border border-outline-variant bg-white p-4 shadow-[var(--shadow-card)]">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <span className="font-display text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
+          Xem nhanh
+        </span>
+        {quickDates.map((item) => {
+          const active = filters.date === item.value
+          return (
+            <button
+              key={item.value}
+              type="button"
+              onClick={() => set({ date: active ? '' : item.value })}
+              className={[
+                'rounded-lg px-3 py-1.5 text-xs font-semibold transition',
+                active
+                  ? 'bg-brand-orange text-white shadow-sm'
+                  : 'border border-outline-variant bg-surface-container-low text-on-surface hover:border-brand-orange/40 hover:text-brand-orange',
+              ].join(' ')}
+            >
+              {item.label}
+            </button>
+          )
+        })}
+        {filters.date && filters.date !== today && filters.date !== tomorrow && (
+          <span className="rounded-lg border border-brand-orange/30 bg-primary-container/40 px-3 py-1.5 text-xs font-semibold text-brand-orange">
+            Đang lọc ngày đã chọn
+          </span>
+        )}
+      </div>
+
       <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto_auto]">
         <label className="block">
           <span className="mb-1 block font-display text-[10px] font-medium uppercase tracking-wider text-on-surface-variant">
@@ -69,7 +109,7 @@ export default function BookingFiltersBar({ filters, onChange, resultCount }: Bo
 
         <label className="block min-w-[10rem]">
           <span className="mb-1 block font-display text-[10px] font-medium uppercase tracking-wider text-on-surface-variant">
-            Ngày đặt
+            Ngày sử dụng
           </span>
           <input
             type="date"
@@ -82,7 +122,7 @@ export default function BookingFiltersBar({ filters, onChange, resultCount }: Bo
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-outline-variant pt-3">
         <p className="text-xs text-on-surface-variant">
-          <span className="font-semibold text-on-surface">{resultCount}</span> đơn phù hợp
+          <span className="font-semibold text-on-surface">{resultCount}</span> đơn · nhóm theo ngày sử dụng
         </p>
         {(filters.query || filters.bookingStatus !== 'ALL' || filters.paymentStatus !== 'ALL' || filters.date) && (
           <button

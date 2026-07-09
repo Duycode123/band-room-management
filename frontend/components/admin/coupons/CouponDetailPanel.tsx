@@ -63,13 +63,6 @@ export default function CouponDetailPanel({
                 </p>
                 <h2 className="font-display text-2xl font-bold leading-tight text-on-surface">{coupon.code}</h2>
               </div>
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-outline-variant/80 bg-white/80 text-on-surface-variant backdrop-blur-sm hover:bg-white"
-              >
-                X
-              </button>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <CouponTypeBadge type={coupon.type} size="md" />
@@ -137,6 +130,13 @@ export default function CouponDetailPanel({
             </div>
           ) : (
             <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-xl border border-outline bg-white px-4 py-2.5 font-display text-sm font-medium text-on-surface-variant hover:text-on-surface"
+              >
+                Đóng
+              </button>
               <button
                 type="button"
                 onClick={() => onEdit(coupon)}

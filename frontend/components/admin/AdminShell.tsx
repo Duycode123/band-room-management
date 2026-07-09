@@ -12,7 +12,6 @@ import {
   IconEquipment,
   IconIncidentReports,
   IconLogout,
-  IconReports,
   IconReviews,
   IconRooms,
   IconStaff,
@@ -24,12 +23,11 @@ const NAV_ITEMS: AdminNavItem[] = [
   { href: '/admin/bookings', label: 'Đơn đặt phòng', icon: <IconBookings className="h-5 w-5" /> },
   { href: '/admin/staff', label: 'Staff', icon: <IconStaff className="h-5 w-5" /> },
   { href: '/admin/staff-schedule', label: 'Lịch staff', icon: <IconBookings className="h-5 w-5" /> },
+  { href: '/admin/rooms', label: 'Phòng tập', icon: <IconRooms className="h-5 w-5" /> },
+  { href: '/admin/equipment', label: 'Thiết bị', icon: <IconEquipment className="h-5 w-5" /> },
   { href: '/admin/coupons', label: 'Mã giảm giá', icon: <IconCoupons className="h-5 w-5" /> },
   { href: '/admin/reviews', label: 'Đánh giá', icon: <IconReviews className="h-5 w-5" /> },
-  { href: '/admin/equipment', label: 'Thiết bị', icon: <IconEquipment className="h-5 w-5" /> },
-  { href: '/admin/rooms', label: 'Phòng tập', icon: <IconRooms className="h-5 w-5" /> },
   { href: '/admin/incident-reports', label: 'Báo cáo sự cố', icon: <IconIncidentReports className="h-5 w-5" /> },
-  { href: '/admin/reports', label: 'Báo cáo', icon: <IconReports className="h-5 w-5" /> },
 ]
 
 type AdminShellProps = {
@@ -59,7 +57,15 @@ export default function AdminShell({ children }: AdminShellProps) {
         {/* Sidebar - desktop: full viewport height, footer pinned at bottom */}
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-white/10 bg-gradient-to-b from-brand-greenDark via-brand-greenDark to-brand-greenLight lg:flex">
           <div className="shrink-0 border-b border-white/10 px-5 py-6">
-            <AdminBrandMark />
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="block w-full rounded-xl text-left transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange/50"
+              aria-label="Tải lại trang"
+              title="Tải lại trang"
+            >
+              <AdminBrandMark />
+            </button>
           </div>
 
           <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-5">
