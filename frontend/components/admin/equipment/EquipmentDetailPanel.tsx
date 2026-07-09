@@ -68,13 +68,6 @@ export default function EquipmentDetailPanel({
                   </h2>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-outline-variant/80 bg-white/80 text-on-surface-variant backdrop-blur-sm hover:bg-white"
-              >
-                X
-              </button>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <EquipmentStatusBadge status={equipment.status} size="md" />
@@ -135,6 +128,13 @@ export default function EquipmentDetailPanel({
             </div>
           ) : (
             <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-xl border border-outline bg-white px-4 py-2.5 font-display text-sm font-medium text-on-surface-variant hover:text-on-surface"
+              >
+                Đóng
+              </button>
               <button
                 type="button"
                 onClick={() => onEdit(equipment)}

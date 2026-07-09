@@ -37,14 +37,6 @@ export default function RoomDetailPanel({ room, onClose, onEdit }: RoomDetailPan
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={room.image} alt={room.name} className="h-full w-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
-            <button
-              type="button"
-              onClick={onClose}
-              className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-xl border border-white/30 bg-white/90 text-on-surface shadow-sm backdrop-blur-sm hover:bg-white"
-              aria-label="Đóng"
-            >
-              ×
-            </button>
             <div className="absolute bottom-4 left-5 right-5">
               <p className="font-display text-[10px] font-bold uppercase tracking-[0.18em] text-brand-orange">
                 {room.code}
