@@ -45,10 +45,13 @@ Allow a staff member to see assigned shifts and the room bookings that overlap a
 1. Admin opens the staff schedule approval view in week or month mode.
 2. Frontend loads staff shift registrations for the visible date range.
 3. Admin clicks a date cell to see staff who registered for that date.
-4. Admin selects one or more pending registrations across the visible calendar.
-5. Admin saves the schedule.
-6. Frontend approves the selected registrations through the admin decision endpoint.
-7. Backend creates assigned shifts for approved registrations, and those shifts appear on each staff member's schedule page.
+4. Frontend shows approved registrations as checked and pending registrations as unchecked.
+5. Admin can check pending registrations to add them to the official schedule.
+6. Admin can uncheck an approved registration to remove that assigned shift when it was scheduled by mistake.
+7. Admin can then check another staff registration in the same time window and save.
+8. Frontend sends approvals for newly checked pending registrations and sends cancellation decisions for approved registrations that were unchecked.
+9. Backend creates assigned shifts for newly approved registrations and removes assigned shifts for unchecked approved registrations.
+10. Updated shifts appear on each staff member's schedule page.
 
 ## Alternate And Error Flows
 
@@ -61,8 +64,9 @@ Allow a staff member to see assigned shifts and the room bookings that overlap a
 - Registration has no slots: backend returns bad request.
 - Registration includes a slot outside next week: backend returns bad request.
 - Registration overlaps an existing pending or approved registration, an assigned shift, or another submitted slot: backend returns conflict-style validation through the global error handler.
-- Admin saves with no selected registrations: frontend blocks the save.
+- Admin saves with no changes: frontend blocks the save.
 - Admin approval conflicts with an already assigned overlapping shift: backend rejects that registration decision.
+- Admin unchecks an approved registration whose assigned shift already has attendance data: backend rejects the cancellation to preserve work history.
 
 ## Business Rules
 
@@ -73,6 +77,7 @@ Allow a staff member to see assigned shifts and the room bookings that overlap a
 - Staff can only register shifts for next week.
 - Staff can submit at most 21 registration slots per request.
 - New staff registrations start as `PENDING`; rejected slots can be submitted again.
+- Approved registrations can be reopened to `PENDING` by admin unchecking them before attendance exists for the assigned shift.
 - Request/response DTOs stay in the web adapter; ownership and range rules live in the application service.
 
 ## Related Endpoints

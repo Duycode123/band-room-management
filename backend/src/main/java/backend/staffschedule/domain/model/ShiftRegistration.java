@@ -28,6 +28,24 @@ public record ShiftRegistration(
         return withDecision(ShiftRegistrationStatus.REJECTED, reviewerAccountId, reviewedAt, reason);
     }
 
+    public ShiftRegistration reopen(LocalDateTime updatedAt) {
+        return new ShiftRegistration(
+                id,
+                staffId,
+                staffName,
+                staffEmail,
+                workDate,
+                startTime,
+                endTime,
+                ShiftRegistrationStatus.PENDING,
+                null,
+                null,
+                null,
+                createdAt,
+                updatedAt
+        );
+    }
+
     private ShiftRegistration withDecision(
             ShiftRegistrationStatus newStatus,
             Integer reviewerAccountId,

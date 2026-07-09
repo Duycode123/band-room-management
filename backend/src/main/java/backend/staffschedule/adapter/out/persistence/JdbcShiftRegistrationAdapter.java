@@ -275,6 +275,27 @@ public class JdbcShiftRegistrationAdapter implements
         jdbcTemplate.update(sql, staffId, workDate, startTime, endTime, staffId, workDate, startTime, endTime);
     }
 
+    @Override
+    public void removeAssignedShift(Integer staffId, LocalDate workDate, LocalTime startTime, LocalTime endTime) {
+        String sql = """
+                DELETE FROM shift
+                WHERE staff_id = ?
+                  AND date = ?
+                  AND start_time = ?
+                  AND end_time = ?
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM staff_attendance attendance
+                      WHERE attendance.shift_id = shift.id
+                  )
+                """;
+
+        int deletedRows = jdbcTemplate.update(sql, staffId, workDate, startTime, endTime);
+        if (deletedRows == 0) {
+            throw new IllegalStateException("Khong the huy ca da co du lieu cham cong hoac khong tim thay ca da xep");
+        }
+    }
+
     private ShiftRegistration mapRegistration(ResultSet rs, int rowNum) throws SQLException {
         return new ShiftRegistration(
                 rs.getInt("id"),

@@ -13,4 +13,6 @@ public interface ShiftAssignmentPort {
     );
 
     void createAssignedShift(Integer staffId, LocalDate workDate, LocalTime startTime, LocalTime endTime);
+
+    void removeAssignedShift(Integer staffId, LocalDate workDate, LocalTime startTime, LocalTime endTime);
 }

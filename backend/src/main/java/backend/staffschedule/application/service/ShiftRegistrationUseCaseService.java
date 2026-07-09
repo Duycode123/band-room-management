@@ -110,11 +110,10 @@ public class ShiftRegistrationUseCaseService implements
         ShiftRegistration registration = registrationPort.loadRegistration(registrationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay dang ky ca lam"));
 
-        if (registration.status() != ShiftRegistrationStatus.PENDING) {
-            throw new IllegalStateException("Chi co the xu ly dang ky ca dang cho duyet");
-        }
-
         if (approved) {
+            if (registration.status() != ShiftRegistrationStatus.PENDING) {
+                throw new IllegalStateException("Chi co the duyet dang ky ca dang cho xep");
+            }
             ensureSlotDoesNotOverlapAssignedShift(
                     registration.staffId(),
                     registration.workDate(),
@@ -130,6 +129,20 @@ public class ShiftRegistrationUseCaseService implements
                     registration.endTime()
             );
             return savedRegistration;
+        }
+
+        if (registration.status() == ShiftRegistrationStatus.APPROVED) {
+            assignmentPort.removeAssignedShift(
+                    registration.staffId(),
+                    registration.workDate(),
+                    registration.startTime(),
+                    registration.endTime()
+            );
+            return registrationPort.updateDecision(registration.reopen(now));
+        }
+
+        if (registration.status() != ShiftRegistrationStatus.PENDING) {
+            throw new IllegalStateException("Chi co the tu choi hoac huy lich tu dang ky dang cho xep/da len lich");
         }
 
         String rejectionReason = normalizeRejectionReason(command.rejectionReason());

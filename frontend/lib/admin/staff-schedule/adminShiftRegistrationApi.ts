@@ -108,10 +108,6 @@ export async function decideAdminShiftRegistration(
 ): Promise<AdminShiftRegistration> {
   const normalizedReason = normalizeText(rejectionReason)
 
-  if (!approved && !normalizedReason) {
-    throw new Error('Vui long nhap ly do tu choi.')
-  }
-
   try {
     const response = await api.patch<ApiResponse<AdminShiftRegistration>>(
       `/api/admin/shift-registrations/${registrationId}/decision`,

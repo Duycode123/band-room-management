@@ -59,10 +59,7 @@ export default function AdminStaffSchedulePage() {
     try {
       const data = await fetchAdminShiftRegistrations(requestFilters)
       setRegistrations(data)
-      setSelectedIds((current) => {
-        const pendingIds = new Set(data.filter((item) => item.status === 'PENDING').map((item) => item.id))
-        return new Set([...current].filter((id) => pendingIds.has(id)))
-      })
+      setSelectedIds(new Set(data.filter((item) => item.status === 'APPROVED').map((item) => item.id)))
       setErrorMessage('')
     } catch (error) {
       setRegistrations([])
@@ -87,11 +84,18 @@ export default function AdminStaffSchedulePage() {
   const registrationsByDate = useMemo(() => groupRegistrationsByDate(registrations), [registrations])
 
   const stats = useMemo(() => {
+    const changes = registrations.filter(
+      (item) =>
+        (item.status === 'PENDING' && selectedIds.has(item.id)) ||
+        (item.status === 'APPROVED' && !selectedIds.has(item.id)),
+    ).length
+
     return {
       total: registrations.length,
       pending: registrations.filter((item) => item.status === 'PENDING').length,
       approved: registrations.filter((item) => item.status === 'APPROVED').length,
       selected: selectedIds.size,
+      changes,
     }
   }, [registrations, selectedIds])
 
@@ -120,7 +124,7 @@ export default function AdminStaffSchedulePage() {
   }
 
   const toggleRegistration = (registration: AdminShiftRegistration) => {
-    if (registration.status !== 'PENDING') return
+    if (registration.status === 'REJECTED') return
 
     setSelectedIds((current) => {
       const next = new Set(current)
@@ -134,12 +138,16 @@ export default function AdminStaffSchedulePage() {
   }
 
   const handleSaveSchedule = async () => {
-    const selectedRegistrations = registrations.filter(
-      (registration) => selectedIds.has(registration.id) && registration.status === 'PENDING',
+    const registrationsToApprove = registrations.filter(
+      (registration) => registration.status === 'PENDING' && selectedIds.has(registration.id),
     )
+    const registrationsToReopen = registrations.filter(
+      (registration) => registration.status === 'APPROVED' && !selectedIds.has(registration.id),
+    )
+    const changeCount = registrationsToApprove.length + registrationsToReopen.length
 
-    if (selectedRegistrations.length === 0) {
-      setErrorMessage('Vui long chon it nhat mot dang ky ca lam truoc khi save.')
+    if (changeCount === 0) {
+      setErrorMessage('Chua co thay doi nao de save.')
       return
     }
 
@@ -147,12 +155,14 @@ export default function AdminStaffSchedulePage() {
     setErrorMessage('')
 
     try {
-      for (const registration of selectedRegistrations) {
+      for (const registration of registrationsToApprove) {
         await decideAdminShiftRegistration(registration.id, true)
       }
+      for (const registration of registrationsToReopen) {
+        await decideAdminShiftRegistration(registration.id, false)
+      }
 
-      setSelectedIds(new Set())
-      setToast(`Da save ${selectedRegistrations.length} ca vao lich lam viec cua staff.`)
+      setToast(`Da save ${changeCount} thay doi lich staff.`)
       await loadRegistrations()
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Khong the save lich staff.')
@@ -184,10 +194,10 @@ export default function AdminStaffSchedulePage() {
               <button
                 type="button"
                 onClick={() => void handleSaveSchedule()}
-                disabled={selectedIds.size === 0 || isSaving}
+                disabled={stats.changes === 0 || isSaving}
                 className="rounded-xl bg-brand-orange px-5 py-2.5 font-display text-sm font-bold text-white shadow-lg shadow-brand-orange/25 transition hover:bg-brand-orangeHover disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isSaving ? 'Dang save...' : `Save lich (${selectedIds.size})`}
+                {isSaving ? 'Dang save...' : `Save thay doi (${stats.changes})`}
               </button>
             </div>
           }
@@ -206,7 +216,7 @@ export default function AdminStaffSchedulePage() {
             <AdminStatCard label="Dang ky" value={stats.total} icon={<IconBookings className="h-5 w-5" />} />
             <AdminStatCard label="Cho xep ca" value={stats.pending} accent="tertiary" icon={<span>...</span>} />
             <AdminStatCard label="Da len lich" value={stats.approved} accent="secondary" icon={<span>OK</span>} />
-            <AdminStatCard label="Da chon" value={stats.selected} accent="primary" icon={<span>+</span>} />
+            <AdminStatCard label="Thay doi" value={stats.changes} accent="primary" icon={<span>+</span>} />
           </div>
 
           <ScheduleToolbar
@@ -494,7 +504,7 @@ function DayRegistrationModal({
           <div>
             <h2 className="font-display text-xl font-bold text-on-surface">{formatDate(date)}</h2>
             <p className="mt-1 text-sm text-on-surface-variant">
-              Chon staff dang ky ngay nay. Cac ca da len lich duoc giu nguyen.
+              Bo tick ca da len lich neu xep nham, tick staff khac cung khung gio roi save.
             </p>
           </div>
           <button
@@ -515,8 +525,8 @@ function DayRegistrationModal({
           ) : (
             <div className="space-y-3">
               {sortedRegistrations.map((registration) => {
-                const checked = registration.status === 'APPROVED' || selectedIds.has(registration.id)
-                const disabled = registration.status !== 'PENDING'
+                const checked = selectedIds.has(registration.id)
+                const disabled = registration.status === 'REJECTED'
 
                 return (
                   <label
@@ -526,7 +536,7 @@ function DayRegistrationModal({
                       checked
                         ? 'border-brand-orange bg-primary-container/25'
                         : 'border-outline-variant bg-white hover:border-brand-orange/30',
-                      disabled ? 'cursor-not-allowed opacity-75' : '',
+                      disabled ? 'cursor-not-allowed opacity-60' : '',
                     ].join(' ')}
                   >
                     <input
