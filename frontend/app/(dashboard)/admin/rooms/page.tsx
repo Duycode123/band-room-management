@@ -123,17 +123,24 @@ export default function AdminRoomsPage() {
   const loadRooms = useCallback(async () => {
     setIsLoading(true)
     try {
-      const [data, typeData, equipmentData] = await Promise.all([
+      const [data, typeData] = await Promise.all([
         getAdminRooms(),
         getAdminRoomTypes().catch(() => []),
-        fetchAdminEquipment({
+      ])
+
+      let equipmentData: AdminEquipment[] = []
+      try {
+        equipmentData = await fetchAdminEquipment({
           query: '',
           equipmentType: 'ALL',
           status: 'ALL',
           sortBy: 'room',
           sortOrder: 'asc',
-        }).catch(() => []),
-      ])
+        })
+      } catch (error) {
+        setToast(error instanceof Error ? error.message : 'KhÃ´ng thá»ƒ táº£i danh sÃ¡ch thiáº¿t bá»‹.')
+      }
+
       setEquipment(equipmentData)
       const roomsWithEquipment = applyEquipmentToRooms(data, equipmentData)
       setRooms(roomsWithEquipment)

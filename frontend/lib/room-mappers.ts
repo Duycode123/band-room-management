@@ -13,6 +13,7 @@ import {
   type RoomStatus,
 } from '@/lib/admin/rooms/types'
 import type { BackendRoom, BackendRoomStatus, BackendRoomType } from '@/lib/rooms-api'
+import type { PublicRoomEquipment } from '@/lib/public-room-equipment-service'
 
 const fallbackImage = '/images/band-room-hero.png'
 
@@ -109,6 +110,15 @@ function getRoomPrice(room: BackendRoom, category: RoomCategory) {
   return asNumber(room.roomType?.pricePerHour, defaultPrice[category])
 }
 
+function getRoomEquipmentNames(equipment: PublicRoomEquipment[] | undefined, category: RoomCategory) {
+  const names = (equipment ?? [])
+    .filter((item) => item.status === 'GOOD')
+    .map((item) => item.name?.trim())
+    .filter((name): name is string => Boolean(name))
+
+  return names.length > 0 ? Array.from(new Set(names)) : categoryEquipment[category]
+}
+
 function getAvailability(status: BackendRoomStatus | null | undefined, index: number) {
   if (status === 'MAINTENANCE') {
     return {
@@ -199,11 +209,12 @@ export function mapBackendRoomToAdminRoom(
   index = 0,
   monthlyRevenue = 0,
   reviewSummary?: BookingRoomReviewSummary,
+  equipment?: PublicRoomEquipment[],
 ): AdminRoom {
   const category = inferRoomCategoryFromTypeName(
     `${room.roomType?.typeName ?? ''} ${room.roomType?.description ?? ''}`,
   )
-  const equipments = categoryEquipment[category]
+  const equipments = getRoomEquipmentNames(equipment, category)
   const availability = getAvailability(room.status, index)
   const status = mapBackendStatusToAdminStatus(room.status)
 
@@ -236,11 +247,12 @@ export function mapBackendRoomToBookingRoom(
   room: BackendRoom,
   index = 0,
   reviewSummary?: BookingRoomReviewSummary,
+  equipment?: PublicRoomEquipment[],
 ): BookingRoom {
   const category = inferRoomCategoryFromTypeName(
     `${room.roomType?.typeName ?? ''} ${room.roomType?.description ?? ''}`,
   )
-  const equipments = categoryEquipment[category]
+  const equipments = getRoomEquipmentNames(equipment, category)
   const availability = getAvailability(room.status, index)
   const capacity = getRoomCapacity(room, category)
 

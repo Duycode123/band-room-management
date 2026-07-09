@@ -31,7 +31,13 @@ public class EquipmentPersistenceAdapter implements
 
     @Override
     public List<Equipment> loadEquipment(Integer roomId, EquipmentType type, EquipmentStatus status) {
-        return equipmentRepository.search(roomId, type, status).stream()
+        List<EquipmentJpaEntity> equipment = roomId == null
+                ? equipmentRepository.findAllWithRoom()
+                : equipmentRepository.findAllByRoomIdWithRoom(roomId);
+
+        return equipment.stream()
+                .filter(entity -> type == null || entity.getType() == type)
+                .filter(entity -> status == null || entity.getStatus() == status)
                 .map(equipmentPersistenceMapper::toDomain)
                 .toList();
     }

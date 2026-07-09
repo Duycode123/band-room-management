@@ -450,7 +450,7 @@ class BackendApplicationTests {
                 .build();
         when(userDetailsService.loadUserByUsername(user.getEmail())).thenReturn(user);
         when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
-        when(equipmentRepository.search(null, null, null)).thenReturn(List.of());
+        when(equipmentRepository.findAllWithRoom()).thenReturn(List.of());
         String accessToken = jwtService.generateAccessToken(user);
 
         mockMvc.perform(get("/api/admin/equipment")

@@ -4,6 +4,7 @@ import {
   mapBackendRoomToBookingRoom,
 } from '@/lib/room-mappers'
 import { fetchRoom, fetchRooms } from '@/lib/rooms-api'
+import { fetchPublicRoomEquipment, type PublicRoomEquipment } from '@/lib/public-room-equipment-service'
 import { fetchRoomReviewSummaries } from '@/lib/public-room-review-service'
 
 export type PublicBookingRoomCatalog = {
@@ -13,14 +14,21 @@ export type PublicBookingRoomCatalog = {
 
 export async function fetchPublicBookingRoomCatalog(): Promise<PublicBookingRoomCatalog> {
   try {
-    const [rooms, reviewSummaries] = await Promise.all([
+    const [rooms, reviewSummaries, equipment] = await Promise.all([
       fetchRooms(),
       fetchRoomReviewSummaries().catch(() => new Map()),
+      fetchPublicRoomEquipment().catch(() => []),
     ])
+    const equipmentByRoomId = groupEquipmentByRoomId(equipment)
 
     return {
       rooms: rooms.map((room, index) =>
-        mapBackendRoomToBookingRoom(room, index, reviewSummaries.get(String(room.id))),
+        mapBackendRoomToBookingRoom(
+          room,
+          index,
+          reviewSummaries.get(String(room.id)),
+          equipmentByRoomId.get(room.id),
+        ),
       ),
       source: 'backend',
     }
@@ -52,10 +60,23 @@ export async function resolveBookingRoom(roomId: string | null, catalog: Booking
       fetchRoomReviewSummaries().catch(() => new Map()),
     ])
 
-    return room ? mapBackendRoomToBookingRoom(room, 0, reviewSummaries.get(String(room.id))) : null
+    if (!room) return null
+
+    const equipment = await fetchPublicRoomEquipment({ roomId: room.id }).catch(() => [])
+
+    return mapBackendRoomToBookingRoom(room, 0, reviewSummaries.get(String(room.id)), equipment)
   } catch {
     return findBookingRoom(roomId)
   }
+}
+
+function groupEquipmentByRoomId(equipment: PublicRoomEquipment[]) {
+  return equipment.reduce((groups, item) => {
+    const roomEquipment = groups.get(item.roomId) ?? []
+    roomEquipment.push(item)
+    groups.set(item.roomId, roomEquipment)
+    return groups
+  }, new Map<number, PublicRoomEquipment[]>())
 }
 
 export async function resolveBookingRoomOrFallback(roomId: string | null, catalog: BookingRoom[] = bookingRooms) {

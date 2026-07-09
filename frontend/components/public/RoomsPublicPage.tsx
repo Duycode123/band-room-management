@@ -15,14 +15,13 @@ import {
 import { usePublicRoomCatalog } from '@/hooks/usePublicRoomCatalog'
 import { fetchAvailableSlots } from '@/lib/booking/bookingApi'
 import type { TimeSlot } from '@/lib/booking/types'
+import { fetchRoomTypes, type BackendRoomType } from '@/lib/rooms-api'
 import {
   filterRooms,
   getAvailabilityLabel,
-  publicRoomCategories,
   type Room,
   type RoomAvailabilityStatus,
   type RoomCapacityFilter,
-  type RoomCategory,
   type RoomFilters,
   type RoomPriceFilter,
 } from '@/lib/public/mock-data'
@@ -50,7 +49,7 @@ const priceOptions: Array<{ value: RoomPriceFilter; label: string }> = [
 
 const defaultFilters: RoomFilters = {
   search: '',
-  category: 'all',
+  roomTierId: 'all',
   capacity: 'all',
   availability: 'all',
   price: 'all',
@@ -71,10 +70,27 @@ type QuickBookingState = {
 export default function RoomsPublicPage() {
   const [filters, setFilters] = useState<RoomFilters>(defaultFilters)
   const { rooms, source: catalogSource, isLoading, isRefreshing } = usePublicRoomCatalog()
+  const [roomTiers, setRoomTiers] = useState<BackendRoomType[]>([])
   const [detailRoom, setDetailRoom] = useState<Room | null>(null)
   const [quickBooking, setQuickBooking] = useState<QuickBookingState | null>(null)
   const [todaySlotsByRoomId, setTodaySlotsByRoomId] = useState<RoomSlotsById>({})
   const filteredRooms = useMemo(() => filterRooms(rooms, filters), [rooms, filters])
+
+  useEffect(() => {
+    let isMounted = true
+
+    void fetchRoomTypes()
+      .then((tiers) => {
+        if (isMounted) setRoomTiers(tiers)
+      })
+      .catch(() => {
+        if (isMounted) setRoomTiers([])
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   useEffect(() => {
     if (rooms.length === 0) {
@@ -220,11 +236,11 @@ export default function RoomsPublicPage() {
 
             <FilterSelect
               label="Loại phòng"
-              value={filters.category}
-              onChange={(value) => updateFilter('category', value as 'all' | RoomCategory)}
+              value={filters.roomTierId}
+              onChange={(value) => updateFilter('roomTierId', value)}
               options={[
                 { value: 'all', label: 'Tất cả loại phòng' },
-                ...publicRoomCategories.map((category) => ({ value: category.id, label: category.label })),
+                ...roomTiers.map((tier) => ({ value: String(tier.id), label: tier.typeName })),
               ]}
             />
             <FilterSelect

@@ -4,7 +4,6 @@ import AdminModuleCard from '@/components/admin/AdminModuleCard'
 import AdminPageHeader from '@/components/admin/AdminPageHeader'
 import {
   IconBookings,
-  IconEquipment,
   IconRefresh,
   IconRooms,
   IconSparkle,
@@ -103,15 +102,6 @@ export default function AdminDashboardPage() {
                 description="Theo dõi đơn đặt, thanh toán và xử lý các đơn cần can thiệp."
                 icon={<IconBookings className="h-6 w-6" />}
                 accent="orange"
-                badge="Đang hoạt động"
-              />
-              <AdminModuleCard
-                href="/admin/equipment"
-                label="Thiết bị cho thuê"
-                title="Quản lý thiết bị"
-                description="Kiểm tra tài sản cho từng phòng và trạng thái thiết bị cho thuê."
-                icon={<IconEquipment className="h-6 w-6" />}
-                accent="green"
                 badge="Đang hoạt động"
               />
               <AdminModuleCard

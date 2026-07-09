@@ -5,12 +5,14 @@ import backend.equipment.application.port.in.CreateEquipmentUseCase;
 import backend.equipment.application.port.in.DeleteEquipmentUseCase;
 import backend.equipment.application.port.in.GetEquipmentDetailUseCase;
 import backend.equipment.application.port.in.ListEquipmentUseCase;
+import backend.equipment.application.port.in.ListPublicEquipmentUseCase;
 import backend.equipment.application.port.in.UpdateEquipmentUseCase;
 import backend.equipment.application.port.in.command.CreateEquipmentCommand;
 import backend.equipment.application.port.in.command.DeleteEquipmentCommand;
 import backend.equipment.application.port.in.command.UpdateEquipmentCommand;
 import backend.equipment.application.port.in.query.GetEquipmentDetailQuery;
 import backend.equipment.application.port.in.query.ListEquipmentQuery;
+import backend.equipment.application.port.in.query.ListPublicEquipmentQuery;
 import backend.equipment.application.port.out.EquipmentActorPort;
 import backend.equipment.application.port.out.EquipmentCatalogPort;
 import backend.equipment.application.port.out.EquipmentMutationPort;
@@ -29,6 +31,7 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class EquipmentUseCaseService implements
         ListEquipmentUseCase,
+        ListPublicEquipmentUseCase,
         GetEquipmentDetailUseCase,
         CreateEquipmentUseCase,
         UpdateEquipmentUseCase,
@@ -43,6 +46,11 @@ public class EquipmentUseCaseService implements
         checkManagementPermission(query.currentUserEmail());
 
         return equipmentCatalogPort.loadEquipment(query.roomId(), query.type(), query.status());
+    }
+
+    @Override
+    public List<Equipment> getPublicEquipment(ListPublicEquipmentQuery query) {
+        return equipmentCatalogPort.loadEquipment(query.roomId(), null, EquipmentStatus.GOOD);
     }
 
     @Override
