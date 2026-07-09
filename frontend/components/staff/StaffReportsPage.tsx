@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import AuthGuard from '@/components/AuthGuard'
 import { EmptyState, StaffPageShell, StatCard, StatusBadge, Toast } from './StaffShared'
+import { fetchMyStaffPerformance, type StaffPerformanceResponse } from '@/lib/staff-performance-service'
 
 type ReportRange = 'TODAY' | 'THIS_WEEK' | 'THIS_MONTH'
 
@@ -102,13 +103,46 @@ const ranges: Array<{ value: ReportRange; label: string }> = [
 export default function StaffReportsPage() {
   const [range, setRange] = useState<ReportRange>('TODAY')
   const [toast, setToast] = useState<string | null>(null)
-  const data = reportData[range]
+  const [data, setData] = useState<ReportDataset>(() => reportData.TODAY)
+  const [isLoading, setIsLoading] = useState(true)
+  const [errorMessage, setErrorMessage] = useState('')
 
   useEffect(() => {
     if (!toast) return
     const timer = window.setTimeout(() => setToast(null), 2600)
     return () => window.clearTimeout(timer)
   }, [toast])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadPerformance() {
+      setIsLoading(true)
+
+      try {
+        const report = await fetchMyStaffPerformance(range)
+        if (cancelled) return
+
+        setData(mapPerformanceReport(report))
+        setErrorMessage('')
+      } catch (error) {
+        if (cancelled) return
+
+        setData(reportData[range])
+        setErrorMessage(error instanceof Error ? error.message : 'Khong the tai bao cao hieu suat nhan vien.')
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    void loadPerformance()
+
+    return () => {
+      cancelled = true
+    }
+  }, [range])
 
   const cards = useMemo(
     () => [
@@ -141,7 +175,19 @@ export default function StaffReportsPage() {
           </div>
         </header>
 
-        {data.summary.handledBookings > 0 ? (
+        {errorMessage && (
+          <div className="rounded-2xl border border-error/30 bg-error-container/30 px-4 py-3 text-sm font-semibold text-error">
+            {errorMessage}
+          </div>
+        )}
+
+        {isLoading ? (
+          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="h-32 animate-pulse rounded-3xl border border-outline-variant bg-white shadow-[var(--band-shadow-card)]" />
+            ))}
+          </section>
+        ) : data.summary.totalShifts > 0 || data.summary.handledBookings > 0 ? (
           <>
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {cards.map((card) => <StatCard key={card.label} {...card} />)}
@@ -200,6 +246,61 @@ export default function StaffReportsPage() {
       </StaffPageShell>
     </AuthGuard>
   )
+}
+
+function mapPerformanceReport(report: StaffPerformanceResponse): ReportDataset {
+  const totalShifts = Number(report.worklog.totalShifts ?? 0)
+  const lateCount = Number(report.worklog.lateCount ?? 0)
+  const missingCheckout = Number(report.worklog.missingCheckout ?? 0)
+  const completedShifts = Math.max(0, totalShifts - missingCheckout)
+  const onTimeShifts = Math.max(0, completedShifts - lateCount)
+  const checkInRate = totalShifts > 0 ? Math.round((completedShifts / totalShifts) * 100) : 0
+  const totalHours = Number(report.worklog.totalHours ?? 0)
+  const avgRating = Number(report.reviews.avgRating ?? 0)
+
+  return {
+    summary: {
+      totalShifts,
+      handledBookings: report.reviews.items.length,
+      checkInRate,
+      noShowCount: missingCheckout,
+      reportedIssues: lateCount,
+      resolvedIssues: onTimeShifts,
+    },
+    shifts: [
+      {
+        name: `${report.fromDate} - ${report.toDate}`,
+        checkIn: `${totalShifts} ca`,
+        checkOut: `${completedShifts} hoan tat`,
+        duration: Number.isFinite(totalHours) ? `${totalHours.toFixed(1)} gio` : `${report.worklog.totalHours} gio`,
+        status: missingCheckout > 0 ? 'MISSING_CHECKOUT' : lateCount > 0 ? 'LATE' : 'DONE',
+      },
+    ],
+    bookingStatus: {
+      'Tong review': report.reviews.items.length,
+      'Diem TB': Number.isFinite(avgRating) ? Math.round(avgRating * 10) / 10 : 0,
+      'Ca hoan tat': completedShifts,
+      'Ca thieu checkout': missingCheckout,
+    },
+    roomStatus: {
+      topRoom: 'Theo du lieu cham cong',
+      cleaning: 0,
+      maintenance: lateCount,
+      issue: missingCheckout,
+    },
+    issueStatus: {
+      'Dung gio': onTimeShifts,
+      'Di muon': lateCount,
+      'Thieu checkout': missingCheckout,
+      'Tong ca': totalShifts,
+    },
+    hourlyBookings: [
+      { label: 'Tong ca', value: totalShifts },
+      { label: 'Hoan tat', value: completedShifts },
+      { label: 'Di muon', value: lateCount },
+      { label: 'Thieu checkout', value: missingCheckout },
+    ],
+  }
 }
 
 function ReportSection({ title, children }: { title: string; children: ReactNode }) {

@@ -6,6 +6,7 @@ import AdminPageHeader from '@/components/admin/AdminPageHeader'
 import AdminShell from '@/components/admin/AdminShell'
 import AdminStatCard from '@/components/admin/AdminStatCard'
 import AdminToast from '@/components/admin/AdminToast'
+import AdminFacilityReportsPanel from '@/components/admin/facility/AdminFacilityReportsPanel'
 import { IconIncidentReports, IconSearch } from '@/components/admin/AdminIcons'
 import {
   fetchAdminIncidentReportDetail,
@@ -154,6 +155,8 @@ export default function AdminIncidentReportsPage() {
               onSelect={(report) => void handleSelectReport(report)}
             />
           </section>
+
+          <AdminFacilityReportsPanel />
         </div>
 
         <IncidentDetailDrawer

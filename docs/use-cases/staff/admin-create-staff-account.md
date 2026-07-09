@@ -28,9 +28,11 @@ Allow an admin to view staff account/profile information, create staff accounts,
 1. Admin enters staff full name, email, optional phone, optional date of birth, and optional initial password.
 2. Backend normalizes the email.
 3. Backend creates an `account` row with role `STAFF`.
-4. Backend marks the account `enabled = true` and `email_verified = true`.
+4. Backend marks the account `enabled = true` and `email_verified = false`.
 5. Backend creates a `staff` row linked by `staff.account_id`.
-6. Backend returns the account id, staff id, and initial password.
+6. Backend creates an email verification token and sends a verification email to the staff email address.
+7. Backend returns the account id, staff id, and initial password.
+8. Staff verifies their email from the link before logging in with the initial password.
 
 ### Disable staff account
 
@@ -46,12 +48,13 @@ Allow an admin to view staff account/profile information, create staff accounts,
 - Duplicate account email: backend rejects the request.
 - Duplicate staff profile email: backend rejects the request.
 - Missing initial password: backend uses `123123`.
+- Staff tries to login before email verification: backend rejects login and asks them to verify email first.
 - Staff profile not found during detail/disable: backend returns not found.
 
 ## Business rules
 
 - Admin-created staff accounts use role `STAFF`.
-- Admin-created staff accounts are marked email-verified so the staff member can log in with the initial password.
+- Admin-created staff accounts start as unverified and require email verification before login.
 - Admin-created staff accounts are enabled by default.
 - Staff-only APIs require both `account.role = STAFF` and a linked `staff` profile.
 - Disabling a staff account does not delete staff or account rows.
@@ -70,13 +73,16 @@ Allow an admin to view staff account/profile information, create staff accounts,
 - Reads `staff`.
 - Writes `account`.
 - Writes `staff`.
+- Writes account email verification token fields.
 - Updates `account.enabled`.
 
 ## Current implementation notes
 
 - Implemented in the `backend.staff` feature package with a use-case boundary.
-- `StaffManagementUseCaseService` creates the account and staff profile in one transaction.
+- `StaffManagementUseCaseService` creates the account, staff profile, and email verification token in one transaction.
+- `StaffEmailVerificationMailAdapter` sends the verification link to the staff email address.
 - `StaffManagementUseCaseService` lists staff accounts, returns staff detail, and disables accounts through dedicated use-case ports.
+- Frontend admin staff schedule page exposes a create-staff modal that calls `POST /api/admin/staff`.
 
 ## Known gaps
 

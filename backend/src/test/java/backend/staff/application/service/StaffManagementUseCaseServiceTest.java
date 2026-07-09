@@ -6,6 +6,7 @@ import backend.entity.User;
 import backend.staff.application.port.in.command.CreateStaffAccountCommand;
 import backend.staff.application.port.in.command.DisableStaffAccountCommand;
 import backend.staff.application.port.out.StaffAccountPort;
+import backend.staff.application.port.out.StaffEmailVerificationNotificationPort;
 import backend.staff.application.port.out.StaffPasswordPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,15 +37,22 @@ class StaffManagementUseCaseServiceTest {
     @Mock
     private StaffPasswordPort staffPasswordPort;
 
+    @Mock
+    private StaffEmailVerificationNotificationPort staffEmailVerificationNotificationPort;
+
     private StaffManagementUseCaseService staffManagementUseCaseService;
 
     @BeforeEach
     void setUp() {
-        staffManagementUseCaseService = new StaffManagementUseCaseService(staffAccountPort, staffPasswordPort);
+        staffManagementUseCaseService = new StaffManagementUseCaseService(
+                staffAccountPort,
+                staffPasswordPort,
+                staffEmailVerificationNotificationPort
+        );
     }
 
     @Test
-    void createStaffAccountCreatesAccountAndStaffProfileWithDefaultPassword() {
+    void createStaffAccountCreatesUnverifiedAccountAndSendsVerificationEmail() {
         when(staffAccountPort.existsAccountByEmail("staff@example.com")).thenReturn(false);
         when(staffAccountPort.existsStaffProfileByEmail("staff@example.com")).thenReturn(false);
         when(staffPasswordPort.encodePassword("123123")).thenReturn("encoded-password");
@@ -75,13 +83,22 @@ class StaffManagementUseCaseServiceTest {
         assertEquals("staff@example.com", accountCaptor.getValue().getEmail());
         assertEquals("encoded-password", accountCaptor.getValue().getPassword());
         assertEquals(Role.STAFF, accountCaptor.getValue().getRole());
-        assertTrue(accountCaptor.getValue().isEmailVerified());
+        assertFalse(accountCaptor.getValue().isEmailVerified());
         assertTrue(accountCaptor.getValue().isEnabled());
+        assertTrue(accountCaptor.getValue().getEmailVerificationTokenHash() != null
+                && !accountCaptor.getValue().getEmailVerificationTokenHash().isBlank());
+        assertTrue(accountCaptor.getValue().getEmailVerificationExpiresAt() != null);
+        assertTrue(accountCaptor.getValue().getEmailVerificationSentAt() != null);
         assertEquals(accountCaptor.getValue(), staffCaptor.getValue().getAccount());
         assertEquals("Nguyen Van Staff", staffCaptor.getValue().getFullName());
         assertEquals("0909000111", staffCaptor.getValue().getPhone());
         assertEquals("staff@example.com", staffCaptor.getValue().getEmail());
         assertEquals("123123", result.initialPassword());
+        assertFalse(result.emailVerified());
+        verify(staffEmailVerificationNotificationPort).sendVerificationEmail(
+                org.mockito.ArgumentMatchers.eq("staff@example.com"),
+                org.mockito.ArgumentMatchers.anyString()
+        );
     }
 
     @Test

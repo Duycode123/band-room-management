@@ -5,6 +5,12 @@ import AuthGuard from '@/components/AuthGuard'
 import { StaffPageShell } from './StaffShared'
 import { useAuth } from '@/contexts/AuthContext'
 import { getDisplayName } from '@/lib/staff-profile'
+import {
+  checkInCurrentShift,
+  checkOutCurrentShift,
+  fetchCurrentAttendance,
+  type StaffAttendanceRecord,
+} from '@/lib/staff-schedule-service'
 
 type AttendanceStatus = 'NOT_STARTED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'NO_SHIFT'
 type VerificationStatus = 'IDLE' | 'CHECKING' | 'VALID' | 'INVALID'
@@ -100,6 +106,38 @@ export default function StaffCheckInPage() {
 
   useEffect(() => {
     setShift((current) => ({ ...current, staffName: getDisplayName(user) }))
+  }, [user])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadCurrentAttendance() {
+      try {
+        const attendance = await fetchCurrentAttendance()
+        if (cancelled) return
+
+        if (!attendance) {
+          setShift((current) => ({ ...current, status: 'NO_SHIFT' }))
+          return
+        }
+
+        setShift((current) => mergeAttendanceIntoShift(current, attendance, getDisplayName(user)))
+        setLocationStatus(attendance.status === 'WORKING' || attendance.status === 'MISSING_CHECKOUT' ? 'VALID' : 'IDLE')
+      } catch (error) {
+        if (!cancelled) {
+          showToast({
+            type: 'error',
+            message: error instanceof Error ? error.message : 'Khong the tai du lieu cham cong hien tai.',
+          })
+        }
+      }
+    }
+
+    void loadCurrentAttendance()
+
+    return () => {
+      cancelled = true
+    }
   }, [user])
 
   const timeWindow = isWithinCheckInWindow(shift, now)
@@ -201,7 +239,7 @@ export default function StaffCheckInPage() {
     )
   }
 
-  function handleCheckIn() {
+  async function handleCheckIn() {
     if (shift.status === 'NO_SHIFT') {
       showToast({ type: 'error', message: 'Không tìm thấy ca làm hiện tại.' })
       return
@@ -227,15 +265,20 @@ export default function StaffCheckInPage() {
       return
     }
 
-    setLoadingAction('CHECK_IN')
-    window.setTimeout(() => {
-      const checkInTime = formatTime(new Date())
-      setShift((current) => ({
-        ...current,
-        status: 'CHECKED_IN',
-        checkInTime,
-        verificationMethod: selectedVerificationMethod,
-      }))
+    try {
+      setLoadingAction('CHECK_IN')
+      const attendance = await checkInCurrentShift()
+      const checkInTime = formatBackendTime(attendance.checkInTime) ?? formatTime(new Date())
+      setShift((current) =>
+        mergeAttendanceIntoShift(
+          {
+            ...current,
+            verificationMethod: selectedVerificationMethod,
+          },
+          attendance,
+          getDisplayName(user),
+        ),
+      )
       setAuditLogs((current) => [
         {
           id: `audit-${Date.now()}`,
@@ -247,12 +290,19 @@ export default function StaffCheckInPage() {
         ...current,
       ])
       setNow(new Date())
-      setLoadingAction(null)
+
       showToast({ type: 'success', message: 'Check-in thành công.' })
-    }, 650)
+    } catch (error) {
+      showToast({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Khong the check-in ca lam.',
+      })
+    } finally {
+      setLoadingAction(null)
+    }
   }
 
-  function handleCheckOut() {
+  async function handleCheckOut() {
     if (shift.status === 'NO_SHIFT') {
       showToast({ type: 'error', message: 'Không tìm thấy ca làm hiện tại.' })
       return
@@ -268,14 +318,11 @@ export default function StaffCheckInPage() {
       return
     }
 
-    setLoadingAction('CHECK_OUT')
-    window.setTimeout(() => {
-      const checkOutTime = formatTime(new Date())
-      setShift((current) => ({
-        ...current,
-        status: 'CHECKED_OUT',
-        checkOutTime,
-      }))
+    try {
+      setLoadingAction('CHECK_OUT')
+      const attendance = await checkOutCurrentShift()
+      const checkOutTime = formatBackendTime(attendance.checkOutTime) ?? formatTime(new Date())
+      setShift((current) => mergeAttendanceIntoShift(current, attendance, getDisplayName(user)))
       setAuditLogs((current) => [
         {
           id: `audit-${Date.now()}`,
@@ -289,7 +336,14 @@ export default function StaffCheckInPage() {
       setNow(new Date())
       setLoadingAction(null)
       showToast({ type: 'success', message: 'Check-out thành công.' })
-    }, 650)
+    } catch (error) {
+      showToast({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Khong the check-out ca lam.',
+      })
+    } finally {
+      setLoadingAction(null)
+    }
   }
 
   return (
@@ -647,6 +701,41 @@ function Toast({ toast }: { toast: ToastState }) {
       {toast.message}
     </div>
   )
+}
+
+function mergeAttendanceIntoShift(
+  shift: StaffCurrentShift,
+  attendance: StaffAttendanceRecord,
+  staffName: string,
+): StaffCurrentShift {
+  const status: AttendanceStatus =
+    attendance.status === 'DONE'
+      ? 'CHECKED_OUT'
+      : attendance.status === 'WORKING' || attendance.status === 'MISSING_CHECKOUT'
+        ? 'CHECKED_IN'
+        : shift.status
+
+  return {
+    ...shift,
+    id: String(attendance.shiftId),
+    staffName,
+    status,
+    checkInTime: formatBackendTime(attendance.checkInTime) ?? shift.checkInTime,
+    checkOutTime: formatBackendTime(attendance.checkOutTime) ?? shift.checkOutTime,
+    verificationMethod: shift.verificationMethod ?? 'NONE',
+  }
+}
+
+function formatBackendTime(value?: string | null) {
+  if (!value) return null
+
+  const date = new Date(value)
+  if (!Number.isNaN(date.getTime())) {
+    return formatTime(date)
+  }
+
+  const timeMatch = value.match(/(\d{2}):(\d{2})/)
+  return timeMatch ? `${timeMatch[1]}:${timeMatch[2]}` : null
 }
 
 function isWithinCheckInWindow(shift: StaffCurrentShift, now = new Date()) {

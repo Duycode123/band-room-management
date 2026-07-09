@@ -2,6 +2,13 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import AuthGuard from '@/components/AuthGuard'
+import {
+  fetchStaffNotifications,
+  markAllStaffNotificationsRead,
+  markStaffNotificationRead,
+  resolveStaffNotification,
+  type BackendStaffNotification,
+} from '@/lib/staff-notification-service'
 import { EmptyState, StaffPageShell, StatusBadge, Toast } from './StaffShared'
 
 type NotificationType = 'BOOKING_REMINDER' | 'NEW_BOOKING' | 'ROOM_STATUS' | 'EQUIPMENT_ISSUE' | 'SHIFT_REMINDER' | 'SYSTEM'
@@ -116,6 +123,27 @@ export default function StaffNotificationsPage() {
   const [toast, setToast] = useState<string | null>(null)
 
   useEffect(() => {
+    let isMounted = true
+
+    async function loadNotifications() {
+      try {
+        const data = await fetchStaffNotifications()
+        if (!isMounted) return
+        setNotifications(data.map(mapBackendNotification))
+      } catch (error) {
+        if (!isMounted) return
+        setToast(error instanceof Error ? error.message : 'Khong the tai thong bao nhan vien.')
+      }
+    }
+
+    void loadNotifications()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  useEffect(() => {
     if (!toast) return
     const timer = window.setTimeout(() => setToast(null), 2600)
     return () => window.clearTimeout(timer)
@@ -124,14 +152,36 @@ export default function StaffNotificationsPage() {
   const filtered = useMemo(() => filterNotifications(notifications, activeTab, query), [activeTab, notifications, query])
   const unreadCount = notifications.filter((item) => !item.isRead).length
 
-  const updateNotification = (id: string, patch: Partial<StaffNotification>, message: string) => {
+  const updateNotification = async (
+    id: string,
+    patch: Partial<StaffNotification>,
+    message: string,
+    request?: () => Promise<BackendStaffNotification>,
+  ) => {
     setNotifications((current) => current.map((item) => (item.id === id ? { ...item, ...patch } : item)))
     setSelected((current) => (current?.id === id ? { ...current, ...patch } : current))
-    setToast(message)
+    try {
+      const requestNotification = request ?? (() => (patch.isResolved ? resolveStaffNotification(id) : markStaffNotificationRead(id)))
+      const saved = mapBackendNotification(await requestNotification())
+      setNotifications((current) => current.map((item) => (item.id === id ? { ...item, ...saved } : item)))
+      setSelected((current) => (current?.id === id ? { ...current, ...saved } : current))
+      setToast(message)
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : 'Khong the cap nhat thong bao.')
+    }
   }
 
-  const markAllRead = () => {
+  const markAllRead = async () => {
     setNotifications((current) => current.map((item) => ({ ...item, isRead: true })))
+    try {
+      const data = await markAllStaffNotificationsRead()
+      setNotifications(data.map(mapBackendNotification))
+      setToast('Da danh dau tat ca thong bao la da doc.')
+      return
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : 'Khong the danh dau tat ca thong bao da doc.')
+      return
+    }
     setToast('Đã đánh dấu tất cả thông báo là đã đọc.')
   }
 
@@ -190,7 +240,7 @@ export default function StaffNotificationsPage() {
                 key={notification.id}
                 notification={notification}
                 onView={() => {
-                  setSelected(notification)
+                  setSelected({ ...notification, isRead: true })
                   updateNotification(notification.id, { isRead: true }, 'Đã mở chi tiết thông báo.')
                 }}
                 onRead={() => updateNotification(notification.id, { isRead: true }, 'Đã đánh dấu thông báo là đã đọc.')}
@@ -325,6 +375,41 @@ function filterNotifications(items: StaffNotification[], tab: NotificationTab, q
       (tab === 'SHIFT' && item.type === 'SHIFT_REMINDER')
     return matchesQuery && matchesTab
   })
+}
+
+function mapBackendNotification(notification: BackendStaffNotification): StaffNotification {
+  return {
+    id: String(notification.id),
+    type: mapNotificationType(notification.type),
+    title: notification.title,
+    message: notification.message,
+    createdAt: formatNotificationTime(notification.createdAt),
+    priority: notification.priority,
+    isRead: notification.isRead,
+    isResolved: notification.isResolved,
+  }
+}
+
+function mapNotificationType(type: string): NotificationType {
+  const normalized = type.toUpperCase()
+  if (normalized.includes('BOOKING')) return 'NEW_BOOKING'
+  if (normalized.includes('ROOM')) return 'ROOM_STATUS'
+  if (normalized.includes('EQUIPMENT')) return 'EQUIPMENT_ISSUE'
+  if (normalized.includes('SHIFT')) return 'SHIFT_REMINDER'
+  return 'SYSTEM'
+}
+
+function formatNotificationTime(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
 }
 
 function getTypeMeta(type: NotificationType) {

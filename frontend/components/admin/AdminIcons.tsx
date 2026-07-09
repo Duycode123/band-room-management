@@ -21,6 +21,17 @@ export function IconBookings({ className = 'h-5 w-5' }: IconProps) {
   )
 }
 
+export function IconStaff({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+      <path d="M16 11a4 4 0 1 0-8 0" />
+      <path d="M5 21a7 7 0 0 1 14 0" />
+      <path d="M19 8.5a3 3 0 0 1 0 5" />
+      <path d="M22 21a5 5 0 0 0-3-4.5" />
+    </svg>
+  )
+}
+
 export function IconEquipment({ className = 'h-5 w-5' }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">

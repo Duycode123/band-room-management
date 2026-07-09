@@ -3,6 +3,21 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import AuthGuard from '@/components/AuthGuard'
 import { StaffPageShell } from './StaffShared'
+import { fetchAdminEquipment } from '@/lib/admin/equipment/adminEquipmentApi'
+import type {
+  AdminEquipment,
+  EquipmentStatus as BackendEquipmentStatus,
+  EquipmentType as BackendEquipmentType,
+} from '@/lib/admin/equipment/types'
+import { fetchRooms, type BackendRoom } from '@/lib/rooms-api'
+import {
+  parseBackendId,
+  recordStaffEquipmentCondition,
+  recordStaffRoomCondition,
+  updateStaffRoomStatus,
+  type BackendRoomStatus,
+  type FacilityCondition,
+} from '@/lib/staff-facility-service'
 
 type RoomStatus = 'AVAILABLE' | 'IN_USE' | 'CLEANING' | 'MAINTENANCE' | 'ISSUE'
 type RoomCategory = 'STANDARD' | 'PREMIUM' | 'VIP' | 'LIVE_ROOM' | 'DRUM_BOOTH'
@@ -301,11 +316,6 @@ export default function StaffRoomsPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setIsLoading(false), 320)
-    return () => window.clearTimeout(timer)
-  }, [])
-
-  useEffect(() => {
     if (!toastMessage) return
     const timer = window.setTimeout(() => setToastMessage(null), 2600)
     return () => window.clearTimeout(timer)
@@ -383,24 +393,55 @@ export default function StaffRoomsPage() {
 
   const showToast = (message: string) => setToastMessage(message)
 
-  const refreshData = () => {
+  const refreshData = async () => {
     setIsLoading(true)
-    window.setTimeout(() => {
-      setIsLoading(false)
+    try {
+      const [backendRooms, backendEquipment] = await Promise.all([
+        fetchRooms(),
+        fetchAdminEquipment({
+          query: '',
+          equipmentType: 'ALL',
+          status: 'ALL',
+          sortBy: 'room',
+          sortOrder: 'asc',
+        }),
+      ])
       showToast('Đã làm mới dữ liệu vận hành mới nhất.')
-    }, 360)
+      setRooms(mapBackendRoomsToStaffRooms(backendRooms, backendEquipment))
+      setEquipment(backendEquipment.map(mapBackendEquipmentToStaffEquipment))
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Khong the tai du lieu van hanh tu backend.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  const updateRoomStatus = (room: StaffRoom, nextStatus: RoomStatus) => {
+  useEffect(() => {
+    void refreshData()
+  }, [])
+
+  const updateRoomStatus = async (room: StaffRoom, nextStatus: RoomStatus) => {
     const updatedAt = 'Vừa cập nhật'
     setRooms((current) =>
       current.map((item) => (item.id === room.id ? { ...item, status: nextStatus, updatedAt } : item)),
     )
     setSelectedRoom((current) => (current?.id === room.id ? { ...current, status: nextStatus, updatedAt } : current))
     showToast(`Đã cập nhật trạng thái ${room.name} thành ${getRoomStatusMeta(nextStatus).label}.`)
+    const backendRoomId = parseBackendId(room.id)
+    if (!backendRoomId) {
+      showToast(`Da cap nhat local ${room.name}. Phong nay chua co id backend de dong bo.`)
+      return
+    }
+
+    try {
+      await updateStaffRoomStatus(backendRoomId, mapRoomStatusToBackend(nextStatus), `Staff changed status to ${nextStatus}`)
+      showToast(`Da dong bo trang thai ${room.name} voi backend.`)
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Khong the dong bo trang thai phong.')
+    }
   }
 
-  const updateEquipmentStatus = (item: StaffEquipment, nextStatus: EquipmentStatus) => {
+  const updateEquipmentStatus = async (item: StaffEquipment, nextStatus: EquipmentStatus) => {
     const lastCheckedAt = 'Vừa cập nhật'
     setEquipment((current) =>
       current.map((equipmentItem) =>
@@ -411,6 +452,22 @@ export default function StaffRoomsPage() {
     )
     setSelectedEquipment((current) => (current?.id === item.id ? { ...current, status: nextStatus, lastCheckedAt } : current))
     showToast(`Đã cập nhật ${item.name} thành ${getEquipmentStatusMeta(nextStatus).label}.`)
+    const backendEquipmentId = parseBackendId(item.id)
+    if (!backendEquipmentId) {
+      showToast(`Da cap nhat local ${item.name}. Thiet bi nay chua co id backend de dong bo.`)
+      return
+    }
+
+    try {
+      await recordStaffEquipmentCondition(
+        backendEquipmentId,
+        mapEquipmentStatusToCondition(nextStatus),
+        `Staff changed equipment status to ${nextStatus}`,
+      )
+      showToast(`Da dong bo tinh trang ${item.name} voi backend.`)
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Khong the dong bo tinh trang thiet bi.')
+    }
   }
 
   const updateIssueStatus = (issue: StaffIssue, nextStatus: IssueStatus) => {
@@ -419,7 +476,7 @@ export default function StaffRoomsPage() {
     showToast(`Đã cập nhật ${issue.id} thành ${getIssueStatusMeta(nextStatus).label}.`)
   }
 
-  const submitIssue = (draft: ReportIssueDraft) => {
+  const submitIssue = async (draft: ReportIssueDraft) => {
     const targetName = getTargetName(draft.targetType, draft.targetId, rooms, equipment)
     const nextIssue: StaffIssue = {
       id: createIssueId(issues.length + 1),
@@ -439,6 +496,23 @@ export default function StaffRoomsPage() {
     setReportTarget(null)
     setActiveTab('ISSUES')
     showToast('Đã ghi nhận sự cố. Bộ phận phụ trách sẽ kiểm tra.')
+    const backendTargetId = parseBackendId(draft.targetId)
+    if (!backendTargetId) {
+      showToast('Da ghi nhan su co local. Doi tuong nay chua co id backend de dong bo.')
+      return
+    }
+
+    try {
+      if (draft.targetType === 'ROOM') {
+        await recordStaffRoomCondition(backendTargetId, mapIssueTypeToCondition(draft.issueType), draft.description.trim())
+      } else {
+        await recordStaffEquipmentCondition(backendTargetId, mapIssueTypeToCondition(draft.issueType), draft.description.trim())
+      }
+
+      showToast('Da ghi nhan su co va dong bo backend.')
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Khong the dong bo su co voi backend.')
+    }
   }
 
   const resetRoomFilters = () => {
@@ -1542,6 +1616,84 @@ function Toast({ message }: { message: string }) {
       {message}
     </div>
   )
+}
+
+function mapBackendRoomsToStaffRooms(rooms: BackendRoom[], equipment: AdminEquipment[]): StaffRoom[] {
+  return rooms.map((room) => {
+    const roomEquipment = equipment.filter((item) => item.roomId === room.id)
+
+    return {
+      id: String(room.id),
+      name: room.roomName || `Room ${room.id}`,
+      category: mapRoomTypeToCategory(room.roomType?.typeName),
+      capacity: Number(room.maxPeople ?? room.roomType?.capacity ?? 0),
+      status: mapBackendRoomStatusToStaff(room.status),
+      equipment: roomEquipment.map((item) => item.equipmentName),
+      updatedAt: 'Backend',
+      assignedStaff: undefined,
+      note: room.description ?? undefined,
+    }
+  })
+}
+
+function mapBackendEquipmentToStaffEquipment(item: AdminEquipment): StaffEquipment {
+  return {
+    id: String(item.equipmentId),
+    code: `EQ-${String(item.equipmentId).padStart(3, '0')}`,
+    name: item.equipmentName,
+    type: mapBackendEquipmentType(item.equipmentType),
+    location: item.roomName,
+    status: mapBackendEquipmentStatus(item.status),
+    quantity: 1,
+    lastCheckedAt: 'Backend',
+    note: item.notes,
+  }
+}
+
+function mapRoomStatusToBackend(status: RoomStatus): BackendRoomStatus {
+  if (status === 'CLEANING') return 'NEED_CLEANING'
+  if (status === 'ISSUE') return 'MAINTENANCE'
+  return status
+}
+
+function mapBackendRoomStatusToStaff(status?: string | null): RoomStatus {
+  if (status === 'NEED_CLEANING') return 'CLEANING'
+  if (status === 'MAINTENANCE') return 'MAINTENANCE'
+  if (status === 'IN_USE') return 'IN_USE'
+  return 'AVAILABLE'
+}
+
+function mapEquipmentStatusToCondition(status: EquipmentStatus): FacilityCondition {
+  if (status === 'BROKEN') return 'BROKEN'
+  if (status === 'INSPECTION') return 'NEED_CHECK'
+  if (status === 'MAINTENANCE') return 'NEED_CHECK'
+  return 'GOOD'
+}
+
+function mapIssueTypeToCondition(issueType: IssueType): FacilityCondition {
+  if (issueType === 'CLEANING') return 'NEED_CLEANING'
+  if (issueType === 'DEVICE' || issueType === 'AUDIO' || issueType === 'POWER') return 'NEED_CHECK'
+  return 'NEED_CHECK'
+}
+
+function mapBackendEquipmentStatus(status: BackendEquipmentStatus): EquipmentStatus {
+  if (status === 'BROKEN') return 'BROKEN'
+  if (status === 'MAINTENANCE') return 'MAINTENANCE'
+  return 'AVAILABLE'
+}
+
+function mapBackendEquipmentType(type: BackendEquipmentType): EquipmentType {
+  if (type === 'MIC') return 'MICRO'
+  return type
+}
+
+function mapRoomTypeToCategory(typeName?: string | null): RoomCategory {
+  const normalized = normalizeText(typeName ?? '')
+  if (normalized.includes('vip')) return 'VIP'
+  if (normalized.includes('live')) return 'LIVE_ROOM'
+  if (normalized.includes('drum')) return 'DRUM_BOOTH'
+  if (normalized.includes('premium')) return 'PREMIUM'
+  return 'STANDARD'
 }
 
 function getRoomStatusMeta(status: RoomStatus): Meta {

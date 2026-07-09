@@ -7,6 +7,7 @@ import backend.facilitycondition.application.model.FacilityActor;
 import backend.facilitycondition.application.port.out.FacilityConditionPort;
 import backend.facilitycondition.domain.model.FacilityCondition;
 import backend.facilitycondition.domain.model.FacilityConditionReport;
+import backend.facilitycondition.domain.model.FacilityConditionReportStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -92,9 +93,12 @@ public class JdbcFacilityConditionAdapter implements FacilityConditionPort {
                     image_url,
                     maintenance_suggested,
                     room_status_after_update,
+                    status,
+                    admin_note,
+                    resolved_at,
                     created_at
                 )
-                VALUES (?, ?, ?, ?, CAST(? AS facility_condition), ?, ?, ?, CAST(? AS room_status), ?)
+                VALUES (?, ?, ?, ?, CAST(? AS facility_condition), ?, ?, ?, CAST(? AS room_status), ?, ?, ?, ?)
                 """;
 
         jdbcTemplate.update(
@@ -108,6 +112,9 @@ public class JdbcFacilityConditionAdapter implements FacilityConditionPort {
                 report.imageUrl(),
                 report.maintenanceSuggested(),
                 report.roomStatusAfterUpdate() == null ? null : report.roomStatusAfterUpdate().name(),
+                report.status() == null ? FacilityConditionReportStatus.OPEN.name() : report.status().name(),
+                report.adminNote(),
+                report.resolvedAt() == null ? null : Timestamp.valueOf(report.resolvedAt()),
                 Timestamp.valueOf(report.createdAt())
         );
 
@@ -131,6 +138,9 @@ public class JdbcFacilityConditionAdapter implements FacilityConditionPort {
                        image_url,
                        maintenance_suggested,
                        room_status_after_update,
+                       status,
+                       admin_note,
+                       resolved_at,
                        created_at
                 FROM facility_condition_report
                 WHERE 1 = 1
@@ -156,6 +166,49 @@ public class JdbcFacilityConditionAdapter implements FacilityConditionPort {
         return jdbcTemplate.query(sql.toString(), this::mapReport, args.toArray());
     }
 
+    @Override
+    public Optional<FacilityConditionReport> updateReportStatus(
+            UUID reportId,
+            FacilityConditionReportStatus status,
+            String adminNote
+    ) {
+        String sql = """
+                UPDATE facility_condition_report
+                SET status = ?,
+                    admin_note = ?,
+                    resolved_at = CASE
+                        WHEN ? IN ('RESOLVED', 'CLOSED') THEN COALESCE(resolved_at, CURRENT_TIMESTAMP)
+                        ELSE NULL
+                    END
+                WHERE id = ?
+                """;
+
+        jdbcTemplate.update(sql, status.name(), adminNote, status.name(), reportId);
+        return loadReport(reportId);
+    }
+
+    private Optional<FacilityConditionReport> loadReport(UUID reportId) {
+        String sql = """
+                SELECT id,
+                       staff_id,
+                       room_id,
+                       equipment_id,
+                       condition,
+                       note,
+                       image_url,
+                       maintenance_suggested,
+                       room_status_after_update,
+                       status,
+                       admin_note,
+                       resolved_at,
+                       created_at
+                FROM facility_condition_report
+                WHERE id = ?
+                """;
+
+        return jdbcTemplate.query(sql, this::mapReport, reportId).stream().findFirst();
+    }
+
     private FacilityConditionReport mapReport(ResultSet rs, int rowNum) throws SQLException {
         String roomStatus = rs.getString("room_status_after_update");
         return FacilityConditionReport.builder()
@@ -168,6 +221,9 @@ public class JdbcFacilityConditionAdapter implements FacilityConditionPort {
                 .imageUrl(rs.getString("image_url"))
                 .maintenanceSuggested(rs.getBoolean("maintenance_suggested"))
                 .roomStatusAfterUpdate(roomStatus == null ? null : RoomStatus.valueOf(roomStatus))
+                .status(FacilityConditionReportStatus.valueOf(rs.getString("status")))
+                .adminNote(rs.getString("admin_note"))
+                .resolvedAt(rs.getTimestamp("resolved_at") == null ? null : rs.getTimestamp("resolved_at").toLocalDateTime())
                 .createdAt(rs.getTimestamp("created_at").toLocalDateTime())
                 .build();
     }

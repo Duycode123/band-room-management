@@ -25,6 +25,7 @@ The current backend source clearly models these areas:
 - payment transaction data
 - customer issue report data
 - user notification settings data
+- app notification data
 - staff attendance data
 - facility condition report data
 - revoked token data
@@ -45,6 +46,7 @@ Core model/entity classes currently present in backend source:
 - `PaymentTransaction`
 - `CustomerIssueReport`
 - `UserNotificationSettings`
+- `AppNotification`
 - `staff_attendance` table through the attendance JDBC adapter
 - `facility_condition_report` table through the facility condition JDBC adapter
 - `RevokedToken`
@@ -68,6 +70,8 @@ Core model/entity classes currently present in backend source:
 - `database/migrations/20260703_add_account_avatar_url.sql`
 - `database/migrations/20260706_add_deposit_paid_and_payment_timeout.sql`
 - `database/migrations/20260707_widen_payment_response_code.sql`
+- `database/migrations/20260708_add_app_notification_resolved.sql`
+- `database/migrations/20260709_add_facility_condition_report_handling.sql`
 - `database/sample-data/seed_rooms_and_equipment.sql`
 - `database/sample-data/seed_bookings_and_reviews.sql`
 - `database/schema-target-en.dbml`
@@ -201,7 +205,8 @@ If the change is part of the Vietnamese-to-English rename:
 - `coupon_usage` records the exact discount amount actually consumed by one paid booking and enforces one usage row per booking through `booking_id` uniqueness.
 - `customer_issue_report` stores customer-submitted support issues, optionally linked to one owned booking, keeps a small explicit lifecycle (`OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`), and stores the latest admin handling note in `admin_note`.
 - `user_notification_settings` stores per-account notification preferences for operational events such as booking updates, shift reminders, room issues, and equipment issues.
-- `facility_condition_report` stores staff-recorded room/equipment condition history and marks broken reports as maintenance suggestions.
+- `app_notification` stores in-app notifications per account. `is_read` tracks acknowledgement, while `is_resolved` tracks operational completion for staff-facing notification workflows.
+- `facility_condition_report` stores staff-recorded room/equipment condition history, marks broken reports as maintenance suggestions, and tracks admin handling through `status`, `admin_note`, and `resolved_at`.
 
 ## User Notification Settings Table
 

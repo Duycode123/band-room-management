@@ -9,14 +9,17 @@ import backend.facilitycondition.application.model.FacilityActor;
 import backend.facilitycondition.application.port.in.GetFacilityConditionHistoryUseCase;
 import backend.facilitycondition.application.port.in.RecordEquipmentConditionUseCase;
 import backend.facilitycondition.application.port.in.RecordRoomConditionUseCase;
+import backend.facilitycondition.application.port.in.UpdateFacilityConditionReportStatusUseCase;
 import backend.facilitycondition.application.port.in.UpdateRoomStatusUseCase;
 import backend.facilitycondition.application.port.in.command.RecordEquipmentConditionCommand;
 import backend.facilitycondition.application.port.in.command.RecordRoomConditionCommand;
+import backend.facilitycondition.application.port.in.command.UpdateFacilityConditionReportStatusCommand;
 import backend.facilitycondition.application.port.in.command.UpdateRoomStatusCommand;
 import backend.facilitycondition.application.port.in.query.FacilityConditionHistoryQuery;
 import backend.facilitycondition.application.port.out.FacilityConditionPort;
 import backend.facilitycondition.domain.model.FacilityCondition;
 import backend.facilitycondition.domain.model.FacilityConditionReport;
+import backend.facilitycondition.domain.model.FacilityConditionReportStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,10 +37,12 @@ public class FacilityConditionService implements
         UpdateRoomStatusUseCase,
         RecordRoomConditionUseCase,
         RecordEquipmentConditionUseCase,
-        GetFacilityConditionHistoryUseCase {
+        GetFacilityConditionHistoryUseCase,
+        UpdateFacilityConditionReportStatusUseCase {
 
     private static final int MAX_NOTE_LENGTH = 500;
     private static final int MAX_IMAGE_URL_LENGTH = 500;
+    private static final int MAX_ADMIN_NOTE_LENGTH = 1000;
     private static final int DEFAULT_HISTORY_LIMIT = 50;
     private static final int MAX_HISTORY_LIMIT = 200;
 
@@ -137,6 +142,17 @@ public class FacilityConditionService implements
                 query.maintenanceSuggested(),
                 Math.min(limit, MAX_HISTORY_LIMIT)
         );
+    }
+
+    @Override
+    @Transactional
+    public FacilityConditionReport updateReportStatus(UpdateFacilityConditionReportStatusCommand command) {
+        UUID reportId = requireNonNull(command.reportId(), "reportId khong duoc de trong");
+        FacilityConditionReportStatus status = requireNonNull(command.status(), "Trang thai xu ly khong duoc de trong");
+        String adminNote = normalizeOptionalText(command.adminNote(), MAX_ADMIN_NOTE_LENGTH, "Ghi chu xu ly khong duoc vuot qua 1000 ky tu");
+
+        return facilityConditionPort.updateReportStatus(reportId, status, adminNote)
+                .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay bao cao tinh trang co so vat chat"));
     }
 
     private FacilityActor loadStaffActor(String email) {

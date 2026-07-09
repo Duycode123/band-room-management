@@ -12,13 +12,20 @@ import backend.staff.application.port.in.ListStaffAccountsUseCase;
 import backend.staff.application.port.in.command.CreateStaffAccountCommand;
 import backend.staff.application.port.in.command.DisableStaffAccountCommand;
 import backend.staff.application.port.out.StaffAccountPort;
+import backend.staff.application.port.out.StaffEmailVerificationNotificationPort;
 import backend.staff.application.port.out.StaffPasswordPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.Locale;
+import java.util.HexFormat;
+import java.util.UUID;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -30,9 +37,11 @@ public class StaffManagementUseCaseService implements
         DisableStaffAccountUseCase {
 
     public static final String DEFAULT_INITIAL_PASSWORD = "123123";
+    private static final int EMAIL_VERIFICATION_EXPIRATION_HOURS = 24;
 
     private final StaffAccountPort staffAccountPort;
     private final StaffPasswordPort staffPasswordPort;
+    private final StaffEmailVerificationNotificationPort staffEmailVerificationNotificationPort;
 
     @Override
     @Transactional
@@ -53,8 +62,9 @@ public class StaffManagementUseCaseService implements
                 .email(email)
                 .password(staffPasswordPort.encodePassword(initialPassword))
                 .role(Role.STAFF)
-                .emailVerified(true)
+                .emailVerified(false)
                 .build();
+        String verificationToken = prepareEmailVerification(account);
         User savedAccount = staffAccountPort.saveAccount(account);
 
         Staff staff = Staff.builder()
@@ -65,6 +75,7 @@ public class StaffManagementUseCaseService implements
                 .dateOfBirth(command.dateOfBirth())
                 .build();
         Staff savedStaff = staffAccountPort.saveStaff(staff);
+        staffEmailVerificationNotificationPort.sendVerificationEmail(savedAccount.getEmail(), verificationToken);
 
         return toResult(savedAccount, savedStaff, initialPassword);
     }
@@ -118,6 +129,24 @@ public class StaffManagementUseCaseService implements
         }
         String normalized = value.trim();
         return normalized.isBlank() ? null : normalized;
+    }
+
+    private String prepareEmailVerification(User user) {
+        String token = UUID.randomUUID().toString();
+        user.setEmailVerificationTokenHash(hashToken(token));
+        user.setEmailVerificationExpiresAt(LocalDateTime.now().plusHours(EMAIL_VERIFICATION_EXPIRATION_HOURS));
+        user.setEmailVerificationSentAt(LocalDateTime.now());
+        return token;
+    }
+
+    private String hashToken(String token) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hashedBytes = digest.digest(token.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hashedBytes);
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("Khong the tao ma xac thuc email", ex);
+        }
     }
 
     private Staff loadStaff(Integer staffId) {

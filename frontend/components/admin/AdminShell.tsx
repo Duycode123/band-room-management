@@ -15,17 +15,18 @@ import {
   IconReports,
   IconReviews,
   IconRooms,
+  IconStaff,
   type AdminNavItem,
 } from './AdminIcons'
 
 const NAV_ITEMS: AdminNavItem[] = [
   { href: '/admin/dashboard', label: 'Tổng quan', icon: <IconDashboard className="h-5 w-5" /> },
   { href: '/admin/bookings', label: 'Đơn đặt phòng', icon: <IconBookings className="h-5 w-5" /> },
+  { href: '/admin/staff', label: 'Staff', icon: <IconStaff className="h-5 w-5" /> },
   { href: '/admin/staff-schedule', label: 'Lịch staff', icon: <IconBookings className="h-5 w-5" /> },
   { href: '/admin/coupons', label: 'Mã giảm giá', icon: <IconCoupons className="h-5 w-5" /> },
   { href: '/admin/reviews', label: 'Đánh giá', icon: <IconReviews className="h-5 w-5" /> },
   { href: '/admin/equipment', label: 'Thiết bị', icon: <IconEquipment className="h-5 w-5" /> },
-  { href: '/admin/coupons', label: 'Coupon', icon: <IconCoupons className="h-5 w-5" /> },
   { href: '/admin/rooms', label: 'Phòng tập', icon: <IconRooms className="h-5 w-5" /> },
   { href: '/admin/incident-reports', label: 'Báo cáo sự cố', icon: <IconIncidentReports className="h-5 w-5" /> },
   { href: '/admin/reports', label: 'Báo cáo', icon: <IconReports className="h-5 w-5" /> },
