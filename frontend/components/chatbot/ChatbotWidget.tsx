@@ -27,17 +27,18 @@ function formatMessageContent(content: string) {
   })
 }
 
-function BotAvatar({ size = 'md' }: { size?: 'sm' | 'md' }) {
+function BotAvatar({ size = 'md', showStatus = false }: { size?: 'sm' | 'md'; showStatus?: boolean }) {
   const dim = size === 'sm' ? 'h-8 w-8' : 'h-10 w-10'
   return (
-    <div
-      className={`${dim} relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-brand-greenDark to-brand-greenLight shadow-md ring-2 ring-white`}
-      aria-hidden
-    >
-      <svg viewBox="0 0 24 24" className="h-[55%] w-[55%] text-white" fill="currentColor">
-        <path d="M12 3a9 9 0 0 0-9 9v4a3 3 0 0 0 3 3h1.2a2.8 2.8 0 0 0 5.6 0H15a3 3 0 0 0 3-3v-4a9 9 0 0 0-9-9zm0 2a7 7 0 0 1 7 7v4a1 1 0 0 1-1 1h-1.1a4.8 4.8 0 0 1-9.8 0H6a1 1 0 0 1-1-1v-4a7 7 0 0 1 7-7zm-3.5 8.5a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5zm7 0a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5z" />
-      </svg>
-      <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-400" />
+    <div className={`${dim} relative shrink-0`} aria-hidden>
+      <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-brand-greenDark to-brand-greenLight shadow-md ring-2 ring-white/90">
+        <svg viewBox="0 0 24 24" className="h-[55%] w-[55%] text-white" fill="currentColor">
+          <path d="M12 3a9 9 0 0 0-9 9v4a3 3 0 0 0 3 3h1.2a2.8 2.8 0 0 0 5.6 0H15a3 3 0 0 0 3-3v-4a9 9 0 0 0-9-9zm0 2a7 7 0 0 1 7 7v4a1 1 0 0 1-1 1h-1.1a4.8 4.8 0 0 1-9.8 0H6a1 1 0 0 1-1-1v-4a7 7 0 0 1 7-7zm-3.5 8.5a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5zm7 0a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5z" />
+        </svg>
+      </div>
+      {showStatus ? (
+        <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-400" />
+      ) : null}
     </div>
   )
 }
@@ -96,7 +97,7 @@ function QuickReplyChips({
   if (replies.length === 0) return null
 
   return (
-    <div className="flex max-h-24 flex-wrap gap-2 overflow-y-auto px-1 pb-1 pt-1">
+    <div className="flex max-h-20 flex-wrap gap-2 overflow-y-auto px-1 pb-1 pt-1">
       {replies.map((reply) => (
         <button
           key={reply.id}
@@ -199,28 +200,34 @@ export default function ChatbotWidget() {
   }
 
   return (
-    <div className="pointer-events-none fixed bottom-0 right-0 z-[60] flex flex-col items-end p-4 sm:p-6">
-      {/* Panel */}
+    <div className="pointer-events-none fixed bottom-4 right-4 z-[60] sm:bottom-6 sm:right-6">
+      {/* Panel — absolute above launcher so height never pushes into browser chrome */}
       <div
         role="dialog"
         aria-label="BandBot trợ lý ảo"
         aria-hidden={!open}
         className={[
-          'pointer-events-auto mb-4 flex max-h-[min(680px,calc(100vh-6rem))] w-[min(100vw-2rem,400px)] flex-col overflow-hidden rounded-[28px] border border-white/60 bg-white/80 shadow-[var(--shadow-elevated)] backdrop-blur-xl transition-all duration-300 ease-out',
-          open ? 'translate-y-0 scale-100 opacity-100' : 'pointer-events-none translate-y-4 scale-95 opacity-0',
+          'pointer-events-auto absolute bottom-[calc(100%+0.75rem)] right-0 flex w-[min(100vw-2rem,400px)] flex-col overflow-hidden rounded-[28px] border border-white/60 bg-white/90 shadow-[var(--shadow-elevated)] backdrop-blur-xl transition-all duration-300 ease-out',
+          // Fixed height within viewport: leave room for launcher + safe margins
+          'h-[min(560px,calc(100dvh-7.5rem))] max-h-[calc(100dvh-7.5rem)]',
+          open
+            ? 'translate-y-0 scale-100 opacity-100'
+            : 'pointer-events-none translate-y-3 scale-95 opacity-0',
         ].join(' ')}
       >
         {/* Header */}
-        <header className="relative overflow-hidden bg-gradient-to-br from-brand-greenDark via-[#1e4d3a] to-brand-greenLight px-5 py-4 text-white">
-          <div aria-hidden className="pointer-events-none absolute -right-6 -top-8 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
-          <div aria-hidden className="pointer-events-none absolute -bottom-10 left-4 h-24 w-24 rounded-full bg-brand-orange/20 blur-2xl" />
+        <header className="relative shrink-0 bg-gradient-to-br from-brand-greenDark via-[#1e4d3a] to-brand-greenLight px-4 py-3.5 text-white sm:px-5 sm:py-4">
+          <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-t-[28px]">
+            <div className="absolute -right-6 -top-8 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
+            <div className="absolute -bottom-10 left-4 h-24 w-24 rounded-full bg-brand-orange/20 blur-2xl" />
+          </div>
           <div className="relative flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <BotAvatar />
-              <div>
+            <div className="flex min-w-0 items-center gap-3">
+              <BotAvatar showStatus />
+              <div className="min-w-0">
                 <p className="font-display text-base font-bold tracking-tight">BandBot</p>
-                <p className="flex items-center gap-1.5 text-xs text-white/85">
-                  <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-300" />
+                <p className="flex items-center gap-1.5 truncate text-xs text-white/85">
+                  <span className="inline-block h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-emerald-300" />
                   Trực tuyến · Trợ lý BandSpace
                 </p>
               </div>
@@ -228,7 +235,7 @@ export default function ChatbotWidget() {
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white transition-colors hover:bg-white/25"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-white transition-colors hover:bg-white/25"
               aria-label="Đóng chat"
             >
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -238,10 +245,10 @@ export default function ChatbotWidget() {
           </div>
         </header>
 
-        {/* Messages */}
+        {/* Messages — only this region scrolls */}
         <div
           ref={listRef}
-          className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto bg-gradient-to-b from-brand-bgGray/50 to-white px-4 py-5"
+          className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-gradient-to-b from-brand-bgGray/50 to-white px-4 py-4"
         >
           {messages.map((msg) => (
             <MessageBubble key={msg.id} message={msg} />
@@ -250,14 +257,14 @@ export default function ChatbotWidget() {
         </div>
 
         {/* Quick replies + input */}
-        <div className="border-t border-outline-variant/40 bg-white/90 px-4 pb-4 pt-3 backdrop-blur-sm">
+        <div className="shrink-0 border-t border-outline-variant/40 bg-white/95 px-4 pb-3 pt-3 backdrop-blur-sm">
           <QuickReplyChips
             replies={quickReplies}
             disabled={typing}
             onSelect={(reply) => void submitMessage(reply.message)}
           />
 
-          <form onSubmit={handleSubmit} className="mt-3 flex items-end gap-2">
+          <form onSubmit={handleSubmit} className="mt-2 flex items-end gap-2">
             <div className="relative min-w-0 flex-1">
               <textarea
                 ref={inputRef}
