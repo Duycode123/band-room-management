@@ -396,7 +396,7 @@ export default function StaffRoomsPage() {
   const refreshData = async () => {
     setIsLoading(true)
     try {
-      const [backendRooms, backendEquipment] = await Promise.all([
+      const [roomsResult, equipmentResult] = await Promise.allSettled([
         fetchRooms(),
         fetchAdminEquipment({
           query: '',
@@ -406,9 +406,20 @@ export default function StaffRoomsPage() {
           sortOrder: 'asc',
         }),
       ])
-      showToast('Đã làm mới dữ liệu vận hành mới nhất.')
-      setRooms(mapBackendRoomsToStaffRooms(backendRooms, backendEquipment))
+
+      if (roomsResult.status === 'rejected') {
+        throw roomsResult.reason
+      }
+
+      const backendEquipment = equipmentResult.status === 'fulfilled' ? equipmentResult.value : []
+      setRooms(mapBackendRoomsToStaffRooms(roomsResult.value, backendEquipment))
       setEquipment(backendEquipment.map(mapBackendEquipmentToStaffEquipment))
+
+      if (equipmentResult.status === 'rejected') {
+        showToast(equipmentResult.reason instanceof Error ? equipmentResult.reason.message : 'Không thể tải danh sách thiết bị.')
+      } else {
+        showToast('Đã làm mới dữ liệu vận hành mới nhất.')
+      }
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Không thể tải dữ liệu vận hành từ backend.')
     } finally {
