@@ -188,7 +188,7 @@ export default function AdminRoomsPage() {
     if (!updated) throw new Error('Không tìm thấy phòng tập.')
 
     setToast('Cập nhật phòng tập thành công.')
-    setSelected(updated)
+    setSelected((current) => (current?.id === updated.id ? updated : current))
     await loadRooms()
   }
 
