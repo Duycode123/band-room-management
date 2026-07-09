@@ -8,8 +8,12 @@ import backend.entity.User;
 import backend.exception.ForbiddenException;
 import backend.dto.response.PagedResponse;
 import backend.dto.response.RoomResponse;
+import backend.dto.response.RoomTypeResponse;
 import backend.room.application.model.PageResult;
 import backend.room.application.port.in.command.DeleteRoomCommand;
+import backend.room.application.port.in.command.CreateRoomTypeCommand;
+import backend.room.application.port.in.command.DeleteRoomTypeCommand;
+import backend.room.application.port.in.command.UpdateRoomTypeCommand;
 import backend.room.application.port.in.command.UpdateRoomCommand;
 import backend.room.application.port.in.command.UpdateRoomStatusCommand;
 import backend.room.application.port.in.query.ListRoomsQuery;
@@ -172,6 +176,95 @@ class RoomUseCaseServiceTest {
                 RoomStatus.AVAILABLE,
                 "staff@example.com"
         )));
+    }
+
+    @Test
+    void createRoomTypeNormalizesAndSavesForAdmin() {
+        RoomUseCaseService service = new RoomUseCaseService(roomCatalogPort, roomMutationPort, roomActorPort);
+
+        when(roomActorPort.loadUserByEmail("admin@example.com")).thenReturn(Optional.of(adminUser()));
+        when(roomCatalogPort.existsRoomTypeName("Premium")).thenReturn(false);
+        when(roomMutationPort.saveRoomType(any(RoomType.class))).thenAnswer(invocation -> {
+            RoomType roomType = invocation.getArgument(0);
+            roomType.setId(5);
+            return roomType;
+        });
+
+        RoomTypeResponse response = service.createRoomType(new CreateRoomTypeCommand(
+                "  Premium  ",
+                "  Full drum kit  ",
+                new BigDecimal("450000"),
+                "admin@example.com"
+        ));
+
+        ArgumentCaptor<RoomType> roomTypeCaptor = ArgumentCaptor.forClass(RoomType.class);
+        verify(roomMutationPort).saveRoomType(roomTypeCaptor.capture());
+        assertEquals("Premium", roomTypeCaptor.getValue().getTypeName());
+        assertEquals("Full drum kit", roomTypeCaptor.getValue().getDescription());
+        assertEquals(new BigDecimal("450000"), roomTypeCaptor.getValue().getPricePerHour());
+        assertEquals(5, response.getId());
+    }
+
+    @Test
+    void createRoomTypeRejectsDuplicateName() {
+        RoomUseCaseService service = new RoomUseCaseService(roomCatalogPort, roomMutationPort, roomActorPort);
+
+        when(roomActorPort.loadUserByEmail("admin@example.com")).thenReturn(Optional.of(adminUser()));
+        when(roomCatalogPort.existsRoomTypeName("Premium")).thenReturn(true);
+
+        assertThrows(IllegalArgumentException.class, () -> service.createRoomType(new CreateRoomTypeCommand(
+                "Premium",
+                null,
+                new BigDecimal("450000"),
+                "admin@example.com"
+        )));
+        verify(roomMutationPort, never()).saveRoomType(any(RoomType.class));
+    }
+
+    @Test
+    void updateRoomTypeRejectsDuplicateNameWhenRenamed() {
+        RoomUseCaseService service = new RoomUseCaseService(roomCatalogPort, roomMutationPort, roomActorPort);
+
+        when(roomActorPort.loadUserByEmail("admin@example.com")).thenReturn(Optional.of(adminUser()));
+        when(roomCatalogPort.loadRoomType(2)).thenReturn(Optional.of(roomType(2, "Band")));
+        when(roomCatalogPort.existsRoomTypeName("Premium")).thenReturn(true);
+
+        assertThrows(IllegalArgumentException.class, () -> service.updateRoomType(new UpdateRoomTypeCommand(
+                2,
+                "Premium",
+                null,
+                new BigDecimal("450000"),
+                "admin@example.com"
+        )));
+        verify(roomMutationPort, never()).saveRoomType(any(RoomType.class));
+    }
+
+    @Test
+    void deleteRoomTypeRejectsTypeUsedByRoom() {
+        RoomUseCaseService service = new RoomUseCaseService(roomCatalogPort, roomMutationPort, roomActorPort);
+
+        when(roomActorPort.loadUserByEmail("admin@example.com")).thenReturn(Optional.of(adminUser()));
+        when(roomCatalogPort.loadRoomType(2)).thenReturn(Optional.of(roomType(2, "Band")));
+        when(roomCatalogPort.existsRoomForRoomType(2)).thenReturn(true);
+
+        assertThrows(IllegalStateException.class, () -> service.deleteRoomType(
+                new DeleteRoomTypeCommand(2, "admin@example.com")
+        ));
+        verify(roomMutationPort, never()).deleteRoomType(any(RoomType.class));
+    }
+
+    @Test
+    void deleteRoomTypeDeletesUnusedType() {
+        RoomUseCaseService service = new RoomUseCaseService(roomCatalogPort, roomMutationPort, roomActorPort);
+        RoomType roomType = roomType(2, "Band");
+
+        when(roomActorPort.loadUserByEmail("admin@example.com")).thenReturn(Optional.of(adminUser()));
+        when(roomCatalogPort.loadRoomType(2)).thenReturn(Optional.of(roomType));
+        when(roomCatalogPort.existsRoomForRoomType(2)).thenReturn(false);
+
+        service.deleteRoomType(new DeleteRoomTypeCommand(2, "admin@example.com"));
+
+        verify(roomMutationPort).deleteRoomType(roomType);
     }
 
     @Test

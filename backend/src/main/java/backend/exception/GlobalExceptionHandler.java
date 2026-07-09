@@ -113,7 +113,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.internalServerError().body(
                 ApiResponse.<String>builder()
                         .success(false)
-                        .message("Khong the luu cai dat. Vui long thu lai.")
+                        .message("Không thể lưu dữ liệu. Vui lòng thử lại.")
                         .data(null)
                         .build()
         );
@@ -124,7 +124,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.internalServerError().body(
                 ApiResponse.<String>builder()
                         .success(false)
-                        .message("Loi may chu. Vui long thu lai.")
+                        .message("Lỗi máy chủ. Vui lòng thử lại.")
                         .data(null)
                         .build()
         );

@@ -13,6 +13,7 @@ export default function ResetPasswordForm() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -23,14 +24,15 @@ export default function ResetPasswordForm() {
     }
     setIsLoading(true)
     setError('')
+    setSuccess('')
     try {
       const response = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL || ''}/api/auth/reset-password`,
         { token, newPassword: password },
       )
       if (response.status === 200) {
-        alert('Đổi mật khẩu thành công! Hệ thống sẽ chuyển bạn về trang Đăng nhập.')
-        router.push('/login')
+        setSuccess('Đổi mật khẩu thành công. Hệ thống sẽ chuyển bạn về trang đăng nhập.')
+        window.setTimeout(() => router.push('/login'), 1200)
       }
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } }
@@ -48,6 +50,7 @@ export default function ResetPasswordForm() {
       </div>
 
       {error && <div className="mb-4 text-xs text-red-500 bg-red-50/50 p-3 rounded-xl border border-red-100">{error}</div>}
+      {success && <div className="mb-4 text-xs text-emerald-700 bg-emerald-50 p-3 rounded-xl border border-emerald-100">{success}</div>}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>

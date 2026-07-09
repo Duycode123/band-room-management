@@ -11,17 +11,23 @@ import backend.entity.User;
 import backend.exception.ForbiddenException;
 import backend.exception.ResourceNotFoundException;
 import backend.room.application.port.in.CreateRoomUseCase;
+import backend.room.application.port.in.CreateRoomTypeUseCase;
 import backend.room.application.port.in.DeleteRoomUseCase;
+import backend.room.application.port.in.DeleteRoomTypeUseCase;
 import backend.room.application.port.in.GetRoomDetailUseCase;
 import backend.room.application.port.in.GetRoomTypeDetailUseCase;
 import backend.room.application.port.in.ListRoomTypesUseCase;
 import backend.room.application.port.in.ListRoomsUseCase;
 import backend.room.application.port.in.UpdateRoomStatusUseCase;
+import backend.room.application.port.in.UpdateRoomTypeUseCase;
 import backend.room.application.port.in.UpdateRoomUseCase;
 import backend.room.application.port.in.command.CreateRoomCommand;
+import backend.room.application.port.in.command.CreateRoomTypeCommand;
 import backend.room.application.port.in.command.DeleteRoomCommand;
+import backend.room.application.port.in.command.DeleteRoomTypeCommand;
 import backend.room.application.port.in.command.UpdateRoomCommand;
 import backend.room.application.port.in.command.UpdateRoomStatusCommand;
+import backend.room.application.port.in.command.UpdateRoomTypeCommand;
 import backend.room.application.port.in.query.GetRoomDetailQuery;
 import backend.room.application.port.in.query.GetRoomTypeDetailQuery;
 import backend.room.application.port.in.query.ListRoomsQuery;
@@ -34,6 +40,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -47,7 +54,10 @@ public class RoomUseCaseService implements
         UpdateRoomStatusUseCase,
         DeleteRoomUseCase,
         ListRoomTypesUseCase,
-        GetRoomTypeDetailUseCase {
+        GetRoomTypeDetailUseCase,
+        CreateRoomTypeUseCase,
+        UpdateRoomTypeUseCase,
+        DeleteRoomTypeUseCase {
 
     private static final int DEFAULT_PAGE_SIZE = 10;
     private static final int MAX_PAGE_SIZE = 100;
@@ -110,11 +120,11 @@ public class RoomUseCaseService implements
     @Override
     public RoomResponse getRoom(GetRoomDetailQuery query) {
         if (query.roomId() == null) {
-            throw new IllegalArgumentException("roomId khong duoc de trong");
+            throw new IllegalArgumentException("roomId không được để trống");
         }
 
         Room room = roomCatalogPort.loadRoom(query.roomId())
-                .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay phong tap"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng tập"));
 
         return RoomResponse.from(room);
     }
@@ -123,17 +133,17 @@ public class RoomUseCaseService implements
     @Transactional
     public RoomResponse createRoom(CreateRoomCommand command) {
         User currentUser = getCurrentUser(command.currentUserEmail());
-        assertAdminRole(currentUser, "Chi admin co quyen them phong tap");
+        assertAdminRole(currentUser, "Chỉ admin có quyền thêm phòng tập");
 
-        String roomName = normalizeRequired(command.roomName(), "Ten phong khong duoc de trong");
+        String roomName = normalizeRequired(command.roomName(), "Tên phòng không được để trống");
 
         if (command.roomTypeId() == null) {
-            throw new IllegalArgumentException("roomTypeId khong duoc de trong");
+            throw new IllegalArgumentException("roomTypeId không được để trống");
         }
         validateMaxPeople(command.maxPeople());
 
         if (roomCatalogPort.existsRoomName(roomName)) {
-            throw new IllegalArgumentException("Ten phong da ton tai");
+            throw new IllegalArgumentException("Tên phòng đã tồn tại");
         }
 
         RoomType roomType = loadRoomTypeRequired(command.roomTypeId());
@@ -153,25 +163,25 @@ public class RoomUseCaseService implements
     @Transactional
     public RoomResponse updateRoom(UpdateRoomCommand command) {
         User currentUser = getCurrentUser(command.currentUserEmail());
-        assertAdminRole(currentUser, "Chi admin co quyen quan ly phong tap");
+        assertAdminRole(currentUser, "Chỉ admin có quyền quản lý phòng tập");
 
         if (command.roomId() == null) {
-            throw new IllegalArgumentException("roomId khong duoc de trong");
+            throw new IllegalArgumentException("roomId không được để trống");
         }
         if (command.roomTypeId() == null) {
-            throw new IllegalArgumentException("roomTypeId khong duoc de trong");
+            throw new IllegalArgumentException("roomTypeId không được để trống");
         }
         if (command.status() == null) {
-            throw new IllegalArgumentException("Trang thai phong khong duoc de trong");
+            throw new IllegalArgumentException("Trạng thái phòng không được để trống");
         }
         validateMaxPeople(command.maxPeople());
 
         Room room = roomCatalogPort.loadRoomForUpdate(command.roomId())
-                .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay phong tap"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng tập"));
 
-        String roomName = normalizeRequired(command.roomName(), "Ten phong khong duoc de trong");
+        String roomName = normalizeRequired(command.roomName(), "Tên phòng không được để trống");
         if (!room.getRoomName().equals(roomName) && roomCatalogPort.existsRoomName(roomName)) {
-            throw new IllegalArgumentException("Ten phong da ton tai");
+            throw new IllegalArgumentException("Tên phòng đã tồn tại");
         }
 
         RoomType roomType = loadRoomTypeRequired(command.roomTypeId());
@@ -189,17 +199,17 @@ public class RoomUseCaseService implements
     @Transactional
     public RoomResponse updateRoomStatus(UpdateRoomStatusCommand command) {
         User currentUser = getCurrentUser(command.currentUserEmail());
-        assertAdminRole(currentUser, "Chi admin co quyen quan ly phong tap");
+        assertAdminRole(currentUser, "Chỉ admin có quyền quản lý phòng tập");
 
         if (command.roomId() == null) {
-            throw new IllegalArgumentException("roomId khong duoc de trong");
+            throw new IllegalArgumentException("roomId không được để trống");
         }
         if (command.status() == null) {
-            throw new IllegalArgumentException("Trang thai phong khong duoc de trong");
+            throw new IllegalArgumentException("Trạng thái phòng không được để trống");
         }
 
         Room room = roomCatalogPort.loadRoomForUpdate(command.roomId())
-                .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay phong tap"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng tập"));
 
         room.setStatus(command.status());
 
@@ -210,21 +220,21 @@ public class RoomUseCaseService implements
     @Transactional
     public void deleteRoom(DeleteRoomCommand command) {
         User currentUser = getCurrentUser(command.currentUserEmail());
-        assertAdminRole(currentUser, "Chi admin co quyen quan ly phong tap");
+        assertAdminRole(currentUser, "Chỉ admin có quyền quản lý phòng tập");
 
         if (command.roomId() == null) {
-            throw new IllegalArgumentException("roomId khong duoc de trong");
+            throw new IllegalArgumentException("roomId không được để trống");
         }
 
         Room room = roomCatalogPort.loadRoomForUpdate(command.roomId())
-                .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay phong tap"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng tập"));
 
         if (roomCatalogPort.existsBookingForRoom(command.roomId())) {
-            throw new IllegalStateException("Khong the xoa phong da phat sinh booking");
+            throw new IllegalStateException("Không thể xóa phòng đã phát sinh booking");
         }
 
         if (roomCatalogPort.existsEquipmentForRoom(command.roomId())) {
-            throw new IllegalStateException("Khong the xoa phong dang co thiet bi");
+            throw new IllegalStateException("Không thể xóa phòng đang có thiết bị");
         }
 
         roomMutationPort.deleteRoom(room);
@@ -240,17 +250,83 @@ public class RoomUseCaseService implements
     @Override
     public RoomTypeResponse getRoomType(GetRoomTypeDetailQuery query) {
         if (query.roomTypeId() == null) {
-            throw new IllegalArgumentException("roomTypeId khong duoc de trong");
+            throw new IllegalArgumentException("roomTypeId không được để trống");
         }
 
         return RoomTypeResponse.from(loadRoomTypeRequired(query.roomTypeId()));
     }
 
+    @Override
+    @Transactional
+    public RoomTypeResponse createRoomType(CreateRoomTypeCommand command) {
+        User currentUser = getCurrentUser(command.currentUserEmail());
+        assertAdminRole(currentUser, "Chỉ admin có quyền thêm loại phòng");
+
+        String typeName = normalizeRequired(command.typeName(), "Tên loại phòng không được để trống");
+        BigDecimal pricePerHour = validatePricePerHour(command.pricePerHour());
+
+        if (roomCatalogPort.existsRoomTypeName(typeName)) {
+            throw new IllegalArgumentException("Tên loại phòng đã tồn tại");
+        }
+
+        RoomType roomType = RoomType.builder()
+                .typeName(typeName)
+                .description(normalizeOptionalDescription(command.description()))
+                .pricePerHour(pricePerHour)
+                .build();
+
+        return RoomTypeResponse.from(roomMutationPort.saveRoomType(roomType));
+    }
+
+    @Override
+    @Transactional
+    public RoomTypeResponse updateRoomType(UpdateRoomTypeCommand command) {
+        User currentUser = getCurrentUser(command.currentUserEmail());
+        assertAdminRole(currentUser, "Chỉ admin có quyền quản lý loại phòng");
+
+        if (command.roomTypeId() == null) {
+            throw new IllegalArgumentException("roomTypeId không được để trống");
+        }
+
+        RoomType roomType = loadRoomTypeRequired(command.roomTypeId());
+        String typeName = normalizeRequired(command.typeName(), "Tên loại phòng không được để trống");
+        BigDecimal pricePerHour = validatePricePerHour(command.pricePerHour());
+
+        if (!roomType.getTypeName().equals(typeName) && roomCatalogPort.existsRoomTypeName(typeName)) {
+            throw new IllegalArgumentException("Tên loại phòng đã tồn tại");
+        }
+
+        roomType.setTypeName(typeName);
+        roomType.setDescription(normalizeOptionalDescription(command.description()));
+        roomType.setPricePerHour(pricePerHour);
+
+        return RoomTypeResponse.from(roomMutationPort.saveRoomType(roomType));
+    }
+
+    @Override
+    @Transactional
+    public void deleteRoomType(DeleteRoomTypeCommand command) {
+        User currentUser = getCurrentUser(command.currentUserEmail());
+        assertAdminRole(currentUser, "Chỉ admin có quyền quản lý loại phòng");
+
+        if (command.roomTypeId() == null) {
+            throw new IllegalArgumentException("roomTypeId không được để trống");
+        }
+
+        RoomType roomType = loadRoomTypeRequired(command.roomTypeId());
+
+        if (roomCatalogPort.existsRoomForRoomType(command.roomTypeId())) {
+            throw new IllegalStateException("Không thể xóa loại phòng đang được sử dụng");
+        }
+
+        roomMutationPort.deleteRoomType(roomType);
+    }
+
     private User getCurrentUser(String email) {
-        String normalizedEmail = normalizeRequired(email, "Nguoi dung hien tai khong hop le");
+        String normalizedEmail = normalizeRequired(email, "Người dùng hiện tại không hợp lệ");
 
         return roomActorPort.loadUserByEmail(normalizedEmail)
-                .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay nguoi dung"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
     }
 
     private void assertAdminRole(User currentUser, String message) {
@@ -261,7 +337,7 @@ public class RoomUseCaseService implements
 
     private RoomType loadRoomTypeRequired(Integer roomTypeId) {
         return roomCatalogPort.loadRoomType(roomTypeId)
-                .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay loai phong"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy loại phòng"));
     }
 
     private String normalizeRequired(String value, String message) {
@@ -274,11 +350,35 @@ public class RoomUseCaseService implements
 
     private void validateMaxPeople(Integer maxPeople) {
         if (maxPeople == null) {
-            throw new IllegalArgumentException("Suc chua toi da khong duoc de trong");
+            throw new IllegalArgumentException("Sức chứa tối đa không được để trống");
         }
         if (maxPeople < 1 || maxPeople > 100) {
-            throw new IllegalArgumentException("Suc chua toi da phai nam trong khoang 1-100");
+            throw new IllegalArgumentException("Sức chứa tối đa phải nằm trong khoảng 1-100");
         }
+    }
+
+    private BigDecimal validatePricePerHour(BigDecimal pricePerHour) {
+        if (pricePerHour == null) {
+            throw new IllegalArgumentException("Giá theo giờ không được để trống");
+        }
+        if (pricePerHour.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Giá theo giờ phải lớn hơn 0");
+        }
+
+        return pricePerHour;
+    }
+
+    private String normalizeOptionalDescription(String description) {
+        if (description == null || description.trim().isBlank()) {
+            return null;
+        }
+
+        String normalized = description.trim();
+        if (normalized.length() > 2000) {
+            throw new IllegalArgumentException("Mô tả loại phòng tối đa 2000 ký tự");
+        }
+
+        return normalized;
     }
 
     private String normalizeOptionalImageUrl(String imageUrl) {
@@ -288,10 +388,10 @@ public class RoomUseCaseService implements
 
         String normalized = imageUrl.trim();
         if (normalized.length() > 500) {
-            throw new IllegalArgumentException("URL anh phong toi da 500 ky tu");
+            throw new IllegalArgumentException("URL ảnh phòng tối đa 500 ký tự");
         }
         if (!normalized.matches("^https?://.+")) {
-            throw new IllegalArgumentException("URL anh phong phai la link http hoac https");
+            throw new IllegalArgumentException("URL ảnh phòng phải là link http hoặc https");
         }
 
         return normalized;

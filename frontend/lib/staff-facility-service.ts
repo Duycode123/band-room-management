@@ -54,7 +54,7 @@ export async function updateStaffRoomStatus(
 
     return response.data.data
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the dong bo trang thai phong.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể đồng bộ trạng thái phòng.'))
   }
 }
 
@@ -71,7 +71,7 @@ export async function recordStaffRoomCondition(
 
     return response.data.data
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the ghi nhan tinh trang phong.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể ghi nhận tình trạng phòng.'))
   }
 }
 
@@ -91,6 +91,6 @@ export async function recordStaffEquipmentCondition(
 
     return response.data.data
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the ghi nhan tinh trang thiet bi.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể ghi nhận tình trạng thiết bị.'))
   }
 }

@@ -187,6 +187,7 @@ export function mapRoomTypeToAdminOption(roomType: BackendRoomType): AdminRoomTy
   return {
     id: roomType.id,
     label: roomType.typeName,
+    description: roomType.description?.trim() ?? '',
     category,
     pricePerHour: asNumber(roomType.pricePerHour, defaultPrice[category]),
     capacity: roomType.capacity ?? defaultCapacity[category],

@@ -16,6 +16,8 @@ public interface RoomRepository extends JpaRepository<Room, Integer>, JpaSpecifi
 
     boolean existsByRoomName(String roomName);
 
+    boolean existsByRoomType_Id(Integer roomTypeId);
+
     @EntityGraph(attributePaths = "roomType")
     List<Room> findAllByOrderByRoomNameAsc();
 
