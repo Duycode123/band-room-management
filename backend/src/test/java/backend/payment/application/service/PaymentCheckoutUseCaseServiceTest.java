@@ -11,18 +11,23 @@ import backend.entity.PaymentTransactionStatus;
 import backend.entity.User;
 import backend.payment.application.model.PaymentSessionResult;
 import backend.payment.application.model.SePayCheckoutForm;
+import backend.payment.application.port.out.FindSePayIncomingPaymentPort;
+import backend.payment.application.port.out.model.SePayIncomingPayment;
 import backend.repository.BookingRepository;
 import backend.repository.PaymentTransactionRepository;
+import backend.service.CouponUsageTrackingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
@@ -32,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -44,6 +50,12 @@ class PaymentCheckoutUseCaseServiceTest {
     @Mock
     private PaymentTransactionRepository paymentTransactionRepository;
 
+    @Mock
+    private FindSePayIncomingPaymentPort findSePayIncomingPaymentPort;
+
+    @Mock
+    private CouponUsageTrackingService couponUsageTrackingService;
+
     private final SePayProperties sePayProperties = new SePayProperties();
 
     private PaymentCheckoutUseCaseService paymentCheckoutUseCaseService;
@@ -52,11 +64,16 @@ class PaymentCheckoutUseCaseServiceTest {
     void setUp() {
         sePayProperties.setCheckoutUrl("https://pay.sepay.vn/checkout");
         sePayProperties.setMerchantId("merchant-1");
+        sePayProperties.setQrBankAccount("0924054707");
+        sePayProperties.setQrBankCode("970422");
         paymentCheckoutUseCaseService = new PaymentCheckoutUseCaseService(
                 bookingRepository,
                 paymentTransactionRepository,
-                sePayProperties
+                sePayProperties,
+                findSePayIncomingPaymentPort,
+                couponUsageTrackingService
         );
+        ReflectionTestUtils.setField(paymentCheckoutUseCaseService, "paymentExpirationSeconds", 300L);
     }
 
     @Test
@@ -90,10 +107,8 @@ class PaymentCheckoutUseCaseServiceTest {
         assertEquals("e_wallet", result.method());
         assertEquals("pending", result.status());
         assertEquals(booking.getBookingCode(), result.bookingCode());
-        assertEquals(
-                "/api/payments/sepay/checkout/" + savedTransaction.getTransactionReference(),
-                result.paymentUrl()
-        );
+        assertEquals(true, result.paymentUrl().startsWith("https://vietqr.app/img?"));
+        assertEquals(true, result.paymentUrl().contains("des=" + savedTransaction.getTransactionReference()));
     }
 
     @Test
@@ -126,10 +141,8 @@ class PaymentCheckoutUseCaseServiceTest {
         assertEquals(PaymentMethod.ONLINE, booking.getPaymentMethod());
         assertEquals("bank_transfer", result.method());
         assertEquals("pending", result.status());
-        assertEquals(
-                "/api/payments/sepay/checkout/" + savedTransaction.getTransactionReference(),
-                result.paymentUrl()
-        );
+        assertEquals(true, result.paymentUrl().startsWith("https://vietqr.app/img?"));
+        assertEquals(true, result.paymentUrl().contains("des=" + savedTransaction.getTransactionReference()));
     }
 
     @Test
@@ -213,6 +226,78 @@ class PaymentCheckoutUseCaseServiceTest {
         assertEquals(true, result.paymentUrl().contains("amount=50000"));
         assertEquals(true, result.paymentUrl().contains("des=" + result.paymentId()));
         assertEquals(true, result.paymentUrl().contains("template=compact"));
+    }
+
+    @Test
+    void pollingTransactionConfirmsSePayApiPaymentAndUpdatesBooking() {
+        Booking booking = booking(12, PaymentMethod.ONLINE);
+        PaymentTransaction transaction = PaymentTransaction.builder()
+                .booking(booking)
+                .provider(PaymentProvider.SEPAY)
+                .transactionReference("PAY1234567890ABCDEF")
+                .amount(new BigDecimal("50000.00"))
+                .status(PaymentTransactionStatus.PENDING)
+                .createdAt(LocalDateTime.now().minusSeconds(20))
+                .build();
+        LocalDateTime paidAt = LocalDateTime.now();
+
+        when(paymentTransactionRepository
+                .findByTransactionReferenceAndBooking_Customer_Account_Email("PAY1234567890ABCDEF", "customer@example.com"))
+                .thenReturn(Optional.of(transaction));
+        when(findSePayIncomingPaymentPort.findIncomingPayment(any()))
+                .thenReturn(Optional.of(new SePayIncomingPayment(
+                        "49682",
+                        new BigDecimal("50000.00"),
+                        "Thanh toan PAY1234567890ABCDEF",
+                        "PAY1234567890ABCDEF",
+                        paidAt
+                )));
+
+        var detail = paymentCheckoutUseCaseService.getPaymentTransactionDetail(
+                "PAY1234567890ABCDEF",
+                "customer@example.com"
+        );
+
+        assertEquals("success", detail.status());
+        assertEquals(PaymentTransactionStatus.SUCCEEDED, transaction.getStatus());
+        assertEquals("SEPAY_API_SUCCESS", transaction.getResponseCode());
+        assertEquals("49682", transaction.getProviderTransactionId());
+        assertEquals(BookingStatus.DEPOSIT_PAID, booking.getStatus());
+        verify(bookingRepository).save(booking);
+        verify(paymentTransactionRepository).save(transaction);
+        verify(couponUsageTrackingService).recordPaidBookingUsage(booking);
+    }
+
+    @Test
+    void pollingTransactionCancelsExpiredPaymentWhenSePayApiHasNoMatch() {
+        Booking booking = booking(12, PaymentMethod.ONLINE);
+        PaymentTransaction transaction = PaymentTransaction.builder()
+                .booking(booking)
+                .provider(PaymentProvider.SEPAY)
+                .transactionReference("PAY1234567890ABCDEF")
+                .amount(new BigDecimal("50000.00"))
+                .status(PaymentTransactionStatus.PENDING)
+                .createdAt(LocalDateTime.now().minusSeconds(301))
+                .build();
+
+        when(paymentTransactionRepository
+                .findByTransactionReferenceAndBooking_Customer_Account_Email("PAY1234567890ABCDEF", "customer@example.com"))
+                .thenReturn(Optional.of(transaction));
+        when(findSePayIncomingPaymentPort.findIncomingPayment(any()))
+                .thenReturn(Optional.empty());
+
+        var detail = paymentCheckoutUseCaseService.getPaymentTransactionDetail(
+                "PAY1234567890ABCDEF",
+                "customer@example.com"
+        );
+
+        assertEquals("cancelled", detail.status());
+        assertEquals(PaymentTransactionStatus.CANCELLED, transaction.getStatus());
+        assertEquals("PAYMENT_TIMEOUT", transaction.getResponseCode());
+        assertEquals(BookingStatus.CANCELLED, booking.getStatus());
+        verify(bookingRepository).save(booking);
+        verify(paymentTransactionRepository).save(transaction);
+        verify(couponUsageTrackingService, never()).recordPaidBookingUsage(booking);
     }
 
     @Test

@@ -191,12 +191,12 @@ If the change is part of the Vietnamese-to-English rename:
 - Booking is already a lifecycle-heavy aggregate and should be documented carefully whenever status semantics change.
 - Review moderation keeps `approved = false` by default until an admin approves the review.
 - Each review can have at most one admin response stored in `review_response`.
-- Payment and booking timeout behavior should stay aligned with booking-expiry logic in the backend. Checkout sessions expire after `app.booking.payment-expiration-seconds` seconds by default (`300`), cancelling both the pending `payment_transaction` and its still-pending booking.
+- Payment and booking timeout behavior should stay aligned with booking-expiry logic in the backend. Checkout sessions expire after `app.booking.payment-expiration-seconds` seconds by default (`300`), cancelling both the pending `payment_transaction` and its still-pending booking. The customer payment-status polling endpoint also applies this timeout so a VietQR checkout can release the held slot without waiting for the scheduled sweep.
 - `payment_transaction.response_code` is `varchar(50)` and stores application-level outcome codes (`PAYMENT_TIMEOUT`, `PAYMENT_SESSION_REPLACED`, `SEPAY_SUCCESS`, `SEPAY_ORDER_FAILED`, `SEPAY_TRANSACTION_VOID`, VNPay numeric codes). Keep new codes within 50 characters.
 - Enum-backed statuses deserve explicit documentation because they affect filters, transitions, and reporting.
 - `booking_status.DEPOSIT_PAID` means the customer paid only the online deposit. Full online payment still uses `PAID`.
 - `payment_provider` now includes `COUNTER` for pay-at-counter checkout sessions alongside online providers such as `VNPAY`.
-- `payment_provider` includes `SEPAY` for online deposit checkout through the SePay-hosted portal and webhook confirmation.
+- `payment_provider` includes `SEPAY` for online deposit/full checkout through VietQR plus SePay transaction polling; webhook confirmation remains supported as a fallback.
 - `room.max_people` stores the maximum number of people a specific room can hold; `room.image_url` stores the persisted room image URL returned by Cloudinary or another HTTP(S) asset host.
 - `account.avatar_url` stores the current profile image URL for customer, staff, and admin accounts after upload through the backend.
 - `account.enabled` controls whether an account can authenticate. Disabled staff accounts are kept for historical references but cannot log in or continue JWT sessions.
