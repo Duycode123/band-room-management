@@ -1,11 +1,8 @@
 'use client'
 
 import { IconSearch } from '@/components/admin/AdminIcons'
-import type { AdminRoomTypeOption, RoomFilters, RoomStatus } from '@/lib/admin/rooms/types'
-import {
-  roomStatusLabels,
-  roomStatusOptions,
-} from '@/lib/admin/rooms/types'
+import type { AdminRoomTypeOption, RoomFilters } from '@/lib/admin/rooms/types'
+import { roomStatusLabels, roomStatusOptions } from '@/lib/admin/rooms/types'
 
 type RoomFiltersBarProps = {
   filters: RoomFilters
@@ -31,7 +28,6 @@ export default function RoomFiltersBar({ filters, roomTypes, onChange, resultCou
     filters.sortBy !== 'updated'
 
   const quickRoomTypes: Array<AdminRoomTypeOption | 'ALL'> = ['ALL', ...roomTypes.slice(0, 4)]
-  const quickStatuses: (RoomStatus | 'ALL')[] = ['ALL', 'active', 'occupied', 'maintenance']
 
   return (
     <section className="overflow-hidden rounded-2xl border border-outline-variant/80 bg-white shadow-[var(--shadow-card)]">
@@ -72,7 +68,7 @@ export default function RoomFiltersBar({ filters, roomTypes, onChange, resultCou
             <input
               type="search"
               value={filters.query}
-              onChange={(e) => set({ query: e.target.value })}
+              onChange={(event) => set({ query: event.target.value })}
               placeholder="Tên phòng, mã phòng..."
               className={[inputClass, 'pl-10'].join(' ')}
             />
@@ -80,12 +76,13 @@ export default function RoomFiltersBar({ filters, roomTypes, onChange, resultCou
         </label>
 
         <div>
-          <span className={labelClass}>Hạng phòng nhanh</span>
+          <span className={labelClass}>Hạng phòng</span>
           {roomTypes.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {quickRoomTypes.map((roomType) => {
                 const value = roomType === 'ALL' ? 'ALL' : roomType.id
                 const active = filters.roomTypeId === value
+
                 return (
                   <button
                     key={value}
@@ -108,52 +105,12 @@ export default function RoomFiltersBar({ filters, roomTypes, onChange, resultCou
           )}
         </div>
 
-        <div>
-          <span className={labelClass}>Trạng thái nhanh</span>
-          <div className="flex flex-wrap gap-2">
-            {quickStatuses.map((status) => {
-              const active = filters.status === status
-              return (
-                <button
-                  key={status}
-                  type="button"
-                  onClick={() => set({ status })}
-                  className={[
-                    'rounded-full px-3 py-1.5 font-display text-xs font-medium transition-all',
-                    active
-                      ? 'bg-secondary text-inverse-on-surface shadow-md shadow-secondary/20'
-                      : 'border border-outline-variant bg-surface-container-low text-on-surface-variant hover:border-secondary/30 hover:text-on-surface',
-                  ].join(' ')}
-                >
-                  {status === 'ALL' ? 'Tất cả' : roomStatusLabels[status]}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="block">
-            <span className={labelClass}>Hạng phòng</span>
-            <select
-              value={String(filters.roomTypeId)}
-              onChange={(e) => set({ roomTypeId: e.target.value === 'ALL' ? 'ALL' : Number(e.target.value), category: 'ALL' })}
-              className={inputClass}
-            >
-              <option value="ALL">Tất cả</option>
-              {roomTypes.map((roomType) => (
-                <option key={roomType.id} value={roomType.id}>
-                  {roomType.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(220px,0.8fr)_minmax(260px,1.2fr)]">
           <label className="block">
             <span className={labelClass}>Trạng thái</span>
             <select
               value={filters.status}
-              onChange={(e) => set({ status: e.target.value as RoomFilters['status'] })}
+              onChange={(event) => set({ status: event.target.value as RoomFilters['status'] })}
               className={inputClass}
             >
               <option value="ALL">Tất cả</option>
@@ -165,11 +122,11 @@ export default function RoomFiltersBar({ filters, roomTypes, onChange, resultCou
             </select>
           </label>
 
-          <label className="block sm:col-span-2">
+          <label className="block">
             <span className={labelClass}>Sắp xếp</span>
             <select
               value={filters.sortBy}
-              onChange={(e) => set({ sortBy: e.target.value as RoomFilters['sortBy'] })}
+              onChange={(event) => set({ sortBy: event.target.value as RoomFilters['sortBy'] })}
               className={inputClass}
             >
               <option value="updated">Cập nhật mới nhất</option>
