@@ -11,14 +11,6 @@ type RoomDetailPanelProps = {
   onEdit: (room: AdminRoom) => void
 }
 
-function occupancyWidthClass(rate: number) {
-  if (rate <= 0) return 'w-0'
-  if (rate <= 25) return 'w-1/4'
-  if (rate <= 50) return 'w-1/2'
-  if (rate <= 75) return 'w-3/4'
-  return 'w-full'
-}
-
 export default function RoomDetailPanel({ room, onClose, onEdit }: RoomDetailPanelProps) {
   if (!room) return null
 
@@ -74,26 +66,6 @@ export default function RoomDetailPanel({ room, onClose, onEdit }: RoomDetailPan
                   {equipment}
                 </span>
               ))}
-            </div>
-          </Section>
-
-          <Section title="Lịch hôm nay">
-            <div className="rounded-2xl border border-outline-variant bg-surface-container-low p-4">
-              <p className="text-sm font-medium text-on-surface">{room.todaySchedule}</p>
-              <div className="mt-4">
-                <div className="mb-1 flex items-center justify-between text-xs text-on-surface-variant">
-                  <span>Tỷ lệ lấp đầy hôm nay</span>
-                  <span className="font-display font-bold text-on-surface">{room.occupancyRateToday}%</span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-surface-container">
-                  <div
-                    className={[
-                      'h-full rounded-full bg-brand-orange transition-all',
-                      occupancyWidthClass(room.occupancyRateToday),
-                    ].join(' ')}
-                  />
-                </div>
-              </div>
             </div>
           </Section>
 

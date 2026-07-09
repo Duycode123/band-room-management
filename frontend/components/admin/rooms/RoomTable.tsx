@@ -54,7 +54,7 @@ export default function RoomTable({
     <>
       <div className="hidden overflow-hidden rounded-2xl border border-outline-variant/80 bg-white shadow-[var(--shadow-card)] lg:block">
         <div className="overflow-x-auto">
-          <table className="min-w-[1120px] w-full border-collapse text-left">
+          <table className="min-w-[980px] w-full border-collapse text-left">
             <thead className="bg-surface-container-low text-[10px] uppercase tracking-[0.12em] text-on-surface-variant">
               <tr>
                 <th className="px-4 py-3 font-display font-semibold">Phòng</th>
@@ -63,8 +63,6 @@ export default function RoomTable({
                 <th className="px-4 py-3 font-display font-semibold">Giá/giờ</th>
                 <th className="px-4 py-3 font-display font-semibold">Trạng thái</th>
                 <th className="px-4 py-3 font-display font-semibold">Thiết bị</th>
-                <th className="px-4 py-3 font-display font-semibold">Lịch hôm nay</th>
-                <th className="px-4 py-3 font-display font-semibold">Cập nhật</th>
                 <th className="px-4 py-3 font-display font-semibold">Thao tác</th>
               </tr>
             </thead>
@@ -102,10 +100,6 @@ export default function RoomTable({
                       <RoomStatusBadge status={room.status} />
                     </td>
                     <td className="px-4 py-4 text-sm text-on-surface-variant">{room.equipmentCount} món</td>
-                    <td className="max-w-[190px] px-4 py-4 text-xs leading-relaxed text-on-surface-variant">
-                      {room.todaySchedule}
-                    </td>
-                    <td className="px-4 py-4 text-xs text-on-surface-variant">{room.lastUpdated}</td>
                     <td className="px-4 py-4">
                       <div className="flex flex-wrap gap-2">
                         <button type="button" onClick={() => onSelect(room)} className={actionClass}>
@@ -177,9 +171,6 @@ export default function RoomTable({
               </p>
               <p className="col-span-2 font-display text-base font-bold text-brand-orange">
                 {formatRoomPrice(room.pricePerHour)} / giờ
-              </p>
-              <p className="col-span-2 text-xs leading-relaxed text-on-surface-variant">
-                {room.todaySchedule}
               </p>
             </div>
 

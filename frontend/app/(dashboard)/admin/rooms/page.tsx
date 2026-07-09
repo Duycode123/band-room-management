@@ -367,7 +367,7 @@ export default function AdminRoomsPage() {
               <div>
                 <h2 className="font-display text-lg font-bold text-on-surface">Danh sách phòng tập</h2>
                 <p className="text-xs text-on-surface-variant">
-                  Quản lý trạng thái, giá thuê, thiết bị và lịch sử dụng trong ngày.
+                  Quản lý trạng thái, giá thuê và thiết bị gắn với từng phòng tập.
                 </p>
               </div>
               <p className="text-xs text-on-surface-variant">Chọn &quot;Chi tiết&quot; để mở hồ sơ phòng</p>
