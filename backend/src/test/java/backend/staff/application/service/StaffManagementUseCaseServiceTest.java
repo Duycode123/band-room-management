@@ -4,8 +4,7 @@ import backend.entity.Role;
 import backend.entity.Staff;
 import backend.entity.User;
 import backend.staff.application.port.in.command.CreateStaffAccountCommand;
-import backend.staff.application.port.in.command.DeleteStaffAccountCommand;
-import backend.staff.application.port.in.command.UpdateStaffAccountCommand;
+import backend.staff.application.port.in.command.DisableStaffAccountCommand;
 import backend.staff.application.port.out.StaffAccountPort;
 import backend.staff.application.port.out.StaffPasswordPort;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,9 +15,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -75,6 +76,7 @@ class StaffManagementUseCaseServiceTest {
         assertEquals("encoded-password", accountCaptor.getValue().getPassword());
         assertEquals(Role.STAFF, accountCaptor.getValue().getRole());
         assertTrue(accountCaptor.getValue().isEmailVerified());
+        assertTrue(accountCaptor.getValue().isEnabled());
         assertEquals(accountCaptor.getValue(), staffCaptor.getValue().getAccount());
         assertEquals("Nguyen Van Staff", staffCaptor.getValue().getFullName());
         assertEquals("0909000111", staffCaptor.getValue().getPhone());
@@ -102,54 +104,43 @@ class StaffManagementUseCaseServiceTest {
     }
 
     @Test
-    void updateStaffAccountUpdatesProfileAccountEmailAndPassword() {
-        User account = User.builder()
-                .id(10)
-                .email("old@example.com")
-                .password("old-password")
-                .role(Role.STAFF)
-                .emailVerified(true)
-                .build();
-        Staff staff = Staff.builder()
-                .id(3)
-                .account(account)
-                .fullName("Old Staff")
-                .email("old@example.com")
-                .phone("0909000000")
-                .build();
-
-        when(staffAccountPort.loadStaffById(3)).thenReturn(Optional.of(staff));
-        when(staffAccountPort.existsAccountByEmail("new@example.com")).thenReturn(false);
-        when(staffAccountPort.existsStaffProfileByEmail("new@example.com")).thenReturn(false);
-        when(staffPasswordPort.encodePassword("new-secret")).thenReturn("encoded-new-secret");
-        when(staffAccountPort.saveAccount(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(staffAccountPort.saveStaff(any(Staff.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        var result = staffManagementUseCaseService.updateStaffAccount(new UpdateStaffAccountCommand(
-                3,
-                "  New Staff  ",
-                " New@Example.COM ",
-                " 0909000111 ",
-                LocalDate.of(1999, 5, 6),
-                " new-secret "
-        ));
-
-        assertEquals("new@example.com", account.getEmail());
-        assertEquals("encoded-new-secret", account.getPassword());
-        assertEquals("New Staff", staff.getFullName());
-        assertEquals("new@example.com", staff.getEmail());
-        assertEquals("0909000111", staff.getPhone());
-        assertEquals(LocalDate.of(1999, 5, 6), staff.getDateOfBirth());
-        assertEquals("new@example.com", result.email());
-        assertEquals("New Staff", result.fullName());
-    }
-
-    @Test
-    void deleteStaffAccountDeletesStaffAndLinkedAccount() {
+    void listStaffAccountsReturnsStaffAccountDetails() {
         User account = User.builder()
                 .id(10)
                 .email("staff@example.com")
                 .role(Role.STAFF)
+                .emailVerified(true)
+                .enabled(true)
+                .build();
+        Staff staff = Staff.builder()
+                .id(3)
+                .account(account)
+                .fullName("Staff")
+                .email("staff@example.com")
+                .phone("0909000111")
+                .dateOfBirth(LocalDate.of(2000, 1, 2))
+                .build();
+
+        when(staffAccountPort.loadAllStaff()).thenReturn(List.of(staff));
+
+        var result = staffManagementUseCaseService.listStaffAccounts();
+
+        assertEquals(1, result.size());
+        assertEquals(10, result.get(0).accountId());
+        assertEquals(3, result.get(0).staffId());
+        assertEquals("staff@example.com", result.get(0).email());
+        assertEquals("Staff", result.get(0).fullName());
+        assertEquals(LocalDate.of(2000, 1, 2), result.get(0).dateOfBirth());
+        assertTrue(result.get(0).enabled());
+    }
+
+    @Test
+    void disableStaffAccountMarksLinkedAccountDisabled() {
+        User account = User.builder()
+                .id(10)
+                .email("staff@example.com")
+                .role(Role.STAFF)
+                .enabled(true)
                 .build();
         Staff staff = Staff.builder()
                 .id(3)
@@ -159,9 +150,12 @@ class StaffManagementUseCaseServiceTest {
                 .build();
 
         when(staffAccountPort.loadStaffById(3)).thenReturn(Optional.of(staff));
+        when(staffAccountPort.saveAccount(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        staffManagementUseCaseService.deleteStaffAccount(new DeleteStaffAccountCommand(3));
+        var result = staffManagementUseCaseService.disableStaffAccount(new DisableStaffAccountCommand(3));
 
-        verify(staffAccountPort).deleteStaffAndAccount(staff, account);
+        assertFalse(account.isEnabled());
+        assertFalse(result.enabled());
+        verify(staffAccountPort).saveAccount(account);
     }
 }

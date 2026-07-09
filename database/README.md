@@ -191,6 +191,7 @@ If the change is part of the Vietnamese-to-English rename:
 - `payment_provider` includes `SEPAY` for online deposit checkout through the SePay-hosted portal and webhook confirmation.
 - `room.max_people` stores the maximum number of people a specific room can hold; `room.image_url` stores the persisted room image URL returned by Cloudinary or another HTTP(S) asset host.
 - `account.avatar_url` stores the current profile image URL for customer, staff, and admin accounts after upload through the backend.
+- `account.enabled` controls whether an account can authenticate. Disabled staff accounts are kept for historical references but cannot log in or continue JWT sessions.
 - `staff.account_id` is required for staff-only workflows. The backfill migration creates a minimal staff profile for existing `account.role = 'STAFF'` rows that were missing a `staff` record.
 - Approved staff shift registrations must have a matching `shift` row because the staff schedule page reads assigned shifts from `shift`; `20260707_backfill_shifts_for_approved_staff_registrations.sql` creates missing shifts for already approved registrations.
 - `coupon_usage` records the exact discount amount actually consumed by one paid booking and enforces one usage row per booking through `booking_id` uniqueness.
@@ -231,12 +232,14 @@ The `account` table stores email verification state for customer registration.
   - `email_verification_expires_at`: expiration timestamp for the verification link.
   - `email_verification_sent_at`: timestamp used to enforce resend cooldown.
   - `avatar_url`: optional HTTP(S) URL of the latest uploaded avatar image for the account, shared across customer, staff, and admin profile views.
+  - `enabled`: false prevents authentication and JWT session refresh/use while preserving the account row for operational history.
 - Uniqueness and security:
   - `ux_account_email_verification_token_hash` prevents token-hash collisions while allowing nulls for verified accounts.
   - existing accounts are marked verified by the migration so current users are not locked out.
 - Migration:
   - `database/migrations/20260703_add_email_verification_to_account.sql`
   - `database/migrations/20260703_add_account_avatar_url.sql`
+  - `database/migrations/20260709_add_account_enabled.sql`
 
 ## Reporting Optimization Assets
 
