@@ -167,16 +167,11 @@ export default function AdminRoomsPage() {
   const stats = useMemo(() => {
     const active = rooms.filter((room) => room.status === 'active' || room.status === 'occupied').length
     const maintenance = rooms.filter((room) => room.status === 'maintenance').length
-    const occupancy =
-      rooms.length > 0
-        ? Math.round(rooms.reduce((total, room) => total + room.occupancyRateToday, 0) / rooms.length)
-        : 0
 
     return {
       total: rooms.length,
       active,
       maintenance,
-      occupancy,
     }
   }, [rooms])
 
@@ -277,7 +272,7 @@ export default function AdminRoomsPage() {
         <AdminPageHeader
           eyebrow="Quản lý phòng"
           title="Quản lý phòng tập"
-          description="Theo dõi danh sách phòng, trạng thái vận hành, lịch hôm nay và thao tác nhanh cho đội ngũ quản trị BandSpace."
+          description="Theo dõi danh sách phòng, hạng phòng, trạng thái vận hành và thiết bị cho đội ngũ quản trị BandSpace."
           breadcrumbs={[
             { label: 'Tổng quan', href: '/admin/dashboard' },
             { label: 'Phòng tập' },
@@ -321,7 +316,7 @@ export default function AdminRoomsPage() {
         <div className="mx-auto max-w-7xl space-y-6 px-5 py-6 sm:px-8">
           <AdminToast message={toast} onDismiss={() => setToast('')} />
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <AdminStatCard
               label="Tổng số phòng"
               value={stats.total}
@@ -341,13 +336,6 @@ export default function AdminRoomsPage() {
               hint="Tạm khóa lịch đặt"
               accent="tertiary"
               icon={<span className="text-base">⚙</span>}
-            />
-            <AdminStatCard
-              label="Tỷ lệ lấp đầy hôm nay"
-              value={`${stats.occupancy}%`}
-              hint="Trung bình toàn bộ phòng"
-              accent="primary"
-              icon={<span className="text-base">%</span>}
             />
           </div>
 
