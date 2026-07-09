@@ -98,6 +98,42 @@ function getRoomTypeName(room: BackendRoom, category: RoomCategory) {
   return room.roomType?.typeName?.trim() || getCategoryLabel(category)
 }
 
+export function getPublicRoomTierLabel(
+  typeName?: string | null,
+  options: { category?: RoomCategory; capacity?: number | null } = {},
+) {
+  const rawTypeName = typeName?.trim()
+  const category = options.category ?? inferRoomCategoryFromTypeName(rawTypeName)
+  const capacity = options.capacity ?? null
+  const normalized = normalizeSearchText(rawTypeName)
+  const isDefaultSeededTier = [
+    'standard practice',
+    'band rehearsal',
+    'recording & mixing',
+    'premium studio',
+  ].includes(normalized)
+
+  if (rawTypeName && !isDefaultSeededTier) {
+    return rawTypeName
+  }
+
+  if (category === 'recording') return 'Phòng thu'
+  if (capacity !== null && capacity >= 12) return 'Phòng nhóm lớn'
+  if (capacity !== null && capacity >= 5) return 'Phòng band'
+  if (category === 'premium') return 'Phòng nhóm lớn'
+  if (category === 'band') return 'Phòng band'
+
+  return 'Phòng nhóm nhỏ'
+}
+
+function getPublicRoomBadge(category: RoomCategory, capacity: number) {
+  if (category === 'recording') return 'Thu âm'
+  if (capacity >= 12) return 'Nhóm lớn'
+  if (capacity >= 5) return 'Band'
+
+  return 'Nhóm nhỏ'
+}
+
 function getRoomDescription(room: BackendRoom, category: RoomCategory) {
   return room.description?.trim() || room.roomType?.description?.trim() || categoryDescriptions[category]
 }
@@ -255,15 +291,19 @@ export function mapBackendRoomToBookingRoom(
   const equipments = getRoomEquipmentNames(equipment, category)
   const availability = getAvailability(room.status, index)
   const capacity = getRoomCapacity(room, category)
+  const roomTypeName = getRoomTypeName(room, category)
 
   return {
     id: String(room.id),
     code: getRoomCode(room),
     name: room.roomName,
     category,
-    categoryLabel: getCategoryLabel(category),
-    type: getRoomTypeName(room, category),
-    badge: categoryBadges[category],
+    roomTierId: room.roomType?.id,
+    roomTierName: roomTypeName,
+    roomTierDescription: room.roomType?.description?.trim() || undefined,
+    categoryLabel: getPublicRoomTierLabel(roomTypeName, { category, capacity }),
+    type: roomTypeName,
+    badge: getPublicRoomBadge(category, capacity),
     rating: reviewSummary?.reviewCount ? reviewSummary.averageRating : undefined,
     reviews: reviewSummary?.reviewCount ?? 0,
     capacity: `Tối đa ${capacity} người`,
