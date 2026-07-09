@@ -1,4 +1,5 @@
 const STORAGE_PREFIX = 'bandroom:scroll:'
+const FORCE_HOME_TOP_KEY = 'bandroom:force-home-top'
 
 /** Paths that should restore scroll position when revisited (product-style back navigation). */
 const RESTORE_SCROLL_PATHS = new Set(['/rooms', '/customer/bookings', '/customer/support'])
@@ -6,6 +7,36 @@ const RESTORE_SCROLL_PATHS = new Set(['/rooms', '/customer/bookings', '/customer
 export function saveScrollPosition(pathname: string) {
   if (typeof window === 'undefined') return
   sessionStorage.setItem(`${STORAGE_PREFIX}${pathname}`, String(window.scrollY))
+}
+
+export function clearScrollPosition(pathname: string) {
+  if (typeof window === 'undefined') return
+  sessionStorage.removeItem(`${STORAGE_PREFIX}${pathname}`)
+}
+
+export function markForceHomepageTop() {
+  if (typeof window === 'undefined') return
+  sessionStorage.setItem(FORCE_HOME_TOP_KEY, '1')
+  clearScrollPosition('/')
+}
+
+export function clearForceHomepageTop() {
+  if (typeof window === 'undefined') return
+  sessionStorage.removeItem(FORCE_HOME_TOP_KEY)
+}
+
+export function consumeForceHomepageTop() {
+  if (typeof window === 'undefined') return false
+  const shouldForce = sessionStorage.getItem(FORCE_HOME_TOP_KEY) === '1'
+  if (shouldForce) {
+    sessionStorage.removeItem(FORCE_HOME_TOP_KEY)
+  }
+  return shouldForce
+}
+
+export function isForceHomepageTopPending() {
+  if (typeof window === 'undefined') return false
+  return sessionStorage.getItem(FORCE_HOME_TOP_KEY) === '1'
 }
 
 export function restoreScrollPosition(pathname: string) {

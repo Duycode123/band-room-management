@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef } from 'react'
 import {
+  isForceHomepageTopPending,
   restoreScrollPosition,
   saveScrollPosition,
   scrollToTopInstant,
@@ -23,6 +24,11 @@ export default function RouteScrollRestorer() {
 
     saveScrollPosition(previousPathname.current)
     previousPathname.current = pathname
+
+    // Homepage top is handled by useHomepageActiveSection when force flag is set.
+    if (pathname === '/' && isForceHomepageTopPending()) {
+      return
+    }
 
     if (window.location.hash) return
 

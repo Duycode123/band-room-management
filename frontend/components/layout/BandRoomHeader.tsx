@@ -6,7 +6,11 @@ import { useState } from 'react'
 import AccountMenu from '@/components/layout/AccountMenu'
 import { useAuth } from '@/contexts/AuthContext'
 import { useHomepageActiveSection } from '@/hooks/useHomepageActiveSection'
-import { isPublicNavItemActive, publicNavItems, scrollToHomeSection, scrollToPageTop, shouldScrollToTop, getHomeSectionIdFromHref, isHomepageAnchorHref } from '@/lib/site-nav'
+import {
+  clearForceHomepageTop,
+  markForceHomepageTop,
+} from '@/lib/navigation/scroll-restoration'
+import { isPublicNavItemActive, publicNavItems, scrollToHomeSection, scrollToPageTop, shouldScrollToTop, getHomeSectionIdFromHref, isHomepageAnchorHref, goToHomepageTop } from '@/lib/site-nav'
 
 function MusicLogo({ className = 'h-5 w-5' }: { className?: string }) {
   return (
@@ -61,12 +65,17 @@ export default function BandRoomHeader() {
 
   const handleLogoClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
     setMenuOpen(false)
-
-    if (pathname !== '/') return
-
     event.preventDefault()
-    window.history.replaceState(window.history.state, '', '/')
-    scrollToPageTop()
+
+    // Always land on homepage top — never keep leftover #equipment / #process hash.
+    if (pathname === '/') {
+      clearForceHomepageTop()
+      goToHomepageTop()
+      return
+    }
+
+    markForceHomepageTop()
+    router.push('/')
   }
 
   const handleNavLinkClick = (event: React.MouseEvent<HTMLAnchorElement>, href: string) => {

@@ -1,8 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { clearForceHomepageTop, markForceHomepageTop } from '@/lib/navigation/scroll-restoration'
 import {
   SUPPORT_EMAIL,
   SUPPORT_HOTLINE,
@@ -11,6 +12,7 @@ import {
   footerSupportLinks,
   getHomeSectionIdFromHref,
   isHomepageAnchorHref,
+  goToHomepageTop,
   scrollToHomeSection,
   scrollToPageTop,
   shouldScrollToTop,
@@ -18,14 +20,20 @@ import {
 
 export default function BandRoomFooter() {
   const pathname = usePathname()
+  const router = useRouter()
   const { isAuthenticated } = useAuth()
 
   const handleLogoClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
-    if (pathname !== '/') return
-
     event.preventDefault()
-    window.history.replaceState(window.history.state, '', '/')
-    scrollToPageTop()
+
+    if (pathname === '/') {
+      clearForceHomepageTop()
+      goToHomepageTop()
+      return
+    }
+
+    markForceHomepageTop()
+    router.push('/')
   }
 
   const handleNavLinkClick = (event: React.MouseEvent<HTMLAnchorElement>, href: string) => {
