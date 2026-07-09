@@ -38,10 +38,13 @@ export async function fetchPublicBookingRooms(): Promise<BookingRoom[]> {
 }
 
 export async function resolveBookingRoom(roomId: string | null, catalog: BookingRoom[] = bookingRooms) {
+  if (!roomId) return null
+
+  const backendCatalogRoom = await resolveBackendCatalogRoom(roomId)
+  if (backendCatalogRoom) return backendCatalogRoom
+
   const catalogRoom = findBookingRoomInCatalog(roomId, catalog)
   if (catalogRoom) return catalogRoom
-
-  if (!roomId) return null
 
   try {
     const [room, reviewSummaries] = await Promise.all([
@@ -57,4 +60,33 @@ export async function resolveBookingRoom(roomId: string | null, catalog: Booking
 
 export async function resolveBookingRoomOrFallback(roomId: string | null, catalog: BookingRoom[] = bookingRooms) {
   return (await resolveBookingRoom(roomId, catalog)) ?? bookingRooms[0]
+}
+
+function normalizeRoomIdentity(value?: string | null) {
+  return (value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/gi, ' ')
+    .trim()
+    .toLowerCase()
+}
+
+async function resolveBackendCatalogRoom(roomId: string) {
+  try {
+    const catalog = await fetchPublicBookingRoomCatalog()
+    if (catalog.source !== 'backend') return null
+
+    const staticRoom = findBookingRoom(roomId)
+    const normalizedRoomId = normalizeRoomIdentity(roomId)
+    const normalizedStaticName = normalizeRoomIdentity(staticRoom?.name)
+
+    return catalog.rooms.find((room) => {
+      if (room.id === roomId || room.code === roomId) return true
+      if (normalizeRoomIdentity(room.name) === normalizedRoomId) return true
+
+      return Boolean(normalizedStaticName && normalizeRoomIdentity(room.name) === normalizedStaticName)
+    }) ?? null
+  } catch {
+    return null
+  }
 }

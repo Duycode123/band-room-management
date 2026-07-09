@@ -52,6 +52,7 @@ export default function CheckoutPageClient() {
   const [paymentSession, setPaymentSession] = useState<CreatePaymentSessionResponse | null>(null)
   const [isCheckingPayment, setIsCheckingPayment] = useState(false)
   const [paymentError, setPaymentError] = useState('')
+  const [now, setNow] = useState(() => Date.now())
   const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null)
   const [missingCheckoutReturnHref, setMissingCheckoutReturnHref] = useState('/')
 
@@ -219,6 +220,21 @@ export default function CheckoutPageClient() {
     }
   }, [paymentSession, router])
 
+  useEffect(() => {
+    if (!paymentSession?.expiresAt || paymentSession.status !== 'pending') {
+      return
+    }
+
+    setNow(Date.now())
+    const intervalId = window.setInterval(() => {
+      setNow(Date.now())
+    }, 1000)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [paymentSession?.expiresAt, paymentSession?.status])
+
   const summary = useMemo(
     () => (booking ? calculateCheckoutSummary(booking, appliedDiscount) : null),
     [appliedDiscount, booking],
@@ -227,6 +243,10 @@ export default function CheckoutPageClient() {
     if (!summary) return 0
     return paymentOption === 'deposit' ? Math.min(DEPOSIT_AMOUNT, summary.total) : summary.total
   }, [paymentOption, summary])
+  const secondsUntilExpiry = useMemo(
+    () => getSecondsUntilExpiry(paymentSession?.expiresAt, now),
+    [now, paymentSession?.expiresAt],
+  )
 
   const handleApplyCoupon = (discount: AppliedDiscount) => {
     if (!booking) return
@@ -454,6 +474,12 @@ export default function CheckoutPageClient() {
                   <div className="mt-4 grid gap-2 text-sm">
                     <PaymentSessionRow label="Nội dung chuyển khoản" value={paymentSession.paymentId} />
                     <PaymentSessionRow label="Số tiền" value={formatCurrency(paymentSession.amount)} />
+                    {secondsUntilExpiry !== null && (
+                      <PaymentSessionRow
+                        label="Còn lại"
+                        value={secondsUntilExpiry > 0 ? formatCountdown(secondsUntilExpiry) : 'Đã hết hạn'}
+                      />
+                    )}
                     {paymentSession.expiresAt && (
                       <PaymentSessionRow label="Hết hạn" value={formatPaymentDate(paymentSession.expiresAt)} />
                     )}
@@ -527,6 +553,26 @@ function formatPaymentDate(value: string) {
     month: '2-digit',
     year: 'numeric',
   }).format(date)
+}
+
+function getSecondsUntilExpiry(expiresAt: string | null | undefined, now: number) {
+  if (!expiresAt) {
+    return null
+  }
+
+  const expiryTime = new Date(expiresAt).getTime()
+  if (Number.isNaN(expiryTime)) {
+    return null
+  }
+
+  return Math.max(0, Math.ceil((expiryTime - now) / 1000))
+}
+
+function formatCountdown(totalSeconds: number) {
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`
 }
 
 function PaymentOptionButton({

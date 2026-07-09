@@ -42,10 +42,11 @@ export default function BookingConfirmationClient() {
   const staticRoom = useMemo(() => findBookingRoom(roomId), [roomId])
   const fallbackRoom = staticRoom ?? getBookingRoomOrFallback(roomId)
   const apiRoom = useMemo(() => getApiBookingRoom(searchParams), [searchParams])
+  const shouldResolveBackendRoom = Boolean(roomId && !apiRoom && !isNumericRoomId(roomId))
 
   const [room, setRoom] = useState<BookingRoom>(apiRoom ?? fallbackRoom)
   const [roomMissing, setRoomMissing] = useState(Boolean(roomId && !staticRoom && !apiRoom))
-  const [isResolvingRoom, setIsResolvingRoom] = useState(Boolean(roomId && !staticRoom && !apiRoom))
+  const [isResolvingRoom, setIsResolvingRoom] = useState(shouldResolveBackendRoom || Boolean(roomId && !staticRoom && !apiRoom))
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId>('bank_transfer')
   const [confirmError, setConfirmError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -86,14 +87,14 @@ export default function BookingConfirmationClient() {
     let active = true
     setRoom(fallbackRoom)
     setRoomMissing(Boolean(roomId && !staticRoom))
-    setIsResolvingRoom(Boolean(roomId && !staticRoom))
+    setIsResolvingRoom(shouldResolveBackendRoom || Boolean(roomId && !staticRoom))
 
     async function loadRoom() {
       const resolvedRoom = await resolveBookingRoom(roomId)
       if (!active) return
 
       setRoom(resolvedRoom ?? fallbackRoom)
-      setRoomMissing(Boolean(roomId && !resolvedRoom))
+      setRoomMissing(Boolean(roomId && (!resolvedRoom || !isNumericRoomId(resolvedRoom.id))))
       setIsResolvingRoom(false)
     }
 
@@ -102,7 +103,7 @@ export default function BookingConfirmationClient() {
     return () => {
       active = false
     }
-  }, [apiRoom, fallbackRoom, roomId, staticRoom])
+  }, [apiRoom, fallbackRoom, roomId, shouldResolveBackendRoom, staticRoom])
 
   const handleConfirm = async () => {
     if (isAuthLoading) {
@@ -120,7 +121,7 @@ export default function BookingConfirmationClient() {
       return
     }
 
-    if (!displayRoom.id || roomMissing) {
+    if (!displayRoom.id || roomMissing || !isNumericRoomId(displayRoom.id)) {
       setConfirmError('Vui lòng quay lại bước chọn phòng và chọn một phòng hợp lệ.')
       return
     }
@@ -530,4 +531,8 @@ function parseCsvParam(value: string | null) {
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean)
+}
+
+function isNumericRoomId(value: string | null | undefined) {
+  return Boolean(value && /^\d+$/.test(value))
 }
