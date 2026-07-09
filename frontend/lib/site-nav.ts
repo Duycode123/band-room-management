@@ -55,6 +55,17 @@ export function scrollToPageTop(behavior: ScrollBehavior = 'smooth') {
   window.scrollTo({ top: 0, behavior })
 }
 
+/** Clear homepage hash/section and scroll to the very top. */
+export function goToHomepageTop() {
+  if (typeof window === 'undefined') return
+
+  if (window.location.pathname !== '/' || window.location.hash || window.location.search) {
+    window.history.replaceState(window.history.state, '', '/')
+  }
+
+  window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+}
+
 export function getHomeSectionIdFromHref(href: string) {
   if (href.startsWith('/#')) return href.slice(2)
   if (href.startsWith('#')) return href.slice(1)

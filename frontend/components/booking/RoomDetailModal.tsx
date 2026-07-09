@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import HomepageModalShell, { ModalCloseButton } from '@/components/booking/HomepageModalShell'
+import HomepageModalShell from '@/components/booking/HomepageModalShell'
 import RoomReviewsSection from '@/components/booking/reviews/RoomReviewsSection'
 import {
   formatCurrency,
@@ -56,7 +56,6 @@ export default function RoomDetailModal({ room, open, onClose, onBook }: RoomDet
       open={open}
       onClose={onClose}
       labelledBy="room-detail-title"
-      closeLabel="Đóng chi tiết phòng"
       maxWidthClassName="max-w-[1040px]"
       bodyClassName="bg-[#F5F2EC] p-0"
     >
@@ -78,11 +77,6 @@ export default function RoomDetailModal({ room, open, onClose, onBook }: RoomDet
             </div>
           )}
           <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(4,42,22,0.86),rgba(4,42,22,0.2)_55%,rgba(4,42,22,0.1))]" />
-          <ModalCloseButton
-            onClick={onClose}
-            className="absolute right-4 top-4 rounded-full border-white/20 bg-white/95 text-[#1A1C1E] shadow-[0_12px_30px_rgba(0,0,0,0.18)] hover:bg-[#FFE8D6]"
-            label="Đóng chi tiết phòng"
-          />
           <div className="absolute inset-x-0 bottom-0 p-5 sm:p-7">
             <div className="mb-3 flex flex-wrap gap-2">
               <span className="rounded-full bg-[#FFE8D6] px-3 py-1 font-display text-xs font-bold uppercase text-[#042A16]">

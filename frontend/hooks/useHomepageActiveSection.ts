@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
+import { consumeForceHomepageTop } from '@/lib/navigation/scroll-restoration'
 import {
   getActiveHomeSectionFromScroll,
   readHomepageHashSection,
@@ -38,14 +39,27 @@ export function useHomepageActiveSection() {
       syncActiveSection()
     }
 
-    const hashSection = readHomepageHashSection()
-    if (hashSection) {
-      window.requestAnimationFrame(() => {
-        scrollToHomeSection(hashSection, 'instant')
-        syncActiveSection()
-      })
+    // Logo click asks for homepage top — never re-apply leftover #equipment / #process.
+    if (consumeForceHomepageTop()) {
+      if (window.location.hash) {
+        window.history.replaceState(window.history.state, '', '/')
+      }
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+      setActiveSection(null)
     } else {
-      syncActiveSection()
+      const hashSection = readHomepageHashSection()
+      if (hashSection) {
+        window.requestAnimationFrame(() => {
+          if (!readHomepageHashSection()) {
+            syncActiveSection()
+            return
+          }
+          scrollToHomeSection(hashSection, 'instant')
+          syncActiveSection()
+        })
+      } else {
+        syncActiveSection()
+      }
     }
 
     window.addEventListener('scroll', onScroll, { passive: true })

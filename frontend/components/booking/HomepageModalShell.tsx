@@ -9,7 +9,6 @@ type HomepageModalShellProps = {
   eyebrow?: string
   description?: string
   labelledBy?: string
-  closeLabel?: string
   maxWidthClassName?: string
   headerClassName?: string
   bodyClassName?: string
@@ -26,7 +25,6 @@ export default function HomepageModalShell({
   eyebrow,
   description,
   labelledBy,
-  closeLabel = 'Dong modal',
   maxWidthClassName = 'max-w-[1040px]',
   headerClassName = '',
   bodyClassName = '',
@@ -103,14 +101,10 @@ export default function HomepageModalShell({
         onClick={(event) => event.stopPropagation()}
       >
         {(title || eyebrow || description) && (
-          <header className={['sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[#E8E4DC] bg-white px-5 py-5 sm:px-6', headerClassName].join(' ')}>
-            <div>
-              {eyebrow && <p className="font-display text-xs font-bold uppercase tracking-[0.18em] text-[#FF7518]">{eyebrow}</p>}
-              {title && <h2 id={labelledBy} className="mt-1 font-display text-2xl font-bold tracking-tight text-[#1A1C1E]">{title}</h2>}
-              {description && <p className="mt-1 max-w-2xl text-sm leading-6 text-[#5C5348]">{description}</p>}
-            </div>
-
-            <ModalCloseButton onClick={requestClose} label={closeLabel} />
+          <header className={['sticky top-0 z-10 border-b border-[#E8E4DC] bg-white px-5 py-5 sm:px-6', headerClassName].join(' ')}>
+            {eyebrow && <p className="font-display text-xs font-bold uppercase tracking-[0.18em] text-[#FF7518]">{eyebrow}</p>}
+            {title && <h2 id={labelledBy} className="mt-1 font-display text-2xl font-bold tracking-tight text-[#1A1C1E]">{title}</h2>}
+            {description && <p className="mt-1 max-w-2xl text-sm leading-6 text-[#5C5348]">{description}</p>}
           </header>
         )}
 
@@ -176,21 +170,5 @@ export default function HomepageModalShell({
         }
       `}</style>
     </div>
-  )
-}
-
-export function ModalCloseButton({ onClick, className = '', label = 'Dong modal' }: { onClick: () => void; className?: string; label?: string }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#E8E4DC] bg-white text-lg leading-none text-[#5C5348] shadow-[0_8px_20px_rgba(26,28,30,0.08)] transition hover:bg-[#FAF8F4] hover:text-[#1A1C1E]',
-        className,
-      ].join(' ')}
-      aria-label={label}
-    >
-      X
-    </button>
   )
 }

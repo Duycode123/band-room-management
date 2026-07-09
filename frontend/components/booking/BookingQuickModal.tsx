@@ -172,7 +172,6 @@ export default function BookingQuickModal({
       description="Đặt phòng nhanh này đã bỏ add-on mock và chỉ giữ thông tin mà backend hiện đang xử lý được."
       maxWidthClassName="max-w-[720px]"
       bodyClassName="space-y-0 bg-white"
-      closeLabel="Đóng modal"
       footer={
         <div className="grid grid-cols-2 gap-3">
           <button
