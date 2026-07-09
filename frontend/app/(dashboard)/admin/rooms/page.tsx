@@ -46,6 +46,7 @@ import type {
 
 const DEFAULT_FILTERS: RoomFilters = {
   query: '',
+  roomTypeId: 'ALL',
   category: 'ALL',
   status: 'ALL',
   sortBy: 'updated',
@@ -74,10 +75,11 @@ function filterAndSortRooms(rooms: AdminRoom[], filters: RoomFilters) {
       normalize(room.name).includes(query) ||
       normalize(room.code).includes(query) ||
       normalize(room.categoryLabel).includes(query)
+    const matchRoomType = filters.roomTypeId === 'ALL' || room.roomTypeId === filters.roomTypeId
     const matchCategory = filters.category === 'ALL' || room.category === filters.category
     const matchStatus = filters.status === 'ALL' || room.status === filters.status
 
-    return matchQuery && matchCategory && matchStatus
+    return matchQuery && matchRoomType && matchCategory && matchStatus
   })
 
   return [...filtered].sort((a, b) => {
@@ -358,7 +360,7 @@ export default function AdminRoomsPage() {
             onDelete={handleDeleteRoomType}
           />
 
-          <RoomFiltersBar filters={filters} onChange={setFilters} resultCount={visibleRooms.length} />
+          <RoomFiltersBar filters={filters} roomTypes={roomTypes} onChange={setFilters} resultCount={visibleRooms.length} />
 
           <section>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

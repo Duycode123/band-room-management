@@ -1,16 +1,15 @@
 'use client'
 
 import { IconSearch } from '@/components/admin/AdminIcons'
-import type { RoomCategory, RoomFilters, RoomStatus } from '@/lib/admin/rooms/types'
+import type { AdminRoomTypeOption, RoomFilters, RoomStatus } from '@/lib/admin/rooms/types'
 import {
-  roomCategoryLabels,
-  roomCategoryOptions,
   roomStatusLabels,
   roomStatusOptions,
 } from '@/lib/admin/rooms/types'
 
 type RoomFiltersBarProps = {
   filters: RoomFilters
+  roomTypes: AdminRoomTypeOption[]
   onChange: (filters: RoomFilters) => void
   resultCount: number
 }
@@ -21,16 +20,17 @@ const inputClass =
 const labelClass =
   'mb-1.5 block font-display text-[10px] font-semibold uppercase tracking-[0.12em] text-on-surface-variant'
 
-export default function RoomFiltersBar({ filters, onChange, resultCount }: RoomFiltersBarProps) {
+export default function RoomFiltersBar({ filters, roomTypes, onChange, resultCount }: RoomFiltersBarProps) {
   const set = (patch: Partial<RoomFilters>) => onChange({ ...filters, ...patch })
 
   const hasActiveFilters =
     filters.query ||
+    filters.roomTypeId !== 'ALL' ||
     filters.category !== 'ALL' ||
     filters.status !== 'ALL' ||
     filters.sortBy !== 'updated'
 
-  const quickCategories: (RoomCategory | 'ALL')[] = ['ALL', 'standard', 'band', 'recording', 'premium']
+  const quickRoomTypes: Array<AdminRoomTypeOption | 'ALL'> = ['ALL', ...roomTypes.slice(0, 4)]
   const quickStatuses: (RoomStatus | 'ALL')[] = ['ALL', 'active', 'occupied', 'maintenance']
 
   return (
@@ -50,6 +50,7 @@ export default function RoomFiltersBar({ filters, onChange, resultCount }: RoomF
               onClick={() =>
                 onChange({
                   query: '',
+                  roomTypeId: 'ALL',
                   category: 'ALL',
                   status: 'ALL',
                   sortBy: 'updated',
@@ -80,26 +81,31 @@ export default function RoomFiltersBar({ filters, onChange, resultCount }: RoomF
 
         <div>
           <span className={labelClass}>Hạng phòng nhanh</span>
-          <div className="flex flex-wrap gap-2">
-            {quickCategories.map((category) => {
-              const active = filters.category === category
-              return (
-                <button
-                  key={category}
-                  type="button"
-                  onClick={() => set({ category })}
-                  className={[
-                    'rounded-full px-3 py-1.5 font-display text-xs font-medium transition-all',
-                    active
-                      ? 'bg-brand-orange text-white shadow-md shadow-brand-orange/25'
-                      : 'border border-outline-variant bg-surface-container-low text-on-surface-variant hover:border-brand-orange/30 hover:text-on-surface',
-                  ].join(' ')}
-                >
-                  {category === 'ALL' ? 'Tất cả' : roomCategoryLabels[category]}
-                </button>
-              )
-            })}
-          </div>
+          {roomTypes.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {quickRoomTypes.map((roomType) => {
+                const value = roomType === 'ALL' ? 'ALL' : roomType.id
+                const active = filters.roomTypeId === value
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => set({ roomTypeId: value, category: 'ALL' })}
+                    className={[
+                      'rounded-full px-3 py-1.5 font-display text-xs font-medium transition-all',
+                      active
+                        ? 'bg-brand-orange text-white shadow-md shadow-brand-orange/25'
+                        : 'border border-outline-variant bg-surface-container-low text-on-surface-variant hover:border-brand-orange/30 hover:text-on-surface',
+                    ].join(' ')}
+                  >
+                    {roomType === 'ALL' ? 'Tất cả' : roomType.label}
+                  </button>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-on-surface-variant">Chưa có hạng phòng trong hệ thống.</p>
+          )}
         </div>
 
         <div>
@@ -130,14 +136,14 @@ export default function RoomFiltersBar({ filters, onChange, resultCount }: RoomF
           <label className="block">
             <span className={labelClass}>Hạng phòng</span>
             <select
-              value={filters.category}
-              onChange={(e) => set({ category: e.target.value as RoomFilters['category'] })}
+              value={String(filters.roomTypeId)}
+              onChange={(e) => set({ roomTypeId: e.target.value === 'ALL' ? 'ALL' : Number(e.target.value), category: 'ALL' })}
               className={inputClass}
             >
               <option value="ALL">Tất cả</option>
-              {roomCategoryOptions.map((category) => (
-                <option key={category} value={category}>
-                  {roomCategoryLabels[category]}
+              {roomTypes.map((roomType) => (
+                <option key={roomType.id} value={roomType.id}>
+                  {roomType.label}
                 </option>
               ))}
             </select>
