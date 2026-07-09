@@ -104,6 +104,7 @@ export default function AdminEquipmentPage() {
     }),
     [rooms],
   )
+  const canCreateEquipment = rooms.length > 0
 
   const handleCreate = async (data: EquipmentFormData) => {
     await createAdminEquipment(data)
@@ -166,7 +167,9 @@ export default function AdminEquipmentPage() {
               <button
                 type="button"
                 onClick={() => setFormModal({ open: true, mode: 'create', data: createInitialForm() })}
-                className="inline-flex items-center gap-2 rounded-xl bg-brand-orange px-5 py-2.5 font-display text-sm font-medium text-white shadow-lg shadow-brand-orange/25 transition-all hover:bg-brand-orangeHover active:scale-[0.98]"
+                disabled={!canCreateEquipment}
+                title={canCreateEquipment ? 'Thêm thiết bị' : 'Cần tạo phòng trước khi thêm thiết bị'}
+                className="inline-flex items-center gap-2 rounded-xl bg-brand-orange px-5 py-2.5 font-display text-sm font-medium text-white shadow-lg shadow-brand-orange/25 transition-all hover:bg-brand-orangeHover active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <IconPlus className="h-4 w-4" />
                 Thêm mới

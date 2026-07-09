@@ -34,6 +34,7 @@ export default function RoomEquipmentManager({
   }, [equipment, selectedRoomId])
 
   const selectedRoomNumericId = selectedRoomId === 'ALL' ? null : Number(selectedRoomId)
+  const canCreateEquipment = rooms.length > 0
 
   const handleDelete = async (id: number) => {
     setDeletingId(id)
@@ -76,7 +77,9 @@ export default function RoomEquipmentManager({
           <button
             type="button"
             onClick={() => onCreate(selectedRoomNumericId)}
-            className="rounded-xl bg-brand-orange px-4 py-2.5 font-display text-sm font-medium text-white shadow-md shadow-brand-orange/20 transition-colors hover:bg-brand-orangeHover"
+            disabled={!canCreateEquipment}
+            title={canCreateEquipment ? 'Thêm thiết bị' : 'Cần tạo phòng trước khi thêm thiết bị'}
+            className="rounded-xl bg-brand-orange px-4 py-2.5 font-display text-sm font-medium text-white shadow-md shadow-brand-orange/20 transition-colors hover:bg-brand-orangeHover disabled:cursor-not-allowed disabled:opacity-50"
           >
             Thêm thiết bị
           </button>
@@ -99,7 +102,9 @@ export default function RoomEquipmentManager({
         <div className="px-6 py-10 text-center">
           <p className="font-display text-base font-bold text-on-surface">Chưa có thiết bị</p>
           <p className="mt-1 text-sm text-on-surface-variant">
-            Thêm thiết bị để danh sách phòng phản ánh đúng dữ liệu vận hành.
+            {canCreateEquipment
+              ? 'Thêm thiết bị để danh sách phòng phản ánh đúng dữ liệu vận hành.'
+              : 'Cần tạo phòng trước khi thêm thiết bị.'}
           </p>
         </div>
       ) : (
