@@ -49,10 +49,12 @@ export function RoomStatusBadge({
 
 export function RoomCategoryBadge({
   category,
+  label,
   size = 'sm',
   tone = 'default',
 }: {
   category: RoomCategory
+  label?: string
   size?: BadgeSize
   tone?: BadgeTone
 }) {
@@ -64,7 +66,7 @@ export function RoomCategoryBadge({
         tone === 'overlay' ? overlayToneClass : categoryStyles[category],
       ].join(' ')}
     >
-      {roomCategoryLabels[category]}
+      {label || roomCategoryLabels[category]}
     </span>
   )
 }

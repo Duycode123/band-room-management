@@ -214,7 +214,7 @@ export function mapBackendRoomToAdminRoom(
     roomTypeId: room.roomType?.id ?? null,
     roomTypeName: room.roomType?.typeName,
     category,
-    categoryLabel: getCategoryLabel(category),
+    categoryLabel: getRoomTypeName(room, category),
     capacity: getRoomCapacity(room, category),
     pricePerHour: getRoomPrice(room, category),
     status,

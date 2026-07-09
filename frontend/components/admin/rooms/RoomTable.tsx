@@ -92,7 +92,7 @@ export default function RoomTable({
                       </div>
                     </td>
                     <td className="px-4 py-4">
-                      <RoomCategoryBadge category={room.category} />
+                      <RoomCategoryBadge category={room.category} label={room.categoryLabel} />
                     </td>
                     <td className="px-4 py-4 text-sm font-medium text-on-surface">{room.capacity} người</td>
                     <td className="px-4 py-4 text-sm font-bold text-brand-orange">
@@ -162,7 +162,7 @@ export default function RoomTable({
                 <p className="font-display text-base font-bold text-on-surface">{room.name}</p>
                 <p className="mt-0.5 text-xs font-semibold text-brand-orange">{room.code}</p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  <RoomCategoryBadge category={room.category} />
+                  <RoomCategoryBadge category={room.category} label={room.categoryLabel} />
                   <RoomStatusBadge status={room.status} />
                 </div>
               </div>
