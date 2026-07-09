@@ -17,6 +17,31 @@ public interface EquipmentRepository extends JpaRepository<EquipmentJpaEntity, I
             select e
             from EquipmentJpaEntity e
             join fetch e.room r
+            order by r.roomName asc, e.name asc, e.id asc
+            """)
+    List<EquipmentJpaEntity> findAllWithRoom();
+
+    @Query("""
+            select e
+            from EquipmentJpaEntity e
+            join fetch e.room r
+            where r.id = :roomId
+            order by r.roomName asc, e.name asc, e.id asc
+            """)
+    List<EquipmentJpaEntity> findAllByRoomIdWithRoom(@Param("roomId") Integer roomId);
+
+    @Query("""
+            select e
+            from EquipmentJpaEntity e
+            join fetch e.room
+            where e.id = :equipmentId
+            """)
+    Optional<EquipmentJpaEntity> findDetailById(@Param("equipmentId") Integer equipmentId);
+
+    @Query("""
+            select e
+            from EquipmentJpaEntity e
+            join fetch e.room r
             where (:roomId is null or r.id = :roomId)
               and (:type is null or e.type = :type)
               and (:status is null or e.status = :status)
@@ -27,12 +52,4 @@ public interface EquipmentRepository extends JpaRepository<EquipmentJpaEntity, I
             @Param("type") EquipmentType type,
             @Param("status") EquipmentStatus status
     );
-
-    @Query("""
-            select e
-            from EquipmentJpaEntity e
-            join fetch e.room
-            where e.id = :equipmentId
-            """)
-    Optional<EquipmentJpaEntity> findDetailById(@Param("equipmentId") Integer equipmentId);
 }

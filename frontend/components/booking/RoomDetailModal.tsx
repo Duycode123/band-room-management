@@ -41,6 +41,33 @@ function getAvailabilityDescription(room: BookingRoom) {
   return 'Backend đang cho biết phòng đã kín lịch trong hôm nay. Bạn có thể chọn ngày khác để kiểm tra lại.'
 }
 
+function RatingStars({ rating }: { rating?: number }) {
+  const filledStars = typeof rating === 'number' ? Math.max(0, Math.min(5, Math.round(rating))) : 0
+  const label = typeof rating === 'number' ? `${rating.toFixed(1)} tren 5 sao` : 'Chua co danh gia'
+
+  return (
+    <div className="mt-1 flex items-center gap-1 text-xl" aria-label={label} title={label}>
+      {Array.from({ length: 5 }).map((_, index) => {
+        const isFilled = index < filledStars
+
+        return (
+          <span
+            key={index}
+            aria-hidden="true"
+            className={
+              isFilled
+                ? "text-[0px] before:text-xl before:text-[#FF7518] before:content-['\\2605']"
+                : "text-[0px] before:text-xl before:text-[#D8D1C7] before:content-['\\2605']"
+            }
+          >
+            ★
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function RoomDetailModal({ room, open, onClose, onBook }: RoomDetailModalProps) {
   if (!open || !room) return null
 
@@ -103,9 +130,10 @@ export default function RoomDetailModal({ room, open, onClose, onBook }: RoomDet
               <div className="grid gap-4 sm:grid-cols-3">
                 <div>
                   <p className="font-display text-xs font-bold uppercase text-[#5C5348]">Rating</p>
-                  <p className="mt-1 font-display text-xl font-bold text-[#1A1C1E]">
+                  <div className="hidden">
                     {typeof room.rating === 'number' ? `${room.rating.toFixed(1)}/5` : 'Chưa có'}
-                  </p>
+                  </div>
+                  <RatingStars rating={room.rating} />
                 </div>
                 <div>
                   <p className="font-display text-xs font-bold uppercase text-[#5C5348]">Sức chứa</p>

@@ -22,8 +22,6 @@ type RoomFormModalProps = {
 const inputClass =
   'h-11 w-full rounded-xl border border-outline bg-surface-container-lowest px-3 text-sm text-on-surface outline-none transition-all focus:border-brand-orange focus:bg-white focus:ring-2 focus:ring-brand-orange/15'
 
-const readonlyClass = `${inputClass} cursor-not-allowed opacity-70`
-
 const labelClass =
   'mb-1.5 block font-display text-[10px] font-semibold uppercase tracking-[0.12em] text-on-surface-variant'
 
@@ -158,19 +156,10 @@ export default function RoomFormModal({
             <h2 id="room-form-title" className="font-display text-xl font-bold">
               {mode === 'create' ? 'Thêm phòng tập mới' : 'Cập nhật phòng tập'}
             </h2>
-            <p className="mt-1 text-xs text-inverse-on-surface/80">
-              Đồng bộ dữ liệu phòng với hệ thống thay vì chỉ chỉnh sửa dữ liệu tạm trên giao diện.
-            </p>
           </header>
 
           <form onSubmit={(event) => void handleSubmit(event)} className="flex flex-1 flex-col overflow-hidden">
             <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
-              <div className="rounded-2xl border border-brand-orange/20 bg-primary-container/30 px-4 py-3 text-xs leading-6 text-on-surface-variant">
-                Hệ thống hiện lưu <strong>tên phòng</strong>, <strong>hạng phòng</strong>, <strong>sức chứa</strong>,
-                <strong> trạng thái</strong> và <strong>đường dẫn ảnh</strong>.
-                Mã phòng được sinh theo ID hệ thống, giá theo giờ vẫn đi theo hạng phòng.
-              </div>
-
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
                   <span className={labelClass}>
@@ -187,21 +176,6 @@ export default function RoomFormModal({
                   {errors.name && <p className="mt-1 text-xs text-error">{errors.name}</p>}
                 </label>
 
-                <label className="block">
-                  <span className={labelClass}>Mã phòng</span>
-                  <input
-                    type="text"
-                    value={form.code}
-                    readOnly
-                    disabled
-                    className={readonlyClass}
-                    placeholder="Sẽ sinh tự động sau khi tạo"
-                  />
-                  <p className="mt-1 text-[11px] text-on-surface-variant">Trường này chỉ để hiển thị.</p>
-                </label>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
                   <span className={labelClass}>
                     Hạng phòng <span className="text-error">*</span>
@@ -232,7 +206,9 @@ export default function RoomFormModal({
                   </select>
                   {errors.category && <p className="mt-1 text-xs text-error">{errors.category}</p>}
                 </label>
+              </div>
 
+              <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
                   <span className={labelClass}>
                     Trạng thái <span className="text-error">*</span>
@@ -250,67 +226,32 @@ export default function RoomFormModal({
                   </select>
                   {errors.status && <p className="mt-1 text-xs text-error">{errors.status}</p>}
                 </label>
-              </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
                   <span className={labelClass}>Sức chứa</span>
                   <input
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={form.capacity}
-                    onChange={(event) => set({ capacity: Number(event.target.value) })}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={form.capacity === 0 ? '' : String(form.capacity)}
+                    onChange={(event) => {
+                      const digits = event.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '')
+                      set({ capacity: digits ? Number(digits) : 0 })
+                    }}
+                    onBlur={() => {
+                      if (form.capacity < 1) set({ capacity: 1 })
+                      if (form.capacity > 100) set({ capacity: 100 })
+                    }}
                     className={inputClass}
                   />
-                  <p className="mt-1 text-[11px] text-on-surface-variant">Lưu trực tiếp vào trường sức chứa tối đa của phòng.</p>
                   {errors.capacity && <p className="mt-1 text-xs text-error">{errors.capacity}</p>}
                 </label>
-
-                <label className="block">
-                  <span className={labelClass}>Giá/giờ (VND)</span>
-                  <input type="number" value={form.pricePerHour} readOnly disabled className={readonlyClass} />
-                  <p className="mt-1 text-[11px] text-on-surface-variant">Đồng bộ từ hạng phòng trên hệ thống.</p>
-                </label>
               </div>
-
-              <label className="block">
-                <span className={labelClass}>Thiết bị trong phòng</span>
-                <textarea
-                  value={form.equipments}
-                  readOnly
-                  disabled
-                  rows={4}
-                  className="w-full cursor-not-allowed rounded-xl border border-outline bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface opacity-70 outline-none transition-all"
-                  placeholder="Chưa lưu qua hệ thống"
-                />
-                <p className="mt-1 text-[11px] text-on-surface-variant">Chỉ để tham chiếu hiển thị.</p>
-              </label>
-
-              <label className="block">
-                <span className={labelClass}>Mô tả</span>
-                <textarea
-                  value={form.description}
-                  readOnly
-                  disabled
-                  rows={3}
-                  maxLength={500}
-                  className="w-full cursor-not-allowed rounded-xl border border-outline bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface opacity-70 outline-none transition-all"
-                  placeholder="Hệ thống chưa lưu mô tả phòng trong luồng này"
-                />
-                <p className="mt-1 text-right text-[10px] text-on-surface-variant">{form.description.length}/500</p>
-                <p className="mt-1 text-[11px] text-on-surface-variant">Chỉ để tham chiếu hiển thị.</p>
-                {errors.description && <p className="mt-1 text-xs text-error">{errors.description}</p>}
-              </label>
 
               <div className="grid gap-4 sm:grid-cols-[180px_1fr]">
                 <div className="overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-low">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={form.image || '/images/band-room-hero.png'}
-                    alt=""
-                    className="h-36 w-full object-cover"
-                  />
+                  <img src={form.image || '/images/band-room-hero.png'} alt="" className="h-36 w-full object-cover" />
                 </div>
 
                 <div className="space-y-3">
@@ -324,7 +265,7 @@ export default function RoomFormModal({
                       className="block w-full text-sm text-on-surface-variant file:mr-3 file:rounded-xl file:border-0 file:bg-brand-orange file:px-4 file:py-2.5 file:font-display file:text-sm file:font-medium file:text-white hover:file:bg-brand-orangeHover disabled:opacity-60"
                     />
                     <p className="mt-1 text-[11px] text-on-surface-variant">
-                      {isUploadingImage ? 'Đang tải ảnh lên...' : 'Tối đa 5MB. Link trả về sẽ được lưu cùng phòng.'}
+                      {isUploadingImage ? 'Đang tải ảnh lên...' : 'Tối đa 5MB.'}
                     </p>
                   </label>
 

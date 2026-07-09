@@ -2,7 +2,9 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 const LOGIN_PATH = '/login'
 const HOME_PATH = '/'
-const AUTH_COOKIE_NAMES = ['access_token', 'refresh_token']
+const ACCESS_COOKIE_NAME = 'access_token'
+const AUTH_COOKIE_NAMES = [ACCESS_COOKIE_NAME, 'refresh_token']
+const TOKEN_EXPIRY_SKEW_SECONDS = 5
 
 function hasAuthCookie(request: NextRequest) {
   return AUTH_COOKIE_NAMES.some((name) => request.cookies.has(name))
@@ -15,17 +17,23 @@ function decodeJwtPayload(token: string) {
 
     const normalized = parts[1].replace(/-/g, '+').replace(/_/g, '/')
     const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=')
-    return JSON.parse(atob(padded)) as { role?: string }
+    return JSON.parse(atob(padded)) as { exp?: number; role?: string }
   } catch {
     return null
   }
 }
 
-function getRoleFromAccessToken(request: NextRequest) {
-  const token = request.cookies.get('access_token')?.value
-  if (!token) return null
+function getAccessTokenPayload(request: NextRequest) {
+  const token = request.cookies.get(ACCESS_COOKIE_NAME)?.value
+  return token ? decodeJwtPayload(token) : null
+}
 
-  const payload = decodeJwtPayload(token)
+function isExpired(payload: { exp?: number } | null) {
+  if (!payload?.exp) return true
+  return payload.exp <= Math.floor(Date.now() / 1000) + TOKEN_EXPIRY_SKEW_SECONDS
+}
+
+function getRoleFromPayload(payload: { role?: string } | null) {
   return payload?.role?.trim().toUpperCase() ?? null
 }
 
@@ -49,8 +57,13 @@ export function proxy(request: NextRequest) {
     return redirectToLogin(request)
   }
 
+  const accessTokenPayload = getAccessTokenPayload(request)
+  if (isExpired(accessTokenPayload)) {
+    return redirectToLogin(request)
+  }
+
   if (request.nextUrl.pathname.startsWith('/admin')) {
-    const role = getRoleFromAccessToken(request)
+    const role = getRoleFromPayload(accessTokenPayload)
     if (role !== 'ADMIN') {
       return redirectUnauthorized(request)
     }

@@ -23,6 +23,17 @@ function clearClientUserCaches() {
   keys.forEach((key) => window.localStorage.removeItem(key))
 }
 
+function getSameOriginRedirectUrl(redirectTo: string) {
+  if (typeof window === 'undefined') return redirectTo
+
+  try {
+    const url = new URL(redirectTo, window.location.origin)
+    return `${url.pathname}${url.search}${url.hash}`
+  } catch {
+    return '/login'
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -61,7 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false)
 
       if (redirectTo && typeof window !== 'undefined') {
-        window.location.assign(redirectTo)
+        window.location.assign(getSameOriginRedirectUrl(redirectTo))
         return
       }
 

@@ -1,6 +1,7 @@
 package backend.exception;
 
 import backend.common.ApiResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -109,11 +110,16 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(DataAccessException.class)
-    public ResponseEntity<ApiResponse<String>> handleDataAccessException(DataAccessException ex) {
+    public ResponseEntity<ApiResponse<String>> handleDataAccessException(DataAccessException ex, HttpServletRequest request) {
+        String method = request == null ? "" : request.getMethod();
+        String message = "GET".equalsIgnoreCase(method)
+                ? "Không thể tải dữ liệu. Vui lòng thử lại."
+                : "Không thể lưu dữ liệu. Vui lòng thử lại.";
+
         return ResponseEntity.internalServerError().body(
                 ApiResponse.<String>builder()
                         .success(false)
-                        .message("Không thể lưu dữ liệu. Vui lòng thử lại.")
+                        .message(message)
                         .data(null)
                         .build()
         );

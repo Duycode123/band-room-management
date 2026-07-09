@@ -46,6 +46,7 @@ import type {
 
 const DEFAULT_FILTERS: RoomFilters = {
   query: '',
+  roomTypeId: 'ALL',
   category: 'ALL',
   status: 'ALL',
   sortBy: 'updated',
@@ -74,10 +75,11 @@ function filterAndSortRooms(rooms: AdminRoom[], filters: RoomFilters) {
       normalize(room.name).includes(query) ||
       normalize(room.code).includes(query) ||
       normalize(room.categoryLabel).includes(query)
+    const matchRoomType = filters.roomTypeId === 'ALL' || room.roomTypeId === filters.roomTypeId
     const matchCategory = filters.category === 'ALL' || room.category === filters.category
     const matchStatus = filters.status === 'ALL' || room.status === filters.status
 
-    return matchQuery && matchCategory && matchStatus
+    return matchQuery && matchRoomType && matchCategory && matchStatus
   })
 
   return [...filtered].sort((a, b) => {
@@ -121,17 +123,24 @@ export default function AdminRoomsPage() {
   const loadRooms = useCallback(async () => {
     setIsLoading(true)
     try {
-      const [data, typeData, equipmentData] = await Promise.all([
+      const [data, typeData] = await Promise.all([
         getAdminRooms(),
         getAdminRoomTypes().catch(() => []),
-        fetchAdminEquipment({
+      ])
+
+      let equipmentData: AdminEquipment[] = []
+      try {
+        equipmentData = await fetchAdminEquipment({
           query: '',
           equipmentType: 'ALL',
           status: 'ALL',
           sortBy: 'room',
           sortOrder: 'asc',
-        }).catch(() => []),
-      ])
+        })
+      } catch (error) {
+        setToast(error instanceof Error ? error.message : 'KhÃ´ng thá»ƒ táº£i danh sÃ¡ch thiáº¿t bá»‹.')
+      }
+
       setEquipment(equipmentData)
       const roomsWithEquipment = applyEquipmentToRooms(data, equipmentData)
       setRooms(roomsWithEquipment)
@@ -165,16 +174,11 @@ export default function AdminRoomsPage() {
   const stats = useMemo(() => {
     const active = rooms.filter((room) => room.status === 'active' || room.status === 'occupied').length
     const maintenance = rooms.filter((room) => room.status === 'maintenance').length
-    const occupancy =
-      rooms.length > 0
-        ? Math.round(rooms.reduce((total, room) => total + room.occupancyRateToday, 0) / rooms.length)
-        : 0
 
     return {
       total: rooms.length,
       active,
       maintenance,
-      occupancy,
     }
   }, [rooms])
 
@@ -191,7 +195,7 @@ export default function AdminRoomsPage() {
     if (!updated) throw new Error('Không tìm thấy phòng tập.')
 
     setToast('Cập nhật phòng tập thành công.')
-    setSelected(updated)
+    setSelected((current) => (current?.id === updated.id ? updated : current))
     await loadRooms()
   }
 
@@ -275,7 +279,7 @@ export default function AdminRoomsPage() {
         <AdminPageHeader
           eyebrow="Quản lý phòng"
           title="Quản lý phòng tập"
-          description="Theo dõi danh sách phòng, trạng thái vận hành, lịch hôm nay và thao tác nhanh cho đội ngũ quản trị BandSpace."
+          description="Theo dõi danh sách phòng, hạng phòng, trạng thái vận hành và thiết bị cho đội ngũ quản trị BandSpace."
           breadcrumbs={[
             { label: 'Tổng quan', href: '/admin/dashboard' },
             { label: 'Phòng tập' },
@@ -319,7 +323,7 @@ export default function AdminRoomsPage() {
         <div className="mx-auto max-w-7xl space-y-6 px-5 py-6 sm:px-8">
           <AdminToast message={toast} onDismiss={() => setToast('')} />
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <AdminStatCard
               label="Tổng số phòng"
               value={stats.total}
@@ -340,13 +344,6 @@ export default function AdminRoomsPage() {
               accent="tertiary"
               icon={<span className="text-base">⚙</span>}
             />
-            <AdminStatCard
-              label="Tỷ lệ lấp đầy hôm nay"
-              value={`${stats.occupancy}%`}
-              hint="Trung bình toàn bộ phòng"
-              accent="primary"
-              icon={<span className="text-base">%</span>}
-            />
           </div>
 
           <RoomTierManager
@@ -358,14 +355,14 @@ export default function AdminRoomsPage() {
             onDelete={handleDeleteRoomType}
           />
 
-          <RoomFiltersBar filters={filters} onChange={setFilters} resultCount={visibleRooms.length} />
+          <RoomFiltersBar filters={filters} roomTypes={roomTypes} onChange={setFilters} resultCount={visibleRooms.length} />
 
           <section>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="font-display text-lg font-bold text-on-surface">Danh sách phòng tập</h2>
                 <p className="text-xs text-on-surface-variant">
-                  Quản lý trạng thái, giá thuê, thiết bị và lịch sử dụng trong ngày.
+                  Quản lý trạng thái, giá thuê và thiết bị gắn với từng phòng tập.
                 </p>
               </div>
               <p className="text-xs text-on-surface-variant">Chọn &quot;Chi tiết&quot; để mở hồ sơ phòng</p>

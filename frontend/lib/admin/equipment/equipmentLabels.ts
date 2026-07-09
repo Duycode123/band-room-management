@@ -2,7 +2,7 @@ import type { EquipmentStatus, EquipmentType } from './types'
 
 export const EQUIPMENT_TYPE_LABELS: Record<EquipmentType, string> = {
   AMP: 'Ampli',
-  MIXER: 'Bàn trộn',
+  MIXER: 'Mixer',
   MIC: 'Micro',
   DRUM: 'Trống',
   GUITAR: 'Guitar',

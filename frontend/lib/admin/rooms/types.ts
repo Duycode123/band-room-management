@@ -28,6 +28,7 @@ export type AdminRoom = {
 
 export type RoomFilters = {
   query: string
+  roomTypeId: number | 'ALL'
   category: RoomCategory | 'ALL'
   status: RoomStatus | 'ALL'
   sortBy: 'updated' | 'price-asc' | 'price-desc' | 'capacity'

@@ -67,8 +67,6 @@ export default function StaffSettingsPage() {
   const [isNotificationLoading, setIsNotificationLoading] = useState(true)
   const [savingNotificationKey, setSavingNotificationKey] = useState<keyof StaffNotificationSettings | null>(null)
   const [isPasswordSaving, setIsPasswordSaving] = useState(false)
-  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false)
-  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   const cardPadding = appearance.displayDensity === 'compact' ? 'p-4 sm:p-5' : 'p-5 sm:p-6'
   const profileInitials = useMemo(() => getInitials(profile.fullName || profile.email || getDisplayName(user)), [profile.email, profile.fullName, user])
@@ -240,17 +238,6 @@ export default function StaffSettingsPage() {
     showToast('success', 'Đã lưu tùy chọn giao diện.')
   }
 
-  const handleLogout = async () => {
-    setIsLoggingOut(true)
-    try {
-      clearStaffAuthCaches()
-      await logout('/login')
-    } finally {
-      setIsLoggingOut(false)
-      setIsLogoutConfirmOpen(false)
-    }
-  }
-
   return (
     <AuthGuard allowedRoles={['STAFF']}>
       <StaffPageShell>
@@ -400,33 +387,7 @@ export default function StaffSettingsPage() {
           </SettingsCard>
         )}
 
-        <SettingsCard title="Phiên đăng nhập" description="Đăng xuất khỏi tài khoản nhân viên trên thiết bị này." paddingClassName={cardPadding}>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="font-display text-base font-bold text-on-surface">{getDisplayName({ ...user, fullName: profile.fullName || user?.fullName })}</p>
-              <p className="mt-1 text-sm text-on-surface-variant">{profile.email || user?.email || 'Chưa cập nhật'}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsLogoutConfirmOpen(true)}
-              className="inline-flex min-h-11 items-center justify-center rounded-[14px] border border-error-container bg-error-container px-5 font-display text-sm font-bold text-on-error-container transition hover:border-error hover:bg-[#FFE1E1]"
-            >
-              Đăng xuất
-            </button>
-          </div>
-        </SettingsCard>
-
         {toast && <Toast message={toast.text} />}
-        {isLogoutConfirmOpen && (
-          <ConfirmDialog
-            title="Đăng xuất tài khoản?"
-            description="Bạn sẽ cần đăng nhập lại để tiếp tục sử dụng trang nhân viên."
-            confirmLabel={isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'}
-            onCancel={() => setIsLogoutConfirmOpen(false)}
-            onConfirm={handleLogout}
-            disabled={isLoggingOut}
-          />
-        )}
         </div>
       </StaffPageShell>
     </AuthGuard>
@@ -518,49 +479,6 @@ function MessageBox({ type, message }: { type: ToastState['type']; message: stri
   return (
     <div className={['rounded-2xl border px-4 py-3 text-sm font-semibold', isError ? 'border-error-container bg-error-container text-on-error-container' : 'border-[#CDE9D6] bg-[#E8F5EC] text-secondary'].join(' ')}>
       {message}
-    </div>
-  )
-}
-
-function ConfirmDialog({
-  title,
-  description,
-  confirmLabel,
-  disabled,
-  onCancel,
-  onConfirm,
-}: {
-  title: string
-  description: string
-  confirmLabel: string
-  disabled?: boolean
-  onCancel: () => void
-  onConfirm: () => void
-}) {
-  return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#042A16]/50 p-4 backdrop-blur-sm" onClick={onCancel}>
-      <div className="w-full max-w-md rounded-3xl border border-outline-variant bg-white p-6 shadow-[var(--band-shadow-elevated)]" onClick={(event) => event.stopPropagation()}>
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-error-container text-error">
-          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden="true">
-            <path d="M12 8v5M12 17h.01M10.2 4.7 2.8 18a2 2 0 0 0 1.8 3h14.8a2 2 0 0 0 1.8-3L13.8 4.7a2 2 0 0 0-3.6 0Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </div>
-        <h2 className="mt-5 font-display text-xl font-bold text-on-surface">{title}</h2>
-        <p className="mt-2 text-sm leading-6 text-on-surface-variant">{description}</p>
-        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onCancel} disabled={disabled} className="btn-secondary disabled:cursor-not-allowed disabled:opacity-70">
-            Hủy
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={disabled}
-            className="inline-flex min-h-11 items-center justify-center rounded-[14px] bg-error px-5 font-display text-sm font-bold text-white shadow-[var(--band-shadow-card)] transition hover:bg-[#A61F1F] disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {confirmLabel}
-          </button>
-        </div>
-      </div>
     </div>
   )
 }

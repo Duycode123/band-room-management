@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import {
   EQUIPMENT_STATUS_LABELS,
   EQUIPMENT_STATUS_OPTIONS,
@@ -20,7 +20,7 @@ type EquipmentFormModalProps = {
 }
 
 const inputClass =
-  'h-11 w-full rounded-xl border border-outline bg-surface-container-lowest px-3 text-sm text-on-surface outline-none transition-all focus:border-brand-orange focus:bg-white focus:ring-2 focus:ring-brand-orange/15'
+  'h-11 w-full rounded-xl border border-outline bg-surface-container-lowest px-3 text-sm text-on-surface outline-none transition-all focus:border-brand-orange focus:bg-white focus:ring-2 focus:ring-brand-orange/15 disabled:cursor-not-allowed disabled:opacity-60'
 
 const labelClass =
   'mb-1.5 block font-display text-[10px] font-semibold uppercase tracking-[0.12em] text-on-surface-variant'
@@ -44,14 +44,21 @@ export default function EquipmentFormModal({
     setForm(initialData)
     setErrors({})
     setServerError('')
+    setIsSaving(false)
   }, [initialData, open])
 
   if (!open) return null
 
+  const hasRooms = rooms.length > 0
   const set = (patch: Partial<EquipmentFormData>) => setForm((currentForm) => ({ ...currentForm, ...patch }))
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+
+    if (!hasRooms) {
+      setErrors({ roomId: 'Cần tạo phòng trước khi thêm thiết bị.' })
+      return
+    }
 
     const validationErrors = validateEquipmentForm(form)
     if (Object.keys(validationErrors).length > 0) {
@@ -90,19 +97,12 @@ export default function EquipmentFormModal({
           className="flex max-h-[92vh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl border border-outline-variant bg-white shadow-[var(--shadow-elevated)] sm:rounded-3xl"
         >
           <header className="relative overflow-hidden border-b border-outline-variant bg-gradient-to-r from-brand-greenDark to-brand-greenLight px-6 py-5 text-white">
-            <div
-              aria-hidden
-              className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-brand-orange/20 blur-2xl"
-            />
-            <p className="relative font-display text-[10px] font-medium uppercase tracking-[0.15em] text-brand-orange">
+            <p className="font-display text-[10px] font-medium uppercase tracking-[0.15em] text-brand-orange">
               {mode === 'create' ? 'Thêm mới' : 'Chỉnh sửa'}
             </p>
-            <h2 id="equipment-form-title" className="relative font-display text-xl font-bold">
+            <h2 id="equipment-form-title" className="font-display text-xl font-bold">
               {mode === 'create' ? 'Thêm thiết bị mới' : 'Cập nhật thiết bị'}
             </h2>
-            <p className="relative mt-1 text-xs text-inverse-on-surface/80">
-              Đồng bộ trực tiếp với API quản lý thiết bị của hệ thống.
-            </p>
           </header>
 
           <form onSubmit={(event) => void handleSubmit(event)} className="flex flex-1 flex-col overflow-hidden">
@@ -114,9 +114,10 @@ export default function EquipmentFormModal({
                 <select
                   value={form.roomId ?? ''}
                   onChange={(event) => set({ roomId: Number(event.target.value) || null })}
+                  disabled={!hasRooms || isSaving}
                   className={inputClass}
                 >
-                  <option value="">Chọn phòng</option>
+                  <option value="">{hasRooms ? 'Chọn phòng' : 'Chưa có phòng để chọn'}</option>
                   {rooms.map((room) => (
                     <option key={room.roomId} value={room.roomId}>
                       {room.roomName}
@@ -134,6 +135,7 @@ export default function EquipmentFormModal({
                   type="text"
                   value={form.equipmentName}
                   onChange={(event) => set({ equipmentName: event.target.value })}
+                  disabled={isSaving}
                   className={inputClass}
                   placeholder="VD: Marshall MG30"
                 />
@@ -148,6 +150,7 @@ export default function EquipmentFormModal({
                   <select
                     value={form.equipmentType}
                     onChange={(event) => set({ equipmentType: event.target.value as EquipmentFormData['equipmentType'] })}
+                    disabled={isSaving}
                     className={inputClass}
                   >
                     {EQUIPMENT_TYPE_OPTIONS.map((type) => (
@@ -165,6 +168,7 @@ export default function EquipmentFormModal({
                   <select
                     value={form.status}
                     onChange={(event) => set({ status: event.target.value as EquipmentFormData['status'] })}
+                    disabled={isSaving}
                     className={inputClass}
                   >
                     {EQUIPMENT_STATUS_OPTIONS.map((status) => (
@@ -181,9 +185,10 @@ export default function EquipmentFormModal({
                 <textarea
                   value={form.notes}
                   onChange={(event) => set({ notes: event.target.value })}
+                  disabled={isSaving}
                   rows={4}
                   maxLength={1000}
-                  className="w-full rounded-xl border border-outline bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface outline-none transition-all focus:border-brand-orange focus:bg-white focus:ring-2 focus:ring-brand-orange/15"
+                  className="w-full rounded-xl border border-outline bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface outline-none transition-all focus:border-brand-orange focus:bg-white focus:ring-2 focus:ring-brand-orange/15 disabled:cursor-not-allowed disabled:opacity-60"
                   placeholder="Mô tả nhanh tình trạng hoặc cách sử dụng..."
                 />
                 <p className="mt-1 text-right text-[10px] text-on-surface-variant">{form.notes.length}/1000</p>
@@ -208,7 +213,7 @@ export default function EquipmentFormModal({
               </button>
               <button
                 type="submit"
-                disabled={isSaving}
+                disabled={isSaving || !hasRooms}
                 className="rounded-xl bg-brand-orange px-5 py-2.5 font-display text-sm font-medium text-white shadow-md shadow-brand-orange/20 hover:bg-brand-orangeHover disabled:opacity-50"
               >
                 {isSaving ? 'Đang lưu...' : 'Lưu thiết bị'}
