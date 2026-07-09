@@ -1,6 +1,6 @@
 package backend.staff.application.port.in.command;
 
-public record DeleteStaffAccountCommand(
+public record DisableStaffAccountCommand(
         Integer staffId
 ) {
 }

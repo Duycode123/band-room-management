@@ -3,6 +3,7 @@ package backend.staff.application.port.out;
 import backend.entity.Staff;
 import backend.entity.User;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface StaffAccountPort {
@@ -12,9 +13,9 @@ public interface StaffAccountPort {
 
     Optional<Staff> loadStaffById(Integer staffId);
 
+    List<Staff> loadAllStaff();
+
     User saveAccount(User account);
 
     Staff saveStaff(Staff staff);
-
-    void deleteStaffAndAccount(Staff staff, User account);
 }

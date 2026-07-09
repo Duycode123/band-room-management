@@ -131,6 +131,10 @@ public class AuthUseCaseService implements
         User user = authAccountPort.loadUserByEmail(email)
                 .orElseThrow(() -> new BadCredentialsException("Tai khoan hoac mat khau khong chinh xac"));
 
+        if (!user.isEnabled()) {
+            throw new AuthException("Tai khoan da bi vo hieu hoa.");
+        }
+
         if (!user.isEmailVerified()) {
             throw new AuthException("Vui long xac thuc email truoc khi dang nhap.");
         }
@@ -161,6 +165,10 @@ public class AuthUseCaseService implements
 
         User user = authAccountPort.loadUserByEmail(email)
                 .orElseThrow(() -> new BadCredentialsException("Tai khoan khong con ton tai"));
+
+        if (!user.isEnabled()) {
+            throw new BadCredentialsException("Tai khoan da bi vo hieu hoa");
+        }
 
         if (!authSecurityPort.isRefreshTokenValid(refreshToken, user)) {
             throw new BadCredentialsException("Refresh token khong hop le hoac da het han");

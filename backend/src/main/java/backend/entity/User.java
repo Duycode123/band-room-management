@@ -49,6 +49,10 @@ public class User implements UserDetails {
     @Builder.Default
     private boolean emailVerified = false;
 
+    @Column(name = "enabled", nullable = false)
+    @Builder.Default
+    private boolean enabled = true;
+
     @Column(name = "email_verification_token_hash", unique = true)
     private String emailVerificationTokenHash;
 
@@ -91,6 +95,6 @@ public class User implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        return enabled;
     }
 }
