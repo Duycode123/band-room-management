@@ -16,6 +16,7 @@ import { usePublicRoomCatalog } from '@/hooks/usePublicRoomCatalog'
 import { fetchAvailableSlots } from '@/lib/booking/bookingApi'
 import type { TimeSlot } from '@/lib/booking/types'
 import { fetchRoomTypes, type BackendRoomType } from '@/lib/rooms-api'
+import { getPublicRoomTierLabel, inferRoomCategoryFromTypeName } from '@/lib/room-mappers'
 import {
   filterRooms,
   getAvailabilityLabel,
@@ -240,7 +241,13 @@ export default function RoomsPublicPage() {
               onChange={(value) => updateFilter('roomTierId', value)}
               options={[
                 { value: 'all', label: 'Tất cả loại phòng' },
-                ...roomTiers.map((tier) => ({ value: String(tier.id), label: tier.typeName })),
+                ...roomTiers.map((tier) => ({
+                  value: String(tier.id),
+                  label: getPublicRoomTierLabel(tier.typeName, {
+                    category: inferRoomCategoryFromTypeName(`${tier.typeName} ${tier.description ?? ''}`),
+                    capacity: tier.capacity,
+                  }),
+                })),
               ]}
             />
             <FilterSelect
