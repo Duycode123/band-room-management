@@ -13,7 +13,7 @@ type AdminPageHeaderProps = {
 }
 
 export default function AdminPageHeader({
-  eyebrow = 'Quản trị',
+  eyebrow = 'Admin',
   title,
   description,
   breadcrumbs,

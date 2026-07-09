@@ -13,7 +13,7 @@ export function getDisplayName(user?: Partial<AuthUser> | null) {
 }
 
 export function getRoleLabel(role?: UserRole | string | null) {
-  if (role === 'ADMIN') return 'Quản trị viên'
+  if (role === 'ADMIN') return 'Admin'
   if (role === 'STAFF') return 'Nhân viên'
   if (role === 'CUSTOMER') return 'Khách hàng'
   return 'Nhân viên'

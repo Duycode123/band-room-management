@@ -4,7 +4,6 @@ import { useState, type ReactNode } from 'react'
 import {
   IconBookings,
   IconClock,
-  IconClose,
   IconEquipment,
   IconRooms,
   IconUsers,
@@ -65,7 +64,7 @@ export default function BookingDetailPanel({ booking, onClose, onStatusChange }:
             className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-brand-orange/25 blur-3xl"
           />
           <div className="relative px-5 pb-5 pt-4">
-            <div className="mb-4 flex items-start justify-between gap-3">
+            <div className="mb-4">
               <div>
                 <p className="font-display text-[10px] font-semibold uppercase tracking-[0.18em] text-brand-orange">
                   Chi tiết đơn đặt
@@ -73,14 +72,6 @@ export default function BookingDetailPanel({ booking, onClose, onStatusChange }:
                 <h2 className="mt-1 font-display text-2xl font-bold leading-tight">{booking.bookingCode}</h2>
                 <p className="mt-1 text-sm text-inverse-on-surface/85">{booking.customerName}</p>
               </div>
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Đóng"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20"
-              >
-                <IconClose className="h-4 w-4" />
-              </button>
             </div>
 
             <div className="flex flex-wrap gap-2">
