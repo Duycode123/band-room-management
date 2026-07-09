@@ -16,25 +16,30 @@ const categoryStyles: Record<RoomCategory, string> = {
 }
 
 type BadgeSize = 'sm' | 'md'
+type BadgeTone = 'default' | 'overlay'
 
 const sizeClass: Record<BadgeSize, string> = {
   sm: 'px-2 py-1 text-[10px]',
   md: 'px-3 py-1.5 text-xs',
 }
 
+const overlayToneClass = 'border-white/35 bg-black/45 text-white backdrop-blur-sm'
+
 export function RoomStatusBadge({
   status,
   size = 'sm',
+  tone = 'default',
 }: {
   status: RoomStatus
   size?: BadgeSize
+  tone?: BadgeTone
 }) {
   return (
     <span
       className={[
         'inline-flex items-center rounded-full border font-display font-semibold',
         sizeClass[size],
-        statusStyles[status],
+        tone === 'overlay' ? overlayToneClass : statusStyles[status],
       ].join(' ')}
     >
       {roomStatusLabels[status]}
@@ -45,16 +50,18 @@ export function RoomStatusBadge({
 export function RoomCategoryBadge({
   category,
   size = 'sm',
+  tone = 'default',
 }: {
   category: RoomCategory
   size?: BadgeSize
+  tone?: BadgeTone
 }) {
   return (
     <span
       className={[
         'inline-flex items-center rounded-full border font-display font-semibold',
         sizeClass[size],
-        categoryStyles[category],
+        tone === 'overlay' ? overlayToneClass : categoryStyles[category],
       ].join(' ')}
     >
       {roomCategoryLabels[category]}

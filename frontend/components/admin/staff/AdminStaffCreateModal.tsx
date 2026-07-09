@@ -58,7 +58,7 @@ export default function AdminStaffCreateModal({ open, onClose, onSubmit }: Admin
       setCreatedStaff(result)
       setForm({ ...EMPTY_STAFF_ACCOUNT_FORM, initialPassword: result.initialPassword || '' })
     } catch (error) {
-      setServerError(error instanceof Error ? error.message : 'Khong the tao tai khoan staff.')
+      setServerError(error instanceof Error ? error.message : 'Không thể tạo tài khoản nhân viên.')
     } finally {
       setIsSaving(false)
     }
@@ -68,7 +68,7 @@ export default function AdminStaffCreateModal({ open, onClose, onSubmit }: Admin
     <>
       <button
         type="button"
-        aria-label="Dong form tao staff"
+        aria-label="Đóng form tạo nhân viên"
         onClick={onClose}
         className="fixed inset-0 z-50 bg-inverse-surface/50 backdrop-blur-sm"
       />
@@ -82,13 +82,13 @@ export default function AdminStaffCreateModal({ open, onClose, onSubmit }: Admin
         >
           <header className="relative overflow-hidden border-b border-outline-variant bg-gradient-to-r from-brand-greenDark to-brand-greenLight px-6 py-5 text-white">
             <p className="font-display text-[10px] font-medium uppercase tracking-[0.15em] text-brand-orange">
-              Tao staff
+              Tạo nhân viên
             </p>
             <h2 id="staff-create-title" className="font-display text-xl font-bold">
-              Tao tai khoan nhan vien
+              Tạo tài khoản nhân viên
             </h2>
             <p className="mt-1 text-xs text-inverse-on-surface/80">
-              Tai khoan se duoc tao voi role STAFF va co the dang nhap bang mat khau ban dau.
+              Tài khoản sẽ được tạo với vai trò nhân viên (STAFF) và có thể đăng nhập bằng mật khẩu ban đầu.
             </p>
           </header>
 
@@ -96,14 +96,14 @@ export default function AdminStaffCreateModal({ open, onClose, onSubmit }: Admin
             <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
               <label className="block">
                 <span className={labelClass}>
-                  Ho ten <span className="text-error">*</span>
+                  Họ tên <span className="text-error">*</span>
                 </span>
                 <input
                   type="text"
                   value={form.fullName}
                   onChange={(event) => set({ fullName: event.target.value })}
                   className={inputClass}
-                  placeholder="VD: Nguyen Van A"
+                  placeholder="VD: Nguyễn Văn A"
                 />
                 {errors.fullName && <p className="mt-1 text-xs text-error">{errors.fullName}</p>}
               </label>
@@ -117,14 +117,14 @@ export default function AdminStaffCreateModal({ open, onClose, onSubmit }: Admin
                   value={form.email}
                   onChange={(event) => set({ email: event.target.value })}
                   className={inputClass}
-                  placeholder="staff@example.com"
+                  placeholder="nhanvien@bandspace.vn"
                 />
                 {errors.email && <p className="mt-1 text-xs text-error">{errors.email}</p>}
               </label>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
-                  <span className={labelClass}>So dien thoai</span>
+                  <span className={labelClass}>Số điện thoại</span>
                   <input
                     type="tel"
                     value={form.phone}
@@ -135,7 +135,7 @@ export default function AdminStaffCreateModal({ open, onClose, onSubmit }: Admin
                 </label>
 
                 <label className="block">
-                  <span className={labelClass}>Ngay sinh</span>
+                  <span className={labelClass}>Ngày sinh</span>
                   <input
                     type="date"
                     value={form.dateOfBirth}
@@ -146,22 +146,22 @@ export default function AdminStaffCreateModal({ open, onClose, onSubmit }: Admin
               </div>
 
               <label className="block">
-                <span className={labelClass}>Mat khau ban dau</span>
+                <span className={labelClass}>Mật khẩu ban đầu</span>
                 <input
                   type="text"
                   value={form.initialPassword}
                   onChange={(event) => set({ initialPassword: event.target.value })}
                   className={inputClass}
-                  placeholder="De trong de backend dung mac dinh 123123"
+                  placeholder="Để trống để hệ thống dùng mật khẩu mặc định"
                 />
                 {errors.initialPassword && <p className="mt-1 text-xs text-error">{errors.initialPassword}</p>}
               </label>
 
               {createdStaff && (
                 <div className="rounded-xl border border-secondary-container/40 bg-secondary-container/15 px-3 py-3 text-sm text-on-surface">
-                  <p className="font-display font-bold text-secondary">Da tao staff #{createdStaff.staffId}</p>
+                  <p className="font-display font-bold text-secondary">Đã tạo nhân viên #{createdStaff.staffId}</p>
                   <p className="mt-1">Email: {createdStaff.email}</p>
-                  <p>Mat khau ban dau: {createdStaff.initialPassword || 'Khong co trong response'}</p>
+                  <p>Mật khẩu ban đầu: {createdStaff.initialPassword || 'Không có trong phản hồi'}</p>
                 </div>
               )}
 
@@ -179,14 +179,14 @@ export default function AdminStaffCreateModal({ open, onClose, onSubmit }: Admin
                 disabled={isSaving}
                 className="rounded-xl border border-outline px-5 py-2.5 font-display text-sm font-medium text-on-surface-variant hover:bg-white disabled:opacity-50"
               >
-                Dong
+                Đóng
               </button>
               <button
                 type="submit"
                 disabled={isSaving}
                 className="rounded-xl bg-brand-orange px-5 py-2.5 font-display text-sm font-medium text-white shadow-md shadow-brand-orange/20 hover:bg-brand-orangeHover disabled:opacity-50"
               >
-                {isSaving ? 'Dang tao...' : 'Tao staff'}
+                {isSaving ? 'Đang tạo...' : 'Tạo nhân viên'}
               </button>
             </footer>
           </form>

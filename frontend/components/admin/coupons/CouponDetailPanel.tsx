@@ -36,7 +36,7 @@ export default function CouponDetailPanel({
       await onDelete(coupon.couponId)
       onClose()
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Không thể xóa coupon.')
+      setMessage(error instanceof Error ? error.message : 'Không thể xóa mã giảm giá.')
       setConfirmDelete(false)
     } finally {
       setIsDeleting(false)
@@ -92,7 +92,7 @@ export default function CouponDetailPanel({
 
           <Section title="Phạm vi áp dụng">
             <p className="text-sm text-on-surface-variant">
-              Coupon hiện áp dụng cho <strong className="text-on-surface">tất cả phòng</strong> trong hệ thống.
+              Mã giảm giá hiện áp dụng cho <strong className="text-on-surface">tất cả phòng</strong> trong hệ thống.
             </p>
           </Section>
 
@@ -124,7 +124,7 @@ export default function CouponDetailPanel({
                   disabled={isDeleting}
                   className="flex-1 rounded-xl bg-error py-2.5 font-display text-sm font-medium text-white hover:bg-error/90 disabled:opacity-50"
                 >
-                  {isDeleting ? 'Đang xóa...' : 'Xóa coupon'}
+                  {isDeleting ? 'Đang xóa...' : 'Xóa mã giảm giá'}
                 </button>
               </div>
             </div>

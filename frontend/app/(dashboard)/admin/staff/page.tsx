@@ -1,12 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import AuthGuard from '@/components/AuthGuard'
 import AdminPageHeader from '@/components/admin/AdminPageHeader'
-import AdminShell from '@/components/admin/AdminShell'
 import AdminStatCard from '@/components/admin/AdminStatCard'
 import AdminToast from '@/components/admin/AdminToast'
-import { IconBookings, IconPlus } from '@/components/admin/AdminIcons'
+import { IconBookings, IconPlus, IconRefresh } from '@/components/admin/AdminIcons'
 import AdminStaffCreateModal from '@/components/admin/staff/AdminStaffCreateModal'
 import AdminStaffDetailPanel from '@/components/admin/staff/AdminStaffDetailPanel'
 import AdminStaffFiltersBar from '@/components/admin/staff/AdminStaffFiltersBar'
@@ -81,7 +79,7 @@ export default function AdminStaffPage() {
     } catch (error) {
       setStaff([])
       setSelected(null)
-      setErrorMessage(error instanceof Error ? error.message : 'Khong the tai danh sach staff.')
+      setErrorMessage(error instanceof Error ? error.message : 'Không thể tải danh sách nhân viên.')
     } finally {
       setIsLoading(false)
     }
@@ -116,13 +114,13 @@ export default function AdminStaffPage() {
       const detail = await getStaffAccountDetail(item.staffId)
       setSelected(detail)
     } catch (error) {
-      setToast(error instanceof Error ? error.message : 'Khong the tai thong tin staff.')
+      setToast(error instanceof Error ? error.message : 'Không thể tải thông tin nhân viên.')
     }
   }
 
   const handleCreateStaff = async (data: StaffAccountFormData) => {
     const createdStaff = await createStaffAccount(data)
-    setToast(`Created staff ST-${createdStaff.staffId} (${createdStaff.email}).`)
+    setToast(`Đã tạo nhân viên ST-${createdStaff.staffId} (${createdStaff.email}).`)
     await loadStaff()
     setSelected(createdStaff)
     return createdStaff
@@ -130,31 +128,43 @@ export default function AdminStaffPage() {
 
   const handleDisableStaff = async (item: StaffAccountResponse) => {
     const updated = await disableStaffAccount(item.staffId)
-    setToast(`Disabled staff ST-${updated.staffId} (${updated.email}).`)
+    setToast(`Đã vô hiệu hóa nhân viên ST-${updated.staffId} (${updated.email}).`)
     setStaff((current) => current.map((staffItem) => (staffItem.staffId === updated.staffId ? updated : staffItem)))
     setSelected((current) => (current?.staffId === updated.staffId ? updated : current))
     setDisableTarget(null)
   }
 
   return (
-    <AuthGuard allowedRoles={['ADMIN']}>
-      <AdminShell>
+    <>
         <AdminPageHeader
-          eyebrow="Staff management"
-          title="Manage staff accounts"
-          description="Create staff logins, review linked profiles, and disable accounts for staff who have left while preserving operational history."
+          eyebrow="Quản lý nhân viên"
+          title="Quản lý tài khoản nhân viên"
+          description="Tạo tài khoản đăng nhập, xem hồ sơ liên kết và vô hiệu hóa nhân viên đã nghỉ — vẫn giữ lịch sử vận hành."
           breadcrumbs={[
-            { label: 'Tong quan', href: '/admin/dashboard' },
-            { label: 'Staff' },
+            { label: 'Tổng quan', href: '/admin/dashboard' },
+            { label: 'Nhân viên' },
           ]}
           actions={
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => void loadStaff()}
-                className="rounded-xl border border-outline-variant bg-white px-4 py-2.5 font-display text-sm font-medium text-on-surface shadow-sm transition hover:border-brand-orange/40 hover:text-brand-orange"
+                disabled={isLoading}
+                title="Làm mới"
+                aria-label="Làm mới"
+                className={[
+                  'group flex h-10 w-10 items-center justify-center rounded-full',
+                  'border border-outline-variant bg-white text-on-surface-variant shadow-sm',
+                  'transition-all hover:border-brand-orange/40 hover:text-brand-orange',
+                  'disabled:cursor-not-allowed disabled:opacity-50',
+                ].join(' ')}
               >
-                Refresh
+                <IconRefresh
+                  className={[
+                    'h-[15px] w-[15px] transition-transform duration-300',
+                    isLoading ? 'animate-spin' : 'group-hover:rotate-180',
+                  ].join(' ')}
+                />
               </button>
               <button
                 type="button"
@@ -162,7 +172,7 @@ export default function AdminStaffPage() {
                 className="inline-flex items-center gap-2 rounded-xl bg-brand-orange px-5 py-2.5 font-display text-sm font-bold text-white shadow-lg shadow-brand-orange/25 transition hover:bg-brand-orangeHover active:scale-[0.98]"
               >
                 <IconPlus className="h-4 w-4" />
-                Create staff
+                Tạo nhân viên
               </button>
             </div>
           }
@@ -178,10 +188,10 @@ export default function AdminStaffPage() {
           )}
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <AdminStatCard label="Total staff" value={stats.total} icon={<IconBookings className="h-5 w-5" />} />
-            <AdminStatCard label="Active" value={stats.active} accent="secondary" icon={<span>OK</span>} />
-            <AdminStatCard label="Disabled" value={stats.disabled} accent="tertiary" icon={<span>!</span>} />
-            <AdminStatCard label="Email verified" value={stats.verified} accent="primary" icon={<span>@</span>} />
+            <AdminStatCard label="Tổng nhân viên" value={stats.total} icon={<IconBookings className="h-5 w-5" />} />
+            <AdminStatCard label="Đang hoạt động" value={stats.active} accent="secondary" icon={<span>✓</span>} />
+            <AdminStatCard label="Đã vô hiệu" value={stats.disabled} accent="tertiary" icon={<span>!</span>} />
+            <AdminStatCard label="Email đã xác minh" value={stats.verified} accent="primary" icon={<span>@</span>} />
           </div>
 
           <AdminStaffFiltersBar filters={filters} resultCount={visibleStaff.length} onChange={setFilters} />
@@ -189,12 +199,12 @@ export default function AdminStaffPage() {
           <section>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="font-display text-lg font-bold text-on-surface">Staff directory</h2>
+                <h2 className="font-display text-lg font-bold text-on-surface">Danh sách nhân viên</h2>
                 <p className="text-xs text-on-surface-variant">
-                  The backend supports list, detail, create, and disable. Edit and re-enable remain future scope.
+                  Hỗ trợ xem danh sách, chi tiết, tạo mới và vô hiệu hóa tài khoản.
                 </p>
               </div>
-              <p className="text-xs text-on-surface-variant">Select Detail to inspect profile and login state</p>
+              <p className="text-xs text-on-surface-variant">Chọn Chi tiết để xem hồ sơ và trạng thái đăng nhập</p>
             </div>
 
             <AdminStaffTable
@@ -222,10 +232,9 @@ export default function AdminStaffPage() {
         {disableTarget && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-inverse-surface/50 p-4 backdrop-blur-sm">
             <section className="w-full max-w-md rounded-2xl border border-outline-variant bg-white p-5 shadow-[var(--shadow-elevated)]">
-              <p className="font-display text-lg font-bold text-on-surface">Disable staff account?</p>
+              <p className="font-display text-lg font-bold text-on-surface">Vô hiệu hóa tài khoản nhân viên?</p>
               <p className="mt-2 text-sm leading-relaxed text-on-surface-variant">
-                {disableTarget.fullName} will no longer be able to sign in. Their staff profile and history will stay
-                traceable.
+                {disableTarget.fullName} sẽ không thể đăng nhập nữa. Hồ sơ và lịch sử vận hành vẫn được giữ lại.
               </p>
               <div className="mt-5 flex gap-2">
                 <button
@@ -233,20 +242,19 @@ export default function AdminStaffPage() {
                   onClick={() => setDisableTarget(null)}
                   className="flex-1 rounded-xl border border-outline py-2.5 font-display text-sm font-medium text-on-surface-variant hover:bg-surface-container-low"
                 >
-                  Cancel
+                  Hủy
                 </button>
                 <button
                   type="button"
                   onClick={() => void handleDisableStaff(disableTarget)}
                   className="flex-1 rounded-xl bg-error py-2.5 font-display text-sm font-medium text-white hover:bg-error/90"
                 >
-                  Disable
+                  Vô hiệu hóa
                 </button>
               </div>
             </section>
           </div>
         )}
-      </AdminShell>
-    </AuthGuard>
+    </>
   )
 }

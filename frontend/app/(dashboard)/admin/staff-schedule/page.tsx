@@ -1,13 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import AuthGuard from '@/components/AuthGuard'
 import AdminPageHeader from '@/components/admin/AdminPageHeader'
-import AdminShell from '@/components/admin/AdminShell'
 import AdminStatCard from '@/components/admin/AdminStatCard'
 import AdminToast from '@/components/admin/AdminToast'
-import { IconBookings, IconCheckCircle, IconClock, IconPlus } from '@/components/admin/AdminIcons'
-import AdminStaffCreateModal from '@/components/admin/staff/AdminStaffCreateModal'
+import { IconBookings, IconCheckCircle, IconClock, IconRefresh } from '@/components/admin/AdminIcons'
 import StaffScheduleHourGrid from '@/components/admin/staff-schedule/StaffScheduleHourGrid'
 import StaffScheduleToolbar from '@/components/admin/staff-schedule/StaffScheduleToolbar'
 import StaffScheduleWeekStrip, { scrollToScheduleDay } from '@/components/admin/staff-schedule/StaffScheduleWeekStrip'
@@ -17,7 +14,6 @@ import {
   type AdminShiftRegistration,
   type ShiftRegistrationFilters,
 } from '@/lib/admin/staff-schedule/adminShiftRegistrationApi'
-import { createStaffAccount, type StaffAccountFormData } from '@/lib/admin/staff/adminStaffApi'
 import {
   getNextWeekRange,
   getThisWeekRange,
@@ -48,7 +44,6 @@ export default function AdminStaffSchedulePage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const [createStaffOpen, setCreateStaffOpen] = useState(false)
   const [toast, setToast] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -125,7 +120,7 @@ export default function AdminStaffSchedulePage() {
       setToast(
         items.length === 1
           ? `Đã duyệt ca ${items[0].startTime}–${items[0].endTime} của ${items[0].staffName}.`
-          : `Đã duyệt ${items.length} ca — staff sẽ thấy trên lịch làm việc.`,
+          : `Đã duyệt ${items.length} ca — nhân viên sẽ thấy trên lịch làm việc.`,
       )
       await loadRegistrations()
     } catch (error) {
@@ -133,13 +128,6 @@ export default function AdminStaffSchedulePage() {
     } finally {
       setIsSaving(false)
     }
-  }
-
-  const handleCreateStaff = async (data: StaffAccountFormData) => {
-    const createdStaff = await createStaffAccount(data)
-    setToast(`Da tao staff #${createdStaff.staffId} - ${createdStaff.email}.`)
-    await loadRegistrations()
-    return createdStaff
   }
 
   const handleApproveSelected = () => {
@@ -179,27 +167,36 @@ export default function AdminStaffSchedulePage() {
   }
 
   return (
-    <AuthGuard allowedRoles={['ADMIN']}>
-      <AdminShell>
+    <>
         <AdminPageHeader
-          eyebrow="Lịch staff"
+          eyebrow="Lịch nhân viên"
           title="Quản lý lịch làm việc"
           description="Xem lịch theo khung giờ (sáng / chiều / tối), lọc ngày và duyệt ca hàng loạt."
           breadcrumbs={[
             { label: 'Tổng quan', href: '/admin/dashboard' },
-            { label: 'Lịch staff' },
+            { label: 'Lịch nhân viên' },
           ]}
           actions={
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setCreateStaffOpen(true)}
-                className="inline-flex items-center gap-2 rounded-xl bg-brand-orange px-5 py-2.5 font-display text-sm font-bold text-white shadow-lg shadow-brand-orange/25 transition hover:bg-brand-orangeHover"
-              >
-                <IconPlus className="h-4 w-4" />
-                Tao staff
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => void loadRegistrations()}
+              disabled={isLoading}
+              title="Làm mới"
+              aria-label="Làm mới"
+              className={[
+                'group flex h-10 w-10 items-center justify-center rounded-full',
+                'border border-outline-variant bg-white text-on-surface-variant shadow-sm',
+                'transition-all hover:border-brand-orange/40 hover:text-brand-orange',
+                'disabled:cursor-not-allowed disabled:opacity-50',
+              ].join(' ')}
+            >
+              <IconRefresh
+                className={[
+                  'h-[15px] w-[15px] transition-transform duration-300',
+                  isLoading ? 'animate-spin' : 'group-hover:rotate-180',
+                ].join(' ')}
+              />
+            </button>
           }
         />
 
@@ -223,7 +220,7 @@ export default function AdminStaffSchedulePage() {
             <AdminStatCard
               label="Đã lên lịch"
               value={isLoading ? '…' : stats.approved}
-              hint="Staff đã thấy trên lịch"
+              hint="Nhân viên đã thấy trên lịch"
               accent="secondary"
               icon={<IconCheckCircle className="h-5 w-5" />}
             />
@@ -289,13 +286,7 @@ export default function AdminStaffSchedulePage() {
             onApproveSelected={handleApproveSelected}
           />
         </div>
-        <AdminStaffCreateModal
-          open={createStaffOpen}
-          onClose={() => setCreateStaffOpen(false)}
-          onSubmit={handleCreateStaff}
-        />
-      </AdminShell>
-    </AuthGuard>
+    </>
   )
 }
 

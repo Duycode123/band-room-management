@@ -65,15 +65,15 @@ export function validateStaffAccountForm(data: StaffAccountFormData): StaffAccou
   const password = data.initialPassword.trim()
 
   if (fullName.length < 2) {
-    errors.fullName = 'Ten nhan vien phai co it nhat 2 ky tu.'
+    errors.fullName = 'Tên nhân viên phải có ít nhất 2 ký tự.'
   }
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    errors.email = 'Email nhan vien khong hop le.'
+    errors.email = 'Email nhân viên không hợp lệ.'
   }
 
   if (password && password.length < 6) {
-    errors.initialPassword = 'Mat khau ban dau phai co it nhat 6 ky tu.'
+    errors.initialPassword = 'Mật khẩu ban đầu phải có ít nhất 6 ký tự.'
   }
 
   return errors
@@ -82,7 +82,7 @@ export function validateStaffAccountForm(data: StaffAccountFormData): StaffAccou
 export async function createStaffAccount(data: StaffAccountFormData): Promise<StaffAccountResponse> {
   const errors = validateStaffAccountForm(data)
   if (Object.keys(errors).length > 0) {
-    throw new Error(Object.values(errors)[0] || 'Du lieu nhan vien khong hop le.')
+    throw new Error(Object.values(errors)[0] || 'Dữ liệu nhân viên không hợp lệ.')
   }
 
   try {
@@ -96,7 +96,7 @@ export async function createStaffAccount(data: StaffAccountFormData): Promise<St
 
     return response.data.data
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the tao tai khoan staff.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể tạo tài khoản nhân viên.'))
   }
 }
 
@@ -105,7 +105,7 @@ export async function listStaffAccounts(): Promise<StaffAccountResponse[]> {
     const response = await api.get<ApiResponse<StaffAccountResponse[]>>('/api/admin/staff')
     return response.data.data
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the tai danh sach staff.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể tải danh sách nhân viên.'))
   }
 }
 
@@ -114,7 +114,7 @@ export async function getStaffAccountDetail(staffId: number): Promise<StaffAccou
     const response = await api.get<ApiResponse<StaffAccountResponse>>(`/api/admin/staff/${staffId}`)
     return response.data.data
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the tai thong tin staff.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể tải thông tin nhân viên.'))
   }
 }
 
@@ -123,12 +123,12 @@ export async function disableStaffAccount(staffId: number): Promise<StaffAccount
     const response = await api.patch<ApiResponse<StaffAccountResponse>>(`/api/admin/staff/${staffId}/disable`)
     return response.data.data
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Khong the vo hieu hoa staff.'))
+    throw new Error(getApiErrorMessage(error, 'Không thể vô hiệu hóa nhân viên.'))
   }
 }
 
 export function formatStaffDate(value?: string | null) {
-  if (!value) return 'Chua co'
+  if (!value) return 'Chưa có'
 
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value

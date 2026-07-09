@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import type { ReactNode } from 'react'
+import { memo, type ReactNode } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   AdminBrandMark,
@@ -21,8 +21,8 @@ import {
 const NAV_ITEMS: AdminNavItem[] = [
   { href: '/admin/dashboard', label: 'Tổng quan', icon: <IconDashboard className="h-5 w-5" /> },
   { href: '/admin/bookings', label: 'Đơn đặt phòng', icon: <IconBookings className="h-5 w-5" /> },
-  { href: '/admin/staff', label: 'Staff', icon: <IconStaff className="h-5 w-5" /> },
-  { href: '/admin/staff-schedule', label: 'Lịch staff', icon: <IconBookings className="h-5 w-5" /> },
+  { href: '/admin/staff', label: 'Nhân viên', icon: <IconStaff className="h-5 w-5" /> },
+  { href: '/admin/staff-schedule', label: 'Lịch nhân viên', icon: <IconBookings className="h-5 w-5" /> },
   { href: '/admin/rooms', label: 'Phòng tập', icon: <IconRooms className="h-5 w-5" /> },
   { href: '/admin/equipment', label: 'Thiết bị', icon: <IconEquipment className="h-5 w-5" /> },
   { href: '/admin/coupons', label: 'Mã giảm giá', icon: <IconCoupons className="h-5 w-5" /> },
@@ -34,7 +34,7 @@ type AdminShellProps = {
   children: ReactNode
 }
 
-export default function AdminShell({ children }: AdminShellProps) {
+function AdminShell({ children }: AdminShellProps) {
   const pathname = usePathname()
   const { logout } = useAuth()
 
@@ -43,7 +43,7 @@ export default function AdminShell({ children }: AdminShellProps) {
   }
 
   return (
-    <div className="min-h-screen bg-brand-bgGray">
+    <div className="h-screen overflow-hidden bg-brand-bgGray">
       {/* Decorative background */}
       <div
         aria-hidden
@@ -53,7 +53,7 @@ export default function AdminShell({ children }: AdminShellProps) {
         <div className="absolute -bottom-24 -left-24 h-80 w-80 rounded-full bg-secondary-container/20 blur-3xl" />
       </div>
 
-      <div className="relative flex min-h-screen">
+      <div className="relative flex h-screen">
         {/* Sidebar - desktop: full viewport height, footer pinned at bottom */}
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-white/10 bg-gradient-to-b from-brand-greenDark via-brand-greenDark to-brand-greenLight lg:flex">
           <div className="shrink-0 border-b border-white/10 px-5 py-6">
@@ -139,8 +139,10 @@ export default function AdminShell({ children }: AdminShellProps) {
         </div>
 
         {/* Main */}
-        <main className="flex-1 pt-14 lg:pt-0">{children}</main>
+        <main className="flex-1 overflow-y-auto overscroll-contain pt-14 lg:pt-0">{children}</main>
       </div>
     </div>
   )
 }
+
+export default memo(AdminShell)

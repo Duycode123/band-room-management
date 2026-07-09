@@ -1,13 +1,13 @@
 import type { EquipmentStatus, EquipmentType } from './types'
 
 export const EQUIPMENT_TYPE_LABELS: Record<EquipmentType, string> = {
-  AMP: 'Amp',
-  MIXER: 'Mixer',
+  AMP: 'Ampli',
+  MIXER: 'Bàn trộn',
   MIC: 'Micro',
-  DRUM: 'Trong',
+  DRUM: 'Trống',
   GUITAR: 'Guitar',
-  KEYBOARD: 'Keyboard',
-  OTHER: 'Khac',
+  KEYBOARD: 'Đàn keyboard',
+  OTHER: 'Khác',
 }
 
 export const EQUIPMENT_TYPE_OPTIONS: EquipmentType[] = [
@@ -21,9 +21,9 @@ export const EQUIPMENT_TYPE_OPTIONS: EquipmentType[] = [
 ]
 
 export const EQUIPMENT_STATUS_LABELS: Record<EquipmentStatus, string> = {
-  GOOD: 'Tot',
-  BROKEN: 'Hu hong',
-  MAINTENANCE: 'Bao tri',
+  GOOD: 'Tốt',
+  BROKEN: 'Hư hỏng',
+  MAINTENANCE: 'Bảo trì',
 }
 
 export const EQUIPMENT_STATUS_OPTIONS: EquipmentStatus[] = ['GOOD', 'BROKEN', 'MAINTENANCE']

@@ -39,7 +39,7 @@ export default function CouponTopUsageChart({ data }: CouponTopUsageChartProps) 
   if (data.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-outline-variant bg-surface-container-low/40 px-6 py-10 text-center text-sm text-on-surface-variant">
-        Chưa có dữ liệu sử dụng coupon trong khoảng thời gian này.
+        Chưa có dữ liệu sử dụng mã giảm giá trong khoảng thời gian này.
       </div>
     )
   }
@@ -50,7 +50,7 @@ export default function CouponTopUsageChart({ data }: CouponTopUsageChartProps) 
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         className="h-auto w-full"
         role="img"
-        aria-label="Biểu đồ top coupon"
+        aria-label="Biểu đồ mã giảm giá dùng nhiều nhất"
         onMouseLeave={() => setTooltip(null)}
       >
         <line

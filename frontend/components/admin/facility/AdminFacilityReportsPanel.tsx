@@ -10,17 +10,17 @@ import {
 import type { AdminFacilityReport, FacilityReportStatus } from '@/lib/admin/facility-reports/types'
 
 const statusLabels: Record<FacilityReportStatus, string> = {
-  OPEN: 'Moi ghi nhan',
-  IN_PROGRESS: 'Dang xu ly',
-  RESOLVED: 'Da xu ly',
-  CLOSED: 'Da dong',
+  OPEN: 'Mới ghi nhận',
+  IN_PROGRESS: 'Đang xử lý',
+  RESOLVED: 'Đã xử lý',
+  CLOSED: 'Đã đóng',
 }
 
 const conditionLabels: Record<string, string> = {
-  GOOD: 'Tot',
-  NEED_CLEANING: 'Can ve sinh',
-  NEED_CHECK: 'Can kiem tra',
-  BROKEN: 'Bao hong',
+  GOOD: 'Tốt',
+  NEED_CLEANING: 'Cần vệ sinh',
+  NEED_CHECK: 'Cần kiểm tra',
+  BROKEN: 'Báo hỏng',
 }
 
 const statusOptions: FacilityReportStatus[] = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED']
@@ -45,7 +45,7 @@ export default function AdminFacilityReportsPanel() {
     } catch (error) {
       setReports([])
       setSelected(null)
-      setMessage(error instanceof Error ? error.message : 'Khong the tai lich su co so vat chat.')
+      setMessage(error instanceof Error ? error.message : 'Không thể tải lịch sử cơ sở vật chất.')
     } finally {
       setIsLoading(false)
     }
@@ -62,15 +62,15 @@ export default function AdminFacilityReportsPanel() {
     const updated = await updateAdminFacilityReportStatus(selected.id, status, adminNote)
     setSelected(updated)
     setReports((current) => current.map((report) => (report.id === updated.id ? updated : report)))
-    setMessage('Da cap nhat bao cao co so vat chat.')
+    setMessage('Đã cập nhật báo cáo cơ sở vật chất.')
   }
 
   return (
     <section className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="font-display text-lg font-bold text-on-surface">Bao cao co so vat chat</h2>
-          <p className="text-xs text-on-surface-variant">Lich su staff ghi nhan tinh trang phong va thiet bi.</p>
+          <h2 className="font-display text-lg font-bold text-on-surface">Báo cáo cơ sở vật chất</h2>
+          <p className="text-xs text-on-surface-variant">Lịch sử nhân viên ghi nhận tình trạng phòng và thiết bị.</p>
         </div>
         <label className="inline-flex items-center gap-2 rounded-xl border border-outline-variant bg-white px-3 py-2 text-sm font-medium text-on-surface-variant">
           <input
@@ -79,7 +79,7 @@ export default function AdminFacilityReportsPanel() {
             onChange={(event) => setMaintenanceOnly(event.target.checked)}
             className="h-4 w-4 rounded border-outline text-brand-orange"
           />
-          Chi hien de xuat bao tri
+          Chỉ hiện đề xuất bảo trì
         </label>
       </div>
 
@@ -90,11 +90,11 @@ export default function AdminFacilityReportsPanel() {
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <MiniStat label="Tong report" value={isLoading ? '...' : stats.total} />
-        <MiniStat label="Moi" value={isLoading ? '...' : stats.open} />
-        <MiniStat label="Dang xu ly" value={isLoading ? '...' : stats.inProgress} />
-        <MiniStat label="Da xu ly/dong" value={isLoading ? '...' : stats.resolved} />
-        <MiniStat label="De xuat bao tri" value={isLoading ? '...' : stats.maintenanceSuggested} />
+        <MiniStat label="Tổng báo cáo" value={isLoading ? '...' : stats.total} />
+        <MiniStat label="Mới" value={isLoading ? '...' : stats.open} />
+        <MiniStat label="Đang xử lý" value={isLoading ? '...' : stats.inProgress} />
+        <MiniStat label="Đã xử lý/đóng" value={isLoading ? '...' : stats.resolved} />
+        <MiniStat label="Đề xuất bảo trì" value={isLoading ? '...' : stats.maintenanceSuggested} />
       </div>
 
       <FacilityReportTable
@@ -148,8 +148,8 @@ function FacilityReportTable({
   if (reports.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-outline-variant bg-white px-6 py-10 text-center shadow-[var(--shadow-card)]">
-        <p className="font-display text-sm font-medium text-on-surface">Chua co bao cao co so vat chat.</p>
-        <p className="mt-1 text-xs text-on-surface-variant">Staff se tao du lieu tu man phong/thiet bi.</p>
+        <p className="font-display text-sm font-medium text-on-surface">Chưa có báo cáo cơ sở vật chất.</p>
+        <p className="mt-1 text-xs text-on-surface-variant">Nhân viên sẽ tạo dữ liệu từ màn phòng/thiết bị.</p>
       </div>
     )
   }
@@ -160,7 +160,7 @@ function FacilityReportTable({
         <table className="min-w-full text-left text-sm">
           <thead>
             <tr className="border-b border-outline-variant bg-surface-container-low">
-              {['Report', 'Phong/thiet bi', 'Tinh trang', 'Xu ly', 'Thoi gian', 'Hanh dong'].map((header) => (
+              {['Báo cáo', 'Phòng/thiết bị', 'Tình trạng', 'Xử lý', 'Thời gian', 'Hành động'].map((header) => (
                 <th key={header} className="px-4 py-3 font-display text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
                   {header}
                 </th>
@@ -174,12 +174,12 @@ function FacilityReportTable({
                 <tr key={report.id} className={['border-b border-outline-variant/60 last:border-0', active ? 'bg-primary-container/25' : 'hover:bg-surface-container-low'].join(' ')}>
                   <td className="px-4 py-3 font-display text-xs font-bold text-brand-orange">{report.id.slice(0, 8)}</td>
                   <td className="px-4 py-3">
-                    <p className="font-medium text-on-surface">Room #{report.roomId ?? 'N/A'}</p>
-                    <p className="text-xs text-on-surface-variant">{report.equipmentId ? `Equipment #${report.equipmentId}` : 'Room-level report'}</p>
+                    <p className="font-medium text-on-surface">Phòng #{report.roomId ?? '—'}</p>
+                    <p className="text-xs text-on-surface-variant">{report.equipmentId ? `Thiết bị #${report.equipmentId}` : 'Báo cáo cấp phòng'}</p>
                   </td>
                   <td className="px-4 py-3">
-                    <p className="font-medium text-on-surface">{conditionLabels[report.condition ?? ''] ?? 'Chua ro'}</p>
-                    {report.maintenanceSuggested && <p className="text-xs font-semibold text-brand-orange">De xuat bao tri</p>}
+                    <p className="font-medium text-on-surface">{conditionLabels[report.condition ?? ''] ?? 'Chưa rõ'}</p>
+                    {report.maintenanceSuggested && <p className="text-xs font-semibold text-brand-orange">Đề xuất bảo trì</p>}
                   </td>
                   <td className="px-4 py-3">
                     <StatusPill status={report.status} />
@@ -191,7 +191,7 @@ function FacilityReportTable({
                       onClick={() => onSelect(report)}
                       className="rounded-lg border border-outline bg-white px-3 py-1.5 font-display text-xs font-medium text-on-surface-variant hover:border-brand-orange hover:text-brand-orange"
                     >
-                      Xu ly
+                      Xử lý
                     </button>
                   </td>
                 </tr>
@@ -232,9 +232,9 @@ function FacilityReportDrawer({
     setMessage('')
     try {
       await onSave(status, adminNote)
-      setMessage('Da luu cap nhat.')
+      setMessage('Đã lưu cập nhật.')
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Khong the luu cap nhat.')
+      setMessage(error instanceof Error ? error.message : 'Không thể lưu cập nhật.')
     } finally {
       setIsSaving(false)
     }
@@ -242,13 +242,13 @@ function FacilityReportDrawer({
 
   return (
     <>
-      <button type="button" aria-label="Dong chi tiet" onClick={onClose} className="fixed inset-0 z-40 bg-inverse-surface/50 backdrop-blur-sm" />
+      <button type="button" aria-label="Đóng chi tiết" onClick={onClose} className="fixed inset-0 z-40 bg-inverse-surface/50 backdrop-blur-sm" />
       <aside className="fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col border-l border-outline-variant bg-white shadow-[var(--shadow-elevated)]">
         <header className="border-b border-outline-variant px-5 py-4">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="font-display text-[10px] font-bold uppercase tracking-[0.15em] text-brand-orange">{report.id}</p>
-              <h2 className="font-display text-xl font-bold text-on-surface">Xu ly bao cao co so vat chat</h2>
+              <h2 className="font-display text-xl font-bold text-on-surface">Xử lý báo cáo cơ sở vật chất</h2>
               <div className="mt-2"><StatusPill status={report.status} /></div>
             </div>
             <button type="button" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl border border-outline-variant bg-white text-on-surface-variant hover:bg-surface-container-low">
@@ -258,16 +258,16 @@ function FacilityReportDrawer({
         </header>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          <InfoBlock label="Phong" value={`Room #${report.roomId ?? 'N/A'}`} />
-          <InfoBlock label="Thiet bi" value={report.equipmentId ? `Equipment #${report.equipmentId}` : 'Khong gan thiet bi'} />
-          <InfoBlock label="Tinh trang" value={conditionLabels[report.condition ?? ''] ?? 'Chua ro'} />
-          <InfoBlock label="Ghi chu staff" value={report.note || 'Khong co ghi chu'} />
-          <InfoBlock label="Thoi gian ghi nhan" value={formatFacilityReportDateTime(report.createdAt)} />
-          {report.imageUrl && <img src={report.imageUrl} alt="Anh bao cao co so vat chat" className="mt-4 h-44 w-full rounded-xl border border-outline-variant object-cover" />}
+          <InfoBlock label="Phòng" value={`Phòng #${report.roomId ?? '—'}`} />
+          <InfoBlock label="Thiết bị" value={report.equipmentId ? `Thiết bị #${report.equipmentId}` : 'Không gắn thiết bị'} />
+          <InfoBlock label="Tình trạng" value={conditionLabels[report.condition ?? ''] ?? 'Chưa rõ'} />
+          <InfoBlock label="Ghi chú nhân viên" value={report.note || 'Không có ghi chú'} />
+          <InfoBlock label="Thời gian ghi nhận" value={formatFacilityReportDateTime(report.createdAt)} />
+          {report.imageUrl && <img src={report.imageUrl} alt="Ảnh báo cáo cơ sở vật chất" className="mt-4 h-44 w-full rounded-xl border border-outline-variant object-cover" />}
 
           <div className="mt-5 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
             <label className="block">
-              <span className="mb-1.5 block font-display text-[10px] font-semibold uppercase tracking-[0.12em] text-on-surface-variant">Trang thai xu ly</span>
+              <span className="mb-1.5 block font-display text-[10px] font-semibold uppercase tracking-[0.12em] text-on-surface-variant">Trạng thái xử lý</span>
               <select value={status} onChange={(event) => setStatus(event.target.value as FacilityReportStatus)} className={inputClass}>
                 {statusOptions.map((option) => (
                   <option key={option} value={option}>{statusLabels[option]}</option>
@@ -276,13 +276,13 @@ function FacilityReportDrawer({
             </label>
 
             <label className="mt-3 block">
-              <span className="mb-1.5 block font-display text-[10px] font-semibold uppercase tracking-[0.12em] text-on-surface-variant">Ghi chu admin</span>
+              <span className="mb-1.5 block font-display text-[10px] font-semibold uppercase tracking-[0.12em] text-on-surface-variant">Ghi chú quản trị</span>
               <textarea
                 value={adminNote}
                 onChange={(event) => setAdminNote(event.target.value)}
                 rows={5}
                 maxLength={1000}
-                placeholder="Nhap ghi chu xu ly..."
+                placeholder="Nhập ghi chú xử lý..."
                 className="w-full rounded-xl border border-outline bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface outline-none focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/15"
               />
               <p className="mt-1 text-right text-[10px] text-on-surface-variant">{adminNote.length}/1000</p>
@@ -298,7 +298,7 @@ function FacilityReportDrawer({
             onClick={() => void save()}
             className="w-full rounded-xl bg-brand-orange py-2.5 font-display text-sm font-medium text-white hover:bg-brand-orangeHover disabled:opacity-50"
           >
-            {isSaving ? 'Dang luu...' : 'Luu cap nhat'}
+            {isSaving ? 'Đang lưu...' : 'Lưu cập nhật'}
           </button>
         </footer>
       </aside>

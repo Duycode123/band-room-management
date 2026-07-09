@@ -1,11 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import AuthGuard from '@/components/AuthGuard'
 import AdminPageHeader from '@/components/admin/AdminPageHeader'
-import AdminShell from '@/components/admin/AdminShell'
 import AdminToast from '@/components/admin/AdminToast'
-import { IconReviews } from '@/components/admin/AdminIcons'
+import { IconRefresh, IconReviews } from '@/components/admin/AdminIcons'
 import ReviewDetailPanel from '@/components/admin/reviews/ReviewDetailPanel'
 import ReviewFiltersBar from '@/components/admin/reviews/ReviewFiltersBar'
 import ReviewStatsOverview from '@/components/admin/reviews/ReviewStatsOverview'
@@ -192,23 +190,44 @@ export default function AdminReviewsPage() {
       setSelectedIds([])
       await refreshAll()
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Không thể thực hiện bulk action.')
+      setErrorMessage(error instanceof Error ? error.message : 'Không thể thực hiện thao tác hàng loạt.')
     } finally {
       setIsBulkProcessing(false)
     }
   }
 
   return (
-    <AuthGuard allowedRoles={['ADMIN']}>
-      <AdminShell>
+    <>
         <AdminPageHeader
           eyebrow="Đánh giá"
-          title="Quản lý review"
+          title="Quản lý đánh giá"
           description="Duyệt, ẩn, phản hồi và theo dõi đánh giá khách hàng."
           breadcrumbs={[
             { label: 'Tổng quan', href: '/admin/dashboard' },
-            { label: 'Review' },
+            { label: 'Đánh giá' },
           ]}
+          actions={
+            <button
+              type="button"
+              onClick={() => void Promise.all([loadReviews(), loadStats()])}
+              disabled={isLoading || isStatsLoading}
+              title="Làm mới"
+              aria-label="Làm mới"
+              className={[
+                'group flex h-10 w-10 items-center justify-center rounded-full',
+                'border border-outline-variant bg-white text-on-surface-variant shadow-sm',
+                'transition-all hover:border-brand-orange/40 hover:text-brand-orange',
+                'disabled:cursor-not-allowed disabled:opacity-50',
+              ].join(' ')}
+            >
+              <IconRefresh
+                className={[
+                  'h-[15px] w-[15px] transition-transform duration-300',
+                  isLoading || isStatsLoading ? 'animate-spin' : 'group-hover:rotate-180',
+                ].join(' ')}
+              />
+            </button>
+          }
         />
 
         <div className="mx-auto max-w-7xl space-y-6 px-5 py-6 sm:px-8">
@@ -321,7 +340,6 @@ export default function AdminReviewsPage() {
           onSaveReply={handleSaveReply}
           onDeleteReply={handleDeleteReply}
         />
-      </AdminShell>
-    </AuthGuard>
+    </>
   )
 }

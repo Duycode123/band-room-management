@@ -52,7 +52,7 @@ export default function CouponUsageTrendChart({ data }: CouponUsageTrendChartPro
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         className="h-auto w-full"
         role="img"
-        aria-label="Biểu đồ xu hướng sử dụng coupon"
+        aria-label="Biểu đồ xu hướng sử dụng mã giảm giá"
         onMouseLeave={() => setTooltip(null)}
       >
         <defs>

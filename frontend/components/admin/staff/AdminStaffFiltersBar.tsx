@@ -19,7 +19,7 @@ export default function AdminStaffFiltersBar({ filters, resultCount, onChange }:
           <input
             value={filters.query}
             onChange={(event) => onChange({ ...filters, query: event.target.value })}
-            placeholder="Search by name, email, phone, staff ID"
+            placeholder="Tìm theo tên, email, SĐT, mã nhân viên"
             className="h-11 w-full rounded-xl border border-outline-variant bg-surface-container-low pl-9 pr-3 text-sm text-on-surface outline-none transition focus:border-brand-orange focus:bg-white"
           />
         </label>
@@ -32,9 +32,9 @@ export default function AdminStaffFiltersBar({ filters, resultCount, onChange }:
             }
             className={selectClass}
           >
-            <option value="ALL">All statuses</option>
-            <option value="ACTIVE">Active only</option>
-            <option value="DISABLED">Disabled only</option>
+            <option value="ALL">Tất cả trạng thái</option>
+            <option value="ACTIVE">Đang hoạt động</option>
+            <option value="DISABLED">Đã vô hiệu</option>
           </select>
 
           <select
@@ -44,13 +44,13 @@ export default function AdminStaffFiltersBar({ filters, resultCount, onChange }:
             }
             className={selectClass}
           >
-            <option value="ALL">All email states</option>
-            <option value="VERIFIED">Verified</option>
-            <option value="UNVERIFIED">Unverified</option>
+            <option value="ALL">Tất cả email</option>
+            <option value="VERIFIED">Đã xác minh</option>
+            <option value="UNVERIFIED">Chưa xác minh</option>
           </select>
 
           <p className="rounded-xl bg-surface-container-low px-3 py-2 text-sm font-semibold text-on-surface-variant">
-            {resultCount} results
+            {resultCount} kết quả
           </p>
         </div>
       </div>

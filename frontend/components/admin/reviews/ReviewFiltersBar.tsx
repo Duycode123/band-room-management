@@ -107,13 +107,13 @@ export default function ReviewFiltersBar({ filters, rooms, onChange, totalElemen
           </label>
 
           <label className="block">
-            <span className={labelClass}>Staff ID</span>
+            <span className={labelClass}>Mã nhân viên</span>
             <input
               type="number"
               min="1"
               value={filters.staffId}
               onChange={(event) => set({ staffId: event.target.value })}
-              placeholder="Lọc theo ID nhân viên"
+              placeholder="Lọc theo mã nhân viên"
               className={inputClass}
             />
           </label>

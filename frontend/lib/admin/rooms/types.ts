@@ -61,10 +61,10 @@ export const roomCategoryOptions: RoomCategory[] = ['standard', 'band', 'recordi
 export const roomStatusOptions: RoomStatus[] = ['active', 'occupied', 'maintenance', 'inactive']
 
 export const roomCategoryLabels: Record<RoomCategory, string> = {
-  standard: 'Standard Practice',
-  band: 'Band Rehearsal',
-  recording: 'Recording Suite',
-  premium: 'Premium Studio',
+  standard: 'Phòng tập tiêu chuẩn',
+  band: 'Phòng tập nhạc',
+  recording: 'Phòng thu âm',
+  premium: 'Studio cao cấp',
 }
 
 export const roomStatusLabels: Record<RoomStatus, string> = {

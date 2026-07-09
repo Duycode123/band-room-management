@@ -63,7 +63,7 @@ export default function StaffScheduleCalendar({
         <div className="rounded-2xl border border-dashed border-outline-variant bg-white px-6 py-10 text-center shadow-[var(--shadow-card)]">
           <p className="font-display text-lg font-bold text-on-surface">Chưa có đăng ký ca trong kỳ này</p>
           <p className="mx-auto mt-2 max-w-md text-sm text-on-surface-variant">
-            Dùng nút Tuần tới hoặc mũi tên để xem kỳ khác. Staff đăng ký ca sẽ hiện trên lịch — bấm vào ngày để chọn và
+            Dùng nút Tuần tới hoặc mũi tên để xem kỳ khác. Nhân viên đăng ký ca sẽ hiện trên lịch — bấm vào ngày để chọn và
             lưu lịch.
           </p>
         </div>

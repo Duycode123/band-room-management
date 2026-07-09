@@ -84,7 +84,7 @@ export function validateRoomForm(data: RoomFormData): RoomFormErrors {
   }
 
   if (data.image.trim() && !/^https?:\/\/.+/i.test(data.image.trim())) {
-    errors.image = 'URL ảnh phải là link http hoặc https.'
+    errors.image = 'Đường dẫn ảnh phải bắt đầu bằng http hoặc https.'
   }
 
   return errors
@@ -95,7 +95,7 @@ export async function getAdminRoomTypes(): Promise<AdminRoomTypeOption[]> {
     const roomTypes = await fetchRoomTypes()
     return roomTypes.map(mapRoomTypeToAdminOption)
   } catch (error) {
-    throw new Error(getRoomApiErrorMessage(error, 'Không thể tải hạng phòng từ backend.'))
+    throw new Error(getRoomApiErrorMessage(error, 'Không thể tải hạng phòng từ hệ thống.'))
   }
 }
 
@@ -116,7 +116,7 @@ export async function getAdminRooms(): Promise<AdminRoom[]> {
       ),
     )
   } catch (error) {
-    throw new Error(getRoomApiErrorMessage(error, 'Không thể tải danh sách phòng từ backend.'))
+    throw new Error(getRoomApiErrorMessage(error, 'Không thể tải danh sách phòng từ hệ thống.'))
   }
 }
 
@@ -148,7 +148,7 @@ export async function createAdminRoom(data: RoomFormData): Promise<AdminRoom> {
   const roomType = pickRoomType(data, roomTypes)
 
   if (!roomType) {
-    throw new Error('Backend chưa có hạng phòng. Vui lòng tạo hạng phòng trước khi thêm phòng.')
+    throw new Error('Hệ thống chưa có hạng phòng. Vui lòng tạo hạng phòng trước khi thêm phòng.')
   }
 
   try {
@@ -162,7 +162,7 @@ export async function createAdminRoom(data: RoomFormData): Promise<AdminRoom> {
 
     return mapBackendRoomToAdminRoom(room)
   } catch (error) {
-    throw new Error(getRoomApiErrorMessage(error, 'Không thể thêm phòng trên backend.'))
+    throw new Error(getRoomApiErrorMessage(error, 'Không thể thêm phòng trên hệ thống.'))
   }
 }
 
@@ -176,7 +176,7 @@ export async function updateAdminRoom(id: string, data: RoomFormData): Promise<A
   const roomType = pickRoomType(data, roomTypes)
 
   if (!roomType) {
-    throw new Error('Backend chưa có hạng phòng để cập nhật.')
+    throw new Error('Hệ thống chưa có hạng phòng để cập nhật.')
   }
 
   try {
@@ -190,7 +190,7 @@ export async function updateAdminRoom(id: string, data: RoomFormData): Promise<A
 
     return mapBackendRoomToAdminRoom(room)
   } catch (error) {
-    throw new Error(getRoomApiErrorMessage(error, 'Không thể cập nhật phòng trên backend.'))
+    throw new Error(getRoomApiErrorMessage(error, 'Không thể cập nhật phòng trên hệ thống.'))
   }
 }
 
@@ -198,7 +198,7 @@ export async function deleteAdminRoom(id: string): Promise<void> {
   try {
     await deleteRoom(id)
   } catch (error) {
-    throw new Error(getRoomApiErrorMessage(error, 'Không thể xóa phòng trên backend.'))
+    throw new Error(getRoomApiErrorMessage(error, 'Không thể xóa phòng trên hệ thống.'))
   }
 }
 
@@ -230,7 +230,7 @@ export async function uploadAdminRoomImage(file: File) {
   try {
     return await uploadRoomImage(file)
   } catch (error) {
-    throw new Error(getRoomApiErrorMessage(error, 'Không thể tải ảnh phòng lên Cloudinary.'))
+    throw new Error(getRoomApiErrorMessage(error, 'Không thể tải ảnh phòng lên máy chủ lưu trữ.'))
   }
 }
 

@@ -114,14 +114,14 @@ export default function StaffScheduleToolbar({
             <input
               value={query}
               onChange={(event) => onQueryChange(event.target.value)}
-              placeholder="Tìm tên / email staff…"
+              placeholder="Tìm tên / email nhân viên…"
               className="h-9 w-full rounded-lg border border-outline-variant bg-surface-container-low pl-9 pr-3 text-sm outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange"
             />
           </label>
           <input
             value={staffId}
             onChange={(event) => onStaffIdChange(event.target.value.replace(/[^\d]/g, ''))}
-            placeholder="Staff ID"
+            placeholder="Mã nhân viên"
             inputMode="numeric"
             className="h-9 rounded-lg border border-outline-variant bg-surface-container-low px-3 text-sm outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange"
           />
