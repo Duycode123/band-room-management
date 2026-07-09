@@ -165,7 +165,12 @@ function applyClientFilters(bookings: AdminBooking[], filters: BookingFilters) {
       return true
     })
     .sort((firstBooking, secondBooking) => {
-      return new Date(secondBooking.startTime).getTime() - new Date(firstBooking.startTime).getTime()
+      const firstDate = toDateKey(firstBooking.startTime)
+      const secondDate = toDateKey(secondBooking.startTime)
+      if (firstDate !== secondDate) {
+        return secondDate.localeCompare(firstDate)
+      }
+      return new Date(firstBooking.startTime).getTime() - new Date(secondBooking.startTime).getTime()
     })
 }
 
@@ -194,6 +199,44 @@ export function formatBookingTimeRange(start: string, end: string) {
   })
 
   return `${date} · ${formatTime(start)} - ${formatTime(end)}`
+}
+
+export function formatBookingClockRange(start: string, end: string) {
+  const formatTime = (iso: string) =>
+    new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false })
+
+  return `${formatTime(start)} – ${formatTime(end)}`
+}
+
+export function getBookingDateKey(iso: string) {
+  return toDateKey(iso)
+}
+
+export function formatBookingDayHeading(iso: string) {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return 'Không xác định'
+
+  const todayKey = toLocalDateInputValue()
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  const tomorrowKey = toLocalDateInputValue(tomorrow)
+  const key = toDateKey(iso)
+
+  const label = date.toLocaleDateString('vi-VN', {
+    weekday: 'long',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+
+  if (key === todayKey) return `Hôm nay · ${label}`
+  if (key === tomorrowKey) return `Ngày mai · ${label}`
+  return label
+}
+
+export function toLocalDateInputValue(date = new Date()) {
+  const pad = (value: number) => value.toString().padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
 export async function fetchAdminBookings(filters: BookingFilters): Promise<AdminBooking[]> {

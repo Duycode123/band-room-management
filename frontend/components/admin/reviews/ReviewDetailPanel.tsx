@@ -80,24 +80,13 @@ export default function ReviewDetailPanel({
 
       <aside className="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col border-l border-outline-variant bg-white shadow-[var(--shadow-elevated)]">
         <header className="border-b border-outline-variant px-5 py-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="font-display text-[10px] font-bold uppercase tracking-[0.15em] text-brand-orange">
-                RV-{String(review.reviewId).padStart(4, '0')}
-              </p>
-              <h2 className="font-display text-xl font-bold text-on-surface">{review.customerName}</h2>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <ReviewApprovalBadge approved={review.approved} />
-                <ReviewRatingBadge rating={review.rating} />
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-outline-variant bg-white text-on-surface-variant hover:bg-surface-container-low"
-            >
-              X
-            </button>
+          <p className="font-display text-[10px] font-bold uppercase tracking-[0.15em] text-brand-orange">
+            RV-{String(review.reviewId).padStart(4, '0')}
+          </p>
+          <h2 className="font-display text-xl font-bold text-on-surface">{review.customerName}</h2>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <ReviewApprovalBadge approved={review.approved} />
+            <ReviewRatingBadge rating={review.rating} />
           </div>
         </header>
 
@@ -206,6 +195,13 @@ export default function ReviewDetailPanel({
                 className="rounded-xl border border-error/30 py-2.5 font-display text-sm font-medium text-error hover:bg-error-container/30 disabled:opacity-50"
               >
                 Xóa
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-xl border border-outline bg-white py-2.5 font-display text-sm font-medium text-on-surface-variant hover:text-on-surface"
+              >
+                Đóng
               </button>
             </div>
           )}

@@ -1,5 +1,7 @@
 'use client'
 
+import AdminCloseButton from '@/components/admin/AdminCloseButton'
+
 type AdminToastProps = {
   message: string
   onDismiss?: () => void
@@ -17,16 +19,7 @@ export default function AdminToast({ message, onDismiss }: AdminToastProps) {
         ✓
       </span>
       <p className="flex-1 text-sm font-medium text-secondary">{message}</p>
-      {onDismiss && (
-        <button
-          type="button"
-          onClick={onDismiss}
-          className="text-on-surface-variant hover:text-on-surface"
-          aria-label="Đóng"
-        >
-          ✕
-        </button>
-      )}
+      {onDismiss && <AdminCloseButton onClick={onDismiss} label="Đóng thông báo" className="h-8 w-8" />}
     </div>
   )
 }

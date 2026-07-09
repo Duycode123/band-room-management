@@ -6,7 +6,7 @@ import AdminPageHeader from '@/components/admin/AdminPageHeader'
 import AdminShell from '@/components/admin/AdminShell'
 import AdminStatCard from '@/components/admin/AdminStatCard'
 import AdminToast from '@/components/admin/AdminToast'
-import { IconBookings } from '@/components/admin/AdminIcons'
+import { IconBookings, IconCheckCircle, IconClock } from '@/components/admin/AdminIcons'
 import BookingDetailPanel from '@/components/admin/bookings/BookingDetailPanel'
 import BookingFiltersBar from '@/components/admin/bookings/BookingFiltersBar'
 import BookingTable from '@/components/admin/bookings/BookingTable'
@@ -97,7 +97,7 @@ export default function AdminBookingsPage() {
         <AdminPageHeader
           eyebrow="Đơn đặt phòng"
           title="Quản lý booking"
-          description="Theo dõi đơn đặt, trạng thái thanh toán và thông tin khách hàng."
+          description="Danh sách theo ngày sử dụng — lọc nhanh hôm nay/mai, theo dõi thanh toán và trạng thái đơn."
           breadcrumbs={[
             { label: 'Tổng quan', href: '/admin/dashboard' },
             { label: 'Booking' },
@@ -116,20 +116,23 @@ export default function AdminBookingsPage() {
           <div className="grid gap-4 sm:grid-cols-3">
             <AdminStatCard
               label="Kết quả lọc"
-              value={stats.total}
+              value={isLoading ? '…' : stats.total}
+              hint="Theo bộ lọc hiện tại"
               icon={<IconBookings className="h-5 w-5" />}
             />
             <AdminStatCard
               label="Đang sử dụng"
-              value={stats.active}
+              value={isLoading ? '…' : stats.active}
+              hint="Checked-in"
               accent="secondary"
-              icon={<span className="text-base">O</span>}
+              icon={<IconCheckCircle className="h-5 w-5" />}
             />
             <AdminStatCard
               label="Chờ thanh toán"
-              value={stats.pending}
+              value={isLoading ? '…' : stats.pending}
+              hint="Cần theo dõi"
               accent="tertiary"
-              icon={<span className="text-base">...</span>}
+              icon={<IconClock className="h-5 w-5" />}
             />
           </div>
 
