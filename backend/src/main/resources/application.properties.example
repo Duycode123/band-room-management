@@ -78,6 +78,11 @@ payment.sepay.operation=${SEPAY_OPERATION:}
 payment.sepay.method=${SEPAY_METHOD:}
 payment.sepay.transaction-type=${SEPAY_TRANSACTION_TYPE:}
 payment.sepay.portal-signature-param=${SEPAY_PORTAL_SIGNATURE_PARAM:signature}
+# HMAC secret for the bank-transfer ("bien dong so du") webhook, which signs requests
+# with X-SePay-Signature / X-SePay-Timestamp headers.
 payment.sepay.webhook-hmac-secret=${SEPAY_WEBHOOK_HMAC_SECRET:}
 payment.sepay.webhook-timestamp-tolerance-seconds=${SEPAY_WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS:300}
+# Secret for the Payment Gateway IPN (SePay portal: Payment Gateway -> Configuration -> IPN,
+# auth type SECRET_KEY, sent back via the X-Secret-Key header). Must match the portal value,
+# otherwise ORDER_PAID/ORDER_FAILED notifications are rejected and paid bookings never update.
 payment.sepay.ipn-secret=${SEPAY_IPN_SECRET:}

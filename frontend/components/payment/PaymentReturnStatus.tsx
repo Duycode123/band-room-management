@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   formatCurrency,
   getPaymentMethodLabel,
@@ -10,31 +10,94 @@ import {
   normalizePaymentStatus,
 } from '@/lib/checkout-data'
 import { clearPendingBooking } from '@/lib/pending-booking'
+import { getPaymentTransactionDetail, type PaymentStatus } from '@/lib/payment-service'
 
 export default function PaymentReturnStatus() {
   const searchParams = useSearchParams()
   const paymentId = searchParams.get('paymentId')
   const bookingId = searchParams.get('bookingId')
   const backendBookingId = searchParams.get('backendBookingId')
-  const status = normalizePaymentStatus(searchParams.get('status'))
+  const returnStatus = normalizePaymentStatus(searchParams.get('status'))
   const method = searchParams.get('method')
-  const amount = Number(searchParams.get('amount') || 0)
+  const returnAmount = Number(searchParams.get('amount') || 0)
   const paymentOption = searchParams.get('paymentOption')
-  const content = getReturnStatusContent(searchParams.get('status'))
+  const [verifiedStatus, setVerifiedStatus] = useState<PaymentStatus | null>(null)
+  const [verifiedAmount, setVerifiedAmount] = useState<number | null>(null)
+  const [isVerifying, setIsVerifying] = useState(false)
+  const [verificationMessage, setVerificationMessage] = useState('')
+
+  const displayStatus = verifiedStatus ?? (returnStatus === 'unknown' ? 'unknown' : returnStatus)
+  const displayAmount = verifiedAmount ?? returnAmount
+  const content = useMemo(() => getReturnStatusContent(displayStatus), [displayStatus])
   const retryHref = buildRetryHref({
     bookingId,
     backendBookingId,
     method,
     paymentOption,
   })
-  const primaryHref = content.primaryLabel === 'Thử lại thanh toán' ? retryHref : content.primaryHref
+  const primaryHref = content.tone === 'failed' || content.tone === 'cancelled' ? retryHref : content.primaryHref
   const missingBooking = !bookingId
 
   useEffect(() => {
-    if (status === 'success') {
+    if (!paymentId || returnStatus !== 'success') {
+      setVerifiedStatus(null)
+      setVerifiedAmount(null)
+      setVerificationMessage('')
+      return
+    }
+
+    let cancelled = false
+    const verifiedPaymentId = paymentId
+
+    async function verifyPayment() {
+      setIsVerifying(true)
+      setVerificationMessage('')
+
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        try {
+          const transaction = await getPaymentTransactionDetail(verifiedPaymentId)
+          if (cancelled) return
+
+          setVerifiedStatus(transaction.status)
+          setVerifiedAmount(transaction.amount)
+
+          if (transaction.status !== 'pending') {
+            setVerificationMessage('')
+            return
+          }
+        } catch {
+          if (cancelled) return
+          setVerificationMessage('Chua the doc trang thai giao dich tu backend.')
+          return
+        }
+
+        await new Promise((resolve) => window.setTimeout(resolve, 1500))
+      }
+
+      if (!cancelled) {
+        setVerifiedStatus('pending')
+        setVerificationMessage(
+          'SePay da redirect ve thanh cong, nhung backend chua nhan webhook xac nhan. Vui long kiem tra cau hinh IPN/webhook SePay hoac cho he thong doi soat.',
+        )
+      }
+    }
+
+    void verifyPayment().finally(() => {
+      if (!cancelled) {
+        setIsVerifying(false)
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [paymentId, returnStatus])
+
+  useEffect(() => {
+    if (displayStatus === 'success') {
       clearPendingBooking()
     }
-  }, [status])
+  }, [displayStatus])
 
   return (
     <main className="min-h-screen bg-[#F5F2EC] px-6 py-10 text-[#1A1C1E]">
@@ -50,28 +113,34 @@ export default function PaymentReturnStatus() {
           </div>
 
           <h1 className="mt-6 font-display text-3xl font-bold tracking-tight">
-            {missingBooking ? 'Không tìm thấy mã đặt phòng' : content.title}
+            {missingBooking ? 'Khong tim thay ma dat phong' : content.title}
           </h1>
           <p className="mx-auto mt-3 max-w-xl text-[#5C5348]">
             {missingBooking
-              ? 'Vui lòng kiểm tra lại đường dẫn thanh toán hoặc quay về trang chủ.'
+              ? 'Vui long kiem tra lai duong dan thanh toan hoac quay ve trang chu.'
               : content.message}
           </p>
 
           <div className="mt-6 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4 text-left">
-            <TransactionRow label="Mã đặt phòng" value={bookingId || 'Chưa có'} />
+            <TransactionRow label="Ma dat phong" value={bookingId || 'Chua co'} />
             <TransactionRow
-              label="Trạng thái"
-              value={status === 'unknown' ? 'Không xác định' : content.title}
+              label="Trang thai"
+              value={displayStatus === 'unknown' ? 'Khong xac dinh' : content.title}
             />
-            <TransactionRow label="Số tiền" value={amount > 0 ? formatCurrency(amount) : 'Chưa xác định'} />
-            <TransactionRow label="Phương thức" value={getPaymentMethodLabel(method)} />
+            <TransactionRow label="So tien" value={displayAmount > 0 ? formatCurrency(displayAmount) : 'Chua xac dinh'} />
+            <TransactionRow label="Phuong thuc" value={getPaymentMethodLabel(method)} />
             <TransactionRow
-              label="Lựa chọn"
-              value={paymentOption === 'full' ? 'Thanh toán toàn bộ' : 'Đặt cọc 50.000 VND'}
+              label="Lua chon"
+              value={paymentOption === 'full' ? 'Thanh toan toan bo' : 'Dat coc 50.000 VND'}
             />
-            {paymentId && <TransactionRow label="Mã giao dịch" value={paymentId} />}
+            {paymentId && <TransactionRow label="Ma giao dich" value={paymentId} />}
           </div>
+
+          {(isVerifying || verificationMessage) && (
+            <p className="mt-4 rounded-2xl border border-[#FEF3C7] bg-[#FFFBEB] px-4 py-3 text-sm font-medium text-[#92400E]">
+              {isVerifying ? 'Dang doi soat voi backend...' : verificationMessage}
+            </p>
+          )}
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             {!missingBooking && (
@@ -86,7 +155,7 @@ export default function PaymentReturnStatus() {
               href="/"
               className="flex h-12 flex-1 items-center justify-center rounded-2xl border border-[#C9C2B6] bg-white font-display font-semibold text-[#1A1C1E] transition hover:bg-[#FAF8F4]"
             >
-              Quay về trang chủ
+              Quay ve trang chu
             </Link>
           </div>
         </div>

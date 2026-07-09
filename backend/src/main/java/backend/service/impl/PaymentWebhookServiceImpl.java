@@ -98,7 +98,7 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
 
             Booking booking = transaction.getBooking();
             if (booking.getStatus() == BookingStatus.PENDING_PAYMENT) {
-                booking.setStatus(paymentSuccess ? BookingStatus.PAID : BookingStatus.CANCELLED);
+                booking.setStatus(paymentSuccess ? resolveSuccessfulBookingStatus(transaction) : BookingStatus.CANCELLED);
             }
 
             if (paymentSuccess) {
@@ -183,7 +183,7 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
 
         Booking booking = transaction.getBooking();
         if (booking.getStatus() == BookingStatus.PENDING_PAYMENT) {
-            booking.setStatus(BookingStatus.PAID);
+            booking.setStatus(resolveSuccessfulBookingStatus(transaction));
         }
 
         couponUsageTrackingService.recordPaidBookingUsage(booking);
@@ -210,11 +210,6 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
         Map<String, Object> order = nestedMap(payload, "order");
         Map<String, Object> gatewayTransaction = nestedMap(payload, "transaction");
 
-        if (!"ORDER_PAID".equalsIgnoreCase(notificationType)) {
-            // TRANSACTION_VOID và các loại khác: xác nhận đã nhận nhưng không đổi trạng thái.
-            return Map.of("success", true, "message", "Notification type ignored: " + notificationType);
-        }
-
         String transactionReference = normalizeSepayReference(firstText(order, "order_invoice_number"));
         if (isBlank(transactionReference)) {
             return Map.of("success", true, "message", "No matching payment reference");
@@ -230,6 +225,32 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
 
         if (transaction.getProvider() != PaymentProvider.SEPAY) {
             return Map.of("success", true, "message", "Transaction provider is not SePay");
+        }
+
+        if (isCancelledSepayNotification(notificationType)) {
+            closeTransactionAsCancelled(transaction, "SEPAY_" + notificationType.toUpperCase());
+            try {
+                paymentTransactionRepository.save(transaction);
+            } catch (DataIntegrityViolationException exception) {
+                return Map.of("success", true, "message", "Duplicate provider transaction");
+            }
+
+            return Map.of("success", true, "message", "Payment cancelled");
+        }
+
+        if (isFailedSepayNotification(notificationType)) {
+            closeTransactionAsFailed(transaction, "SEPAY_" + notificationType.toUpperCase());
+            try {
+                paymentTransactionRepository.save(transaction);
+            } catch (DataIntegrityViolationException exception) {
+                return Map.of("success", true, "message", "Duplicate provider transaction");
+            }
+
+            return Map.of("success", true, "message", "Payment failed");
+        }
+
+        if (!"ORDER_PAID".equalsIgnoreCase(notificationType)) {
+            return Map.of("success", true, "message", "Notification type ignored: " + notificationType);
         }
 
         if (transaction.getStatus() == PaymentTransactionStatus.SUCCEEDED) {
@@ -259,7 +280,7 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
 
         Booking booking = transaction.getBooking();
         if (booking.getStatus() == BookingStatus.PENDING_PAYMENT) {
-            booking.setStatus(BookingStatus.PAID);
+            booking.setStatus(resolveSuccessfulBookingStatus(transaction));
         }
 
         couponUsageTrackingService.recordPaidBookingUsage(booking);
@@ -270,6 +291,59 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
         }
 
         return Map.of("success", true, "message", "Confirm success");
+    }
+
+    private BookingStatus resolveSuccessfulBookingStatus(PaymentTransaction transaction) {
+        Booking booking = transaction.getBooking();
+        BigDecimal totalAmount = booking == null ? null : booking.getTotalAmount();
+        BigDecimal paidAmount = transaction.getAmount();
+        if (totalAmount != null && paidAmount != null
+                && paidAmount.compareTo(totalAmount.setScale(2, RoundingMode.HALF_UP)) < 0) {
+            return BookingStatus.DEPOSIT_PAID;
+        }
+
+        return BookingStatus.PAID;
+    }
+
+    private boolean isCancelledSepayNotification(String notificationType) {
+        return "TRANSACTION_VOID".equalsIgnoreCase(notificationType)
+                || "ORDER_CANCELLED".equalsIgnoreCase(notificationType)
+                || "ORDER_EXPIRED".equalsIgnoreCase(notificationType);
+    }
+
+    private boolean isFailedSepayNotification(String notificationType) {
+        return "ORDER_FAILED".equalsIgnoreCase(notificationType)
+                || "PAYMENT_FAILED".equalsIgnoreCase(notificationType);
+    }
+
+    private void closeTransactionAsCancelled(PaymentTransaction transaction, String responseCode) {
+        if (transaction.getStatus() == PaymentTransactionStatus.SUCCEEDED
+                || transaction.getStatus() == PaymentTransactionStatus.FAILED
+                || transaction.getStatus() == PaymentTransactionStatus.CANCELLED) {
+            return;
+        }
+
+        transaction.setResponseCode(responseCode);
+        transaction.setStatus(PaymentTransactionStatus.CANCELLED);
+        Booking booking = transaction.getBooking();
+        if (booking != null && booking.getStatus() == BookingStatus.PENDING_PAYMENT) {
+            booking.setStatus(BookingStatus.CANCELLED);
+        }
+    }
+
+    private void closeTransactionAsFailed(PaymentTransaction transaction, String responseCode) {
+        if (transaction.getStatus() == PaymentTransactionStatus.SUCCEEDED
+                || transaction.getStatus() == PaymentTransactionStatus.FAILED
+                || transaction.getStatus() == PaymentTransactionStatus.CANCELLED) {
+            return;
+        }
+
+        transaction.setResponseCode(responseCode);
+        transaction.setStatus(PaymentTransactionStatus.FAILED);
+        Booking booking = transaction.getBooking();
+        if (booking != null && booking.getStatus() == BookingStatus.PENDING_PAYMENT) {
+            booking.setStatus(BookingStatus.CANCELLED);
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -392,24 +466,26 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
             String timestampHeader,
             String secretKeyHeader
     ) {
-        // Payment Gateway IPN với auth type SECRET_KEY gửi header X-Secret-Key;
-        // so khớp với payment.sepay.ipn-secret khi cả hai cùng có mặt.
         String ipnSecret = blankToNull(sePayProperties.getIpnSecret());
-        if (ipnSecret != null && !isBlank(secretKeyHeader)) {
-            return constantTimeEquals(secretKeyHeader.trim(), ipnSecret);
-        }
-
         String hmacSecret = blankToNull(sePayProperties.getWebhookHmacSecret());
-        if (hmacSecret != null) {
-            return isValidSepayHmac(rawBody, signatureHeader, timestampHeader, hmacSecret);
+
+        // Payment Gateway IPN với auth type SECRET_KEY gửi header X-Secret-Key và
+        // không kèm cặp header HMAC, nên chỉ so khớp với payment.sepay.ipn-secret;
+        // không được rơi xuống nhánh HMAC vì sẽ chặn nhầm mọi IPN thật.
+        if (!isBlank(secretKeyHeader)) {
+            return ipnSecret != null && constantTimeEquals(secretKeyHeader.trim(), ipnSecret);
         }
 
-        String expectedSecret = sePayProperties.getIpnSecret();
+        // Webhook biến động số dư ký HMAC qua X-SePay-Signature/X-SePay-Timestamp.
+        if (!isBlank(signatureHeader) || !isBlank(timestampHeader)) {
+            return hmacSecret != null
+                    && isValidSepayHmac(rawBody, signatureHeader, timestampHeader, hmacSecret);
+        }
 
         // No secret configured (local/dev): keep the webhook open so the flow can be
         // exercised without a real SePay account. Production should set
-        // payment.sepay.webhook-hmac-secret, or at least payment.sepay.ipn-secret.
-        if (isBlank(expectedSecret)) {
+        // payment.sepay.ipn-secret and/or payment.sepay.webhook-hmac-secret.
+        if (ipnSecret == null && hmacSecret == null) {
             return true;
         }
 
@@ -425,7 +501,7 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
             presented = presented.substring("Bearer ".length()).trim();
         }
 
-        return constantTimeEquals(presented, expectedSecret.trim());
+        return ipnSecret != null && constantTimeEquals(presented, ipnSecret);
     }
 
     private boolean isValidSepayHmac(

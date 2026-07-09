@@ -39,10 +39,10 @@ type FormModalState =
 export default function AdminCouponsPage() {
   const [filters, setFilters] = useState<CouponFilters>(DEFAULT_FILTERS)
   const [coupons, setCoupons] = useState<AdminCoupon[]>([])
-  const [rooms, setRooms] = useState<CouponRoomOption[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selected, setSelected] = useState<AdminCoupon | null>(null)
   const [formModal, setFormModal] = useState<FormModalState>({ open: false })
+  const [rooms, setRooms] = useState<CouponRoomOption[]>([])
   const [toast, setToast] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -67,17 +67,29 @@ export default function AdminCouponsPage() {
   }, [filters])
 
   useEffect(() => {
-    void fetchCouponRooms()
-      .then((data) => setRooms(data))
-      .catch((error) => {
-        setErrorMessage(error instanceof Error ? error.message : 'Không thể tải danh sách phòng.')
-      })
-  }, [])
-
-  useEffect(() => {
     const timer = setTimeout(() => void loadCoupons(), 200)
     return () => clearTimeout(timer)
   }, [loadCoupons])
+
+  useEffect(() => {
+    let active = true
+
+    fetchCouponRooms()
+      .then((data) => {
+        if (active) {
+          setRooms(data)
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          setErrorMessage(error instanceof Error ? error.message : 'KhÃ´ng thá»ƒ táº£i danh sÃ¡ch phÃ²ng.')
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   useEffect(() => {
     if (!toast) return
@@ -89,9 +101,10 @@ export default function AdminCouponsPage() {
   const stats = useMemo(() => {
     return {
       total: coupons.length,
-      active: coupons.filter((item) => item.expiryStatus === 'ACTIVE' || item.expiryStatus === 'NO_EXPIRY').length,
-      expired: coupons.filter((item) => item.expiryStatus === 'EXPIRED').length,
-      percentage: coupons.filter((item) => item.type === 'PERCENTAGE').length,
+      active: coupons.filter((coupon) => coupon.expiryStatus === 'ACTIVE').length,
+      noExpiry: coupons.filter((coupon) => coupon.expiryStatus === 'NO_EXPIRY').length,
+      expired: coupons.filter((coupon) => coupon.expiryStatus === 'EXPIRED').length,
+      percentage: coupons.filter((coupon) => coupon.type === 'PERCENTAGE').length,
     }
   }, [coupons])
 
@@ -139,7 +152,7 @@ export default function AdminCouponsPage() {
               className="inline-flex items-center gap-2 rounded-xl bg-brand-orange px-5 py-2.5 font-display text-sm font-medium text-white shadow-lg shadow-brand-orange/25 transition-all hover:bg-brand-orangeHover active:scale-[0.98]"
             >
               <IconPlus className="h-4 w-4" />
-              Tạo coupon
+              Them coupon
             </button>
           }
         />

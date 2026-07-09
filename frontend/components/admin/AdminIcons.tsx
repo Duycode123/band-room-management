@@ -21,12 +21,32 @@ export function IconBookings({ className = 'h-5 w-5' }: IconProps) {
   )
 }
 
+export function IconStaff({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+      <path d="M16 11a4 4 0 1 0-8 0" />
+      <path d="M5 21a7 7 0 0 1 14 0" />
+      <path d="M19 8.5a3 3 0 0 1 0 5" />
+      <path d="M22 21a5 5 0 0 0-3-4.5" />
+    </svg>
+  )
+}
+
 export function IconEquipment({ className = 'h-5 w-5' }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
       <path d="M9 18V5l12-2v13" />
       <circle cx="6" cy="18" r="3" />
       <circle cx="18" cy="16" r="3" />
+    </svg>
+  )
+}
+
+export function IconCoupons({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+      <path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2.2a2.4 2.4 0 0 0 0 4.6V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2.2a2.4 2.4 0 0 0 0-4.6V7z" />
+      <path d="M9 9h.01M15 15h.01M15 9l-6 6" />
     </svg>
   )
 }
@@ -63,16 +83,6 @@ export function IconReviews({ className = 'h-5 w-5' }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
       <path d="M12 17.3 6.2 20l1.2-6.6L2 9.3l6.7-1L12 2l3.3 6.3 6.7 1-5.4 4.1 1.2 6.6z" />
-    </svg>
-  )
-}
-
-export function IconCoupons({ className = 'h-5 w-5' }: IconProps) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-      <path d="M4 8.5V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2.5" />
-      <path d="M4 8.5h16a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-7.5a2 2 0 0 1 2-2z" />
-      <path d="M9 12h6" strokeLinecap="round" />
     </svg>
   )
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import AuthGuard from '@/components/AuthGuard'
+import { fetchStaffCustomers, type BackendStaffCustomerBooking, type BackendStaffCustomerSummary } from '@/lib/staff-customer-service'
 import { StaffPageShell } from './StaffShared'
 
 type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CHECKED_IN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW'
@@ -127,7 +128,7 @@ const initialCustomers: StaffCustomer[] = [
   },
 ]
 
-const bookingHistory: StaffBooking[] = [
+const initialBookingHistory: StaffBooking[] = [
   { id: 'b1', code: 'BK-0701-60', customerId: 'c1', roomName: 'Studio A', date: todayKey, startTime: '08:00', endTime: '09:30', totalPrice: 520000, status: 'CONFIRMED' },
   { id: 'b2', code: 'BK-0701-61', customerId: 'c2', roomName: 'Live Room', date: todayKey, startTime: '09:00', endTime: '10:30', totalPrice: 720000, status: 'PENDING' },
   { id: 'b3', code: 'BK-0701-62', customerId: 'c3', roomName: 'Drum Booth', date: todayKey, startTime: '10:00', endTime: '11:30', totalPrice: 430000, status: 'CHECKED_IN' },
@@ -147,6 +148,7 @@ const filters: Array<{ value: CustomerFilter; label: string }> = [
 
 export default function StaffCustomersPage() {
   const [customers, setCustomers] = useState(initialCustomers)
+  const [bookingHistory, setBookingHistory] = useState(initialBookingHistory)
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<CustomerFilter>('ALL')
   const [isLoading, setIsLoading] = useState(true)
@@ -155,8 +157,30 @@ export default function StaffCustomersPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setIsLoading(false), 320)
-    return () => window.clearTimeout(timer)
+    let isMounted = true
+
+    async function loadCustomers() {
+      setIsLoading(true)
+      try {
+        const data = await fetchStaffCustomers()
+        if (!isMounted) return
+        setCustomers(data.map(mapBackendCustomer))
+        setBookingHistory(data.flatMap((customer) => customer.recentBookings.map((booking) => mapBackendBooking(booking, customer.id))))
+      } catch (error) {
+        if (!isMounted) return
+        setToastMessage(error instanceof Error ? error.message : 'Khong the tai danh sach khach hang.')
+      } finally {
+        if (isMounted) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    void loadCustomers()
+
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   useEffect(() => {
@@ -470,6 +494,54 @@ function filterCustomers(customers: StaffCustomer[], query: string, filter: Cust
     const matchesFilter = filter === 'ALL' || (filter === 'HAS_TODAY_BOOKING' ? customer.hasTodayBooking : customer.type === filter)
     return matchesQuery && matchesFilter
   })
+}
+
+function mapBackendCustomer(customer: BackendStaffCustomerSummary): StaffCustomer {
+  return {
+    id: String(customer.id),
+    name: customer.name,
+    phone: customer.phone ?? undefined,
+    email: customer.email ?? undefined,
+    type: customer.type,
+    bookingCount: customer.bookingCount,
+    lastBookingAt: customer.lastBookingAt ?? undefined,
+    favoriteRoom: customer.favoriteRoom ?? undefined,
+    favoriteEquipment: [],
+    hasTodayBooking: customer.hasTodayBooking,
+    notes: [],
+  }
+}
+
+function mapBackendBooking(booking: BackendStaffCustomerBooking, fallbackCustomerId: number): StaffBooking {
+  return {
+    id: String(booking.id),
+    code: booking.code,
+    customerId: String(booking.customerId ?? fallbackCustomerId),
+    roomName: booking.roomName,
+    date: booking.date,
+    startTime: formatBackendTime(booking.startTime),
+    endTime: formatBackendTime(booking.endTime),
+    totalPrice: Number(booking.totalPrice ?? 0),
+    status: mapBackendBookingStatus(booking.status),
+  }
+}
+
+function mapBackendBookingStatus(status: string): BookingStatus {
+  const statusMap: Record<string, BookingStatus> = {
+    PENDING_PAYMENT: 'PENDING',
+    DEPOSIT_PAID: 'CONFIRMED',
+    PAID: 'CONFIRMED',
+    CHECKED_IN: 'CHECKED_IN',
+    COMPLETED: 'COMPLETED',
+    CANCELLED: 'CANCELLED',
+  }
+
+  return statusMap[status] ?? 'PENDING'
+}
+
+function formatBackendTime(value?: string | null) {
+  if (!value) return '--:--'
+  return value.slice(0, 5)
 }
 
 function normalizeText(value: string) {

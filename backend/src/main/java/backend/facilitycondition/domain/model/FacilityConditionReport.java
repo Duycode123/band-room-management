@@ -17,6 +17,9 @@ public record FacilityConditionReport(
         String imageUrl,
         boolean maintenanceSuggested,
         RoomStatus roomStatusAfterUpdate,
+        FacilityConditionReportStatus status,
+        String adminNote,
+        LocalDateTime resolvedAt,
         LocalDateTime createdAt
 ) {
 }

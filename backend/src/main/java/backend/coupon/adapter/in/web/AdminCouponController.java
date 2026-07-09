@@ -2,19 +2,23 @@ package backend.coupon.adapter.in.web;
 
 import backend.common.ApiResponse;
 import backend.coupon.adapter.in.web.dto.CouponResponse;
+import backend.coupon.adapter.in.web.dto.CouponUsageReportResponse;
 import backend.coupon.adapter.in.web.dto.CreateCouponRequest;
 import backend.coupon.adapter.in.web.dto.UpdateCouponRequest;
 import backend.coupon.application.port.in.CreateCouponUseCase;
 import backend.coupon.application.port.in.DeleteCouponUseCase;
 import backend.coupon.application.port.in.GetCouponDetailUseCase;
+import backend.coupon.application.port.in.GetCouponUsageReportUseCase;
 import backend.coupon.application.port.in.ListCouponsUseCase;
 import backend.coupon.application.port.in.UpdateCouponUseCase;
 import backend.coupon.application.port.in.command.CreateCouponCommand;
 import backend.coupon.application.port.in.command.DeleteCouponCommand;
 import backend.coupon.application.port.in.command.UpdateCouponCommand;
 import backend.coupon.application.port.in.query.GetCouponDetailQuery;
+import backend.coupon.application.port.in.query.GetCouponUsageReportQuery;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -24,8 +28,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Clock;
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -33,11 +40,15 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AdminCouponController {
 
+    private static final long DEFAULT_REPORT_DAYS = 30;
+
     private final ListCouponsUseCase listCouponsUseCase;
     private final GetCouponDetailUseCase getCouponDetailUseCase;
     private final CreateCouponUseCase createCouponUseCase;
     private final UpdateCouponUseCase updateCouponUseCase;
     private final DeleteCouponUseCase deleteCouponUseCase;
+    private final GetCouponUsageReportUseCase getCouponUsageReportUseCase;
+    private final Clock clock;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<CouponResponse>>> getCoupons() {
@@ -100,11 +111,45 @@ public class AdminCouponController {
         return ResponseEntity.ok(success("Xoa coupon thanh cong", null));
     }
 
+    @GetMapping("/usage-report")
+    public ResponseEntity<ApiResponse<CouponUsageReportResponse>> getUsageReport(
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate startDate,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate endDate
+    ) {
+        DateRange dateRange = resolveDateRange(startDate, endDate);
+        CouponUsageReportResponse data = CouponUsageReportResponse.from(
+                getCouponUsageReportUseCase.getCouponUsageReport(
+                        new GetCouponUsageReportQuery(dateRange.startDate(), dateRange.endDate())
+                )
+        );
+
+        return ResponseEntity.ok(success("Lay bao cao coupon thanh cong", data));
+    }
+
+    private DateRange resolveDateRange(LocalDate startDate, LocalDate endDate) {
+        LocalDate effectiveEndDate = endDate != null ? endDate : LocalDate.now(clock);
+        LocalDate effectiveStartDate = startDate != null
+                ? startDate
+                : effectiveEndDate.minusDays(DEFAULT_REPORT_DAYS - 1);
+
+        return new DateRange(effectiveStartDate, effectiveEndDate);
+    }
+
     private <T> ApiResponse<T> success(String message, T data) {
         return ApiResponse.<T>builder()
                 .success(true)
                 .message(message)
                 .data(data)
                 .build();
+    }
+
+    private record DateRange(
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
     }
 }

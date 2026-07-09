@@ -6,7 +6,8 @@ import AdminPageHeader from '@/components/admin/AdminPageHeader'
 import AdminShell from '@/components/admin/AdminShell'
 import AdminStatCard from '@/components/admin/AdminStatCard'
 import AdminToast from '@/components/admin/AdminToast'
-import { IconBookings, IconCheckCircle, IconClock } from '@/components/admin/AdminIcons'
+import { IconBookings, IconCheckCircle, IconClock, IconPlus } from '@/components/admin/AdminIcons'
+import AdminStaffCreateModal from '@/components/admin/staff/AdminStaffCreateModal'
 import StaffScheduleHourGrid from '@/components/admin/staff-schedule/StaffScheduleHourGrid'
 import StaffScheduleToolbar from '@/components/admin/staff-schedule/StaffScheduleToolbar'
 import StaffScheduleWeekStrip, { scrollToScheduleDay } from '@/components/admin/staff-schedule/StaffScheduleWeekStrip'
@@ -16,6 +17,7 @@ import {
   type AdminShiftRegistration,
   type ShiftRegistrationFilters,
 } from '@/lib/admin/staff-schedule/adminShiftRegistrationApi'
+import { createStaffAccount, type StaffAccountFormData } from '@/lib/admin/staff/adminStaffApi'
 import {
   getNextWeekRange,
   getThisWeekRange,
@@ -46,6 +48,7 @@ export default function AdminStaffSchedulePage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [createStaffOpen, setCreateStaffOpen] = useState(false)
   const [toast, setToast] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -132,6 +135,13 @@ export default function AdminStaffSchedulePage() {
     }
   }
 
+  const handleCreateStaff = async (data: StaffAccountFormData) => {
+    const createdStaff = await createStaffAccount(data)
+    setToast(`Da tao staff #${createdStaff.staffId} - ${createdStaff.email}.`)
+    await loadRegistrations()
+    return createdStaff
+  }
+
   const handleApproveSelected = () => {
     const items = registrations.filter(
       (registration) => selectedIds.has(registration.id) && registration.status === 'PENDING',
@@ -179,6 +189,18 @@ export default function AdminStaffSchedulePage() {
             { label: 'Tổng quan', href: '/admin/dashboard' },
             { label: 'Lịch staff' },
           ]}
+          actions={
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setCreateStaffOpen(true)}
+                className="inline-flex items-center gap-2 rounded-xl bg-brand-orange px-5 py-2.5 font-display text-sm font-bold text-white shadow-lg shadow-brand-orange/25 transition hover:bg-brand-orangeHover"
+              >
+                <IconPlus className="h-4 w-4" />
+                Tao staff
+              </button>
+            </div>
+          }
         />
 
         <div className="mx-auto max-w-6xl space-y-4 px-5 py-6 sm:px-8">
@@ -267,6 +289,11 @@ export default function AdminStaffSchedulePage() {
             onApproveSelected={handleApproveSelected}
           />
         </div>
+        <AdminStaffCreateModal
+          open={createStaffOpen}
+          onClose={() => setCreateStaffOpen(false)}
+          onSubmit={handleCreateStaff}
+        />
       </AdminShell>
     </AuthGuard>
   )
