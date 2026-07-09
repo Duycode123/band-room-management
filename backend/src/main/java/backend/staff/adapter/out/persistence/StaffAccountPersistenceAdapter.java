@@ -6,7 +6,10 @@ import backend.repository.StaffRepository;
 import backend.repository.UserRepository;
 import backend.staff.application.port.out.StaffAccountPort;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
 
 @Repository
 @RequiredArgsConstructor
@@ -26,6 +29,11 @@ public class StaffAccountPersistenceAdapter implements StaffAccountPort {
     }
 
     @Override
+    public Optional<Staff> loadStaffById(Integer staffId) {
+        return staffRepository.findById(staffId);
+    }
+
+    @Override
     public User saveAccount(User account) {
         return userRepository.save(account);
     }
@@ -33,5 +41,17 @@ public class StaffAccountPersistenceAdapter implements StaffAccountPort {
     @Override
     public Staff saveStaff(Staff staff) {
         return staffRepository.save(staff);
+    }
+
+    @Override
+    public void deleteStaffAndAccount(Staff staff, User account) {
+        try {
+            staffRepository.delete(staff);
+            staffRepository.flush();
+            userRepository.delete(account);
+            userRepository.flush();
+        } catch (DataIntegrityViolationException exception) {
+            throw new IllegalStateException("Khong the xoa nhan vien da co du lieu lien quan");
+        }
     }
 }
