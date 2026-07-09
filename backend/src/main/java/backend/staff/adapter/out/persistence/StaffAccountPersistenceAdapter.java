@@ -8,6 +8,9 @@ import backend.staff.application.port.out.StaffAccountPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+import java.util.Optional;
+
 @Repository
 @RequiredArgsConstructor
 public class StaffAccountPersistenceAdapter implements StaffAccountPort {
@@ -23,6 +26,16 @@ public class StaffAccountPersistenceAdapter implements StaffAccountPort {
     @Override
     public boolean existsStaffProfileByEmail(String email) {
         return staffRepository.existsByEmailIgnoreCase(email);
+    }
+
+    @Override
+    public Optional<Staff> loadStaffById(Integer staffId) {
+        return staffRepository.findById(staffId);
+    }
+
+    @Override
+    public List<Staff> loadAllStaff() {
+        return staffRepository.findAllByOrderByIdAsc();
     }
 
     @Override

@@ -1,8 +1,8 @@
-# Admin create staff account
+# Admin manage staff accounts
 
 ## Business goal
 
-Allow an admin to create a new staff login and staff profile in one operation so staff-only flows can resolve the authenticated account to a `staff.id`.
+Allow an admin to view staff account/profile information, create staff accounts, and disable accounts for staff who have left without deleting operational history.
 
 ## Actors
 
@@ -17,11 +17,28 @@ Allow an admin to create a new staff login and staff profile in one operation so
 
 ## Main flow
 
+### View staff accounts
+
+1. Admin opens staff management.
+2. Backend returns all staff profiles with linked account information: account id, staff id, email, full name, phone, date of birth, avatar URL, role, email verification state, enabled state, and account creation time.
+3. Admin can open one staff profile to view the same detail for a single staff member.
+
+### Create staff account
+
 1. Admin enters staff full name, email, optional phone, optional date of birth, and optional initial password.
 2. Backend normalizes the email.
 3. Backend creates an `account` row with role `STAFF`.
-4. Backend creates a `staff` row linked by `staff.account_id`.
-5. Backend returns the account id, staff id, and initial password.
+4. Backend marks the account `enabled = true` and `email_verified = true`.
+5. Backend creates a `staff` row linked by `staff.account_id`.
+6. Backend returns the account id, staff id, and initial password.
+
+### Disable staff account
+
+1. Admin selects a staff member who has left.
+2. Backend verifies the staff profile exists and is linked to a `STAFF` account.
+3. Backend sets `account.enabled = false`.
+4. The staff profile and account row remain in place so attendance, shift, booking, and facility history stay traceable.
+5. Disabled staff accounts cannot log in, refresh sessions, or continue authenticated JWT access.
 
 ## Alternate and error flows
 
@@ -29,28 +46,39 @@ Allow an admin to create a new staff login and staff profile in one operation so
 - Duplicate account email: backend rejects the request.
 - Duplicate staff profile email: backend rejects the request.
 - Missing initial password: backend uses `123123`.
+- Staff profile not found during detail/disable: backend returns not found.
 
 ## Business rules
 
 - Admin-created staff accounts use role `STAFF`.
 - Admin-created staff accounts are marked email-verified so the staff member can log in with the initial password.
+- Admin-created staff accounts are enabled by default.
 - Staff-only APIs require both `account.role = STAFF` and a linked `staff` profile.
+- Disabling a staff account does not delete staff or account rows.
+- Disabled staff accounts are excluded from authentication through Spring Security `UserDetails.isEnabled()`.
 
 ## Related endpoints
 
+- `GET /api/admin/staff`
+- `GET /api/admin/staff/{staffId}`
 - `POST /api/admin/staff`
+- `PATCH /api/admin/staff/{staffId}/disable`
 
 ## Data touched
 
+- Reads `account`.
+- Reads `staff`.
 - Writes `account`.
 - Writes `staff`.
+- Updates `account.enabled`.
 
 ## Current implementation notes
 
 - Implemented in the `backend.staff` feature package with a use-case boundary.
 - `StaffManagementUseCaseService` creates the account and staff profile in one transaction.
+- `StaffManagementUseCaseService` lists staff accounts, returns staff detail, and disables accounts through dedicated use-case ports.
 
 ## Known gaps
 
-- There is no staff account listing/update/deactivation endpoint yet.
 - The initial password is returned in the response for local/admin handoff; a forced password-change flow is still future scope.
+- There is no re-enable endpoint yet.

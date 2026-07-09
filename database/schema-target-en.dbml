@@ -92,6 +92,7 @@ Table account {
   password_hash                   varchar   [not null]
   role                            role      [not null]
   email_verified                  boolean   [not null, default: false]
+  enabled                         boolean   [not null, default: true, note: 'False disables login while preserving account history']
   email_verification_token_hash   varchar   [unique, note: 'SHA-256 hash of active email verification token']
   email_verification_expires_at   timestamp
   email_verification_sent_at      timestamp

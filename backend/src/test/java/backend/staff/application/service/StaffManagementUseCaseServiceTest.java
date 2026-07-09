@@ -4,6 +4,7 @@ import backend.entity.Role;
 import backend.entity.Staff;
 import backend.entity.User;
 import backend.staff.application.port.in.command.CreateStaffAccountCommand;
+import backend.staff.application.port.in.command.DisableStaffAccountCommand;
 import backend.staff.application.port.out.StaffAccountPort;
 import backend.staff.application.port.out.StaffPasswordPort;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,8 +15,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -72,6 +76,7 @@ class StaffManagementUseCaseServiceTest {
         assertEquals("encoded-password", accountCaptor.getValue().getPassword());
         assertEquals(Role.STAFF, accountCaptor.getValue().getRole());
         assertTrue(accountCaptor.getValue().isEmailVerified());
+        assertTrue(accountCaptor.getValue().isEnabled());
         assertEquals(accountCaptor.getValue(), staffCaptor.getValue().getAccount());
         assertEquals("Nguyen Van Staff", staffCaptor.getValue().getFullName());
         assertEquals("0909000111", staffCaptor.getValue().getPhone());
@@ -96,5 +101,61 @@ class StaffManagementUseCaseServiceTest {
 
         verify(staffAccountPort, never()).saveAccount(any());
         verify(staffAccountPort, never()).saveStaff(any());
+    }
+
+    @Test
+    void listStaffAccountsReturnsStaffAccountDetails() {
+        User account = User.builder()
+                .id(10)
+                .email("staff@example.com")
+                .role(Role.STAFF)
+                .emailVerified(true)
+                .enabled(true)
+                .build();
+        Staff staff = Staff.builder()
+                .id(3)
+                .account(account)
+                .fullName("Staff")
+                .email("staff@example.com")
+                .phone("0909000111")
+                .dateOfBirth(LocalDate.of(2000, 1, 2))
+                .build();
+
+        when(staffAccountPort.loadAllStaff()).thenReturn(List.of(staff));
+
+        var result = staffManagementUseCaseService.listStaffAccounts();
+
+        assertEquals(1, result.size());
+        assertEquals(10, result.get(0).accountId());
+        assertEquals(3, result.get(0).staffId());
+        assertEquals("staff@example.com", result.get(0).email());
+        assertEquals("Staff", result.get(0).fullName());
+        assertEquals(LocalDate.of(2000, 1, 2), result.get(0).dateOfBirth());
+        assertTrue(result.get(0).enabled());
+    }
+
+    @Test
+    void disableStaffAccountMarksLinkedAccountDisabled() {
+        User account = User.builder()
+                .id(10)
+                .email("staff@example.com")
+                .role(Role.STAFF)
+                .enabled(true)
+                .build();
+        Staff staff = Staff.builder()
+                .id(3)
+                .account(account)
+                .fullName("Staff")
+                .email("staff@example.com")
+                .build();
+
+        when(staffAccountPort.loadStaffById(3)).thenReturn(Optional.of(staff));
+        when(staffAccountPort.saveAccount(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var result = staffManagementUseCaseService.disableStaffAccount(new DisableStaffAccountCommand(3));
+
+        assertFalse(account.isEnabled());
+        assertFalse(result.enabled());
+        verify(staffAccountPort).saveAccount(account);
     }
 }
