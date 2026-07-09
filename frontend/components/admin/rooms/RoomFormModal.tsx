@@ -256,11 +256,18 @@ export default function RoomFormModal({
                 <label className="block">
                   <span className={labelClass}>Sức chứa</span>
                   <input
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={form.capacity}
-                    onChange={(event) => set({ capacity: Number(event.target.value) })}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={form.capacity === 0 ? '' : String(form.capacity)}
+                    onChange={(event) => {
+                      const digits = event.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '')
+                      set({ capacity: digits ? Number(digits) : 0 })
+                    }}
+                    onBlur={() => {
+                      if (form.capacity < 1) set({ capacity: 1 })
+                      if (form.capacity > 100) set({ capacity: 100 })
+                    }}
                     className={inputClass}
                   />
                   <p className="mt-1 text-[11px] text-on-surface-variant">Lưu trực tiếp vào trường sức chứa tối đa của phòng.</p>
