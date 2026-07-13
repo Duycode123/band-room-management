@@ -53,7 +53,7 @@ export const paymentMethodOptions: Array<{
   {
     id: 'bank_transfer',
     label: 'Chuyển khoản ngân hàng',
-    description: 'Dùng cho đặt cọc online qua portal SePay.',
+    description: 'Đặt cọc online bằng chuyển khoản ngân hàng.',
   },
   {
     id: 'e_wallet',
@@ -121,7 +121,7 @@ export function getReturnStatusContent(status?: string | null) {
       tone: 'pending',
       icon: '...',
       title: 'Đang chờ thanh toán',
-      message: 'Phiên thanh toán SePay đã được tạo và đang chờ portal/webhook đối soát.',
+      message: 'Giao dịch đang được xử lý. Vui lòng đợi vài phút để hệ thống xác nhận thanh toán.',
       primaryLabel: 'Xem lịch đặt phòng',
       primaryHref: '/customer/bookings',
     },

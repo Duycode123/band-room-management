@@ -202,7 +202,7 @@ export const paymentMethods: PaymentMethod[] = [
   {
     id: 'bank_transfer',
     label: 'Chuyển khoản ngân hàng',
-    description: 'Thanh toán online qua portal SePay.',
+    description: 'Thanh toán online bằng chuyển khoản ngân hàng (VietQR).',
   },
 ]
 

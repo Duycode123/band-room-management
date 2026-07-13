@@ -566,7 +566,7 @@ export default function StaffSchedulePage() {
             <SummaryCard
               label="Ca trong tuần"
               value={shiftCells.length}
-              helper="Lấy từ /api/staff/schedule/shifts"
+              helper="Tổng số ca được phân trong tuần này"
             />
             <SummaryCard
               label="Ca hiện tại"
@@ -580,7 +580,7 @@ export default function StaffSchedulePage() {
             <SummaryCard
               label="Chấm công"
               value={getAttendanceStatusMeta(attendanceStatus).label}
-              helper="Đồng bộ từ attendance API hiện tại"
+              helper="Trạng thái chấm công của bạn hôm nay"
             />
           </div>
 
@@ -987,7 +987,7 @@ function AttendanceModal({
           <section className="rounded-xl border border-outline-variant bg-white p-4 shadow-[0_8px_24px_rgba(26,28,30,0.04)]">
             <h3 className="font-display text-base font-bold text-on-surface">Điều kiện điểm danh</h3>
             <div className="mt-4 grid gap-2">
-              <ConditionLine status="PASSED" label="Ca làm hợp lệ từ backend" />
+              <ConditionLine status="PASSED" label="Ca làm hợp lệ" />
               <ConditionLine
                 status={withinCheckInWindow ? 'PASSED' : 'FAILED'}
                 label={`Đúng khung giờ check-in từ ${getCheckInStartTime(shift)} đến ${shift.endTime}`}
@@ -1327,7 +1327,7 @@ function mapShiftToCell(
         ? 'IN_PROGRESS'
         : 'COMPLETED'
       : 'ASSIGNED',
-    note: 'Đồng bộ từ lịch backend. Mở chi tiết để xem booking trong ca.',
+    note: 'Mở chi tiết để xem booking trong ca.',
     checkInTime: currentAttendance?.checkInTime ? formatTimeFromIso(currentAttendance.checkInTime) : undefined,
     checkOutTime: currentAttendance?.checkOutTime ? formatTimeFromIso(currentAttendance.checkOutTime) : undefined,
   }

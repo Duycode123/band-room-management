@@ -67,7 +67,7 @@ export default function PaymentReturnStatus() {
           }
         } catch {
           if (cancelled) return
-          setVerificationMessage('Chua the doc trang thai giao dich tu backend.')
+          setVerificationMessage('Không thể xác nhận giao dịch lúc này. Vui lòng thử lại sau.')
           return
         }
 
@@ -77,7 +77,7 @@ export default function PaymentReturnStatus() {
       if (!cancelled) {
         setVerifiedStatus('pending')
         setVerificationMessage(
-          'SePay da redirect ve thanh cong, nhung backend chua nhan webhook xac nhan. Vui long kiem tra cau hinh IPN/webhook SePay hoac cho he thong doi soat.',
+          'Thanh toán đã được ghi nhận và đang chờ xác nhận. Nếu sau vài phút trạng thái chưa cập nhật, vui lòng liên hệ hỗ trợ.',
         )
       }
     }
@@ -113,32 +113,32 @@ export default function PaymentReturnStatus() {
           </div>
 
           <h1 className="mt-6 font-display text-3xl font-bold tracking-tight">
-            {missingBooking ? 'Khong tim thay ma dat phong' : content.title}
+            {missingBooking ? 'Không tìm thấy mã đặt phòng' : content.title}
           </h1>
           <p className="mx-auto mt-3 max-w-xl text-[#5C5348]">
             {missingBooking
-              ? 'Vui long kiem tra lai duong dan thanh toan hoac quay ve trang chu.'
+              ? 'Vui lòng kiểm tra lại đường dẫn thanh toán hoặc quay về trang chủ.'
               : content.message}
           </p>
 
           <div className="mt-6 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4 text-left">
-            <TransactionRow label="Ma dat phong" value={bookingId || 'Chua co'} />
+            <TransactionRow label="Mã đặt phòng" value={bookingId || 'Chưa có'} />
             <TransactionRow
-              label="Trang thai"
-              value={displayStatus === 'unknown' ? 'Khong xac dinh' : content.title}
+              label="Trạng thái"
+              value={displayStatus === 'unknown' ? 'Không xác định' : content.title}
             />
-            <TransactionRow label="So tien" value={displayAmount > 0 ? formatCurrency(displayAmount) : 'Chua xac dinh'} />
-            <TransactionRow label="Phuong thuc" value={getPaymentMethodLabel(method)} />
+            <TransactionRow label="Số tiền" value={displayAmount > 0 ? formatCurrency(displayAmount) : 'Chưa xác định'} />
+            <TransactionRow label="Phương thức" value={getPaymentMethodLabel(method)} />
             <TransactionRow
-              label="Lua chon"
-              value={paymentOption === 'full' ? 'Thanh toan toan bo' : 'Dat coc 50.000 VND'}
+              label="Lựa chọn"
+              value={paymentOption === 'full' ? 'Thanh toán toàn bộ' : 'Đặt cọc 50.000 VND'}
             />
-            {paymentId && <TransactionRow label="Ma giao dich" value={paymentId} />}
+            {paymentId && <TransactionRow label="Mã giao dịch" value={paymentId} />}
           </div>
 
           {(isVerifying || verificationMessage) && (
             <p className="mt-4 rounded-2xl border border-[#FEF3C7] bg-[#FFFBEB] px-4 py-3 text-sm font-medium text-[#92400E]">
-              {isVerifying ? 'Dang doi soat voi backend...' : verificationMessage}
+              {isVerifying ? 'Đang xác nhận giao dịch...' : verificationMessage}
             </p>
           )}
 
@@ -155,7 +155,7 @@ export default function PaymentReturnStatus() {
               href="/"
               className="flex h-12 flex-1 items-center justify-center rounded-2xl border border-[#C9C2B6] bg-white font-display font-semibold text-[#1A1C1E] transition hover:bg-[#FAF8F4]"
             >
-              Quay ve trang chu
+              Quay về trang chủ
             </Link>
           </div>
         </div>

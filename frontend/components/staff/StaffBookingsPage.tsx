@@ -132,7 +132,7 @@ export default function StaffBookingsPage() {
     if (action.kind === 'cancel') {
       setConfirmAction({
         title: 'Hủy booking này?',
-        description: `${booking.bookingCode} sẽ chuyển sang trạng thái đã hủy trên backend.`,
+        description: `${booking.bookingCode} sẽ được hủy và không còn hiển thị trong lịch vận hành.`,
         confirmLabel: 'Hủy booking',
         variant: 'danger',
         run: async () => {
@@ -166,7 +166,7 @@ export default function StaffBookingsPage() {
               <p className="font-display text-sm font-bold uppercase tracking-wide text-brand-orange">Vận hành đặt phòng</p>
               <h1 className="mt-2 font-display text-[32px] font-bold leading-10 text-on-surface">Quản lý booking</h1>
               <p className="mt-2 max-w-2xl text-base leading-6 text-on-surface-variant">
-                Màn hình staff này đã route vào backend booking management thay vì dùng mock local state.
+                Theo dõi và xử lý các đơn đặt phòng trong ca làm việc của bạn.
               </p>
             </div>
             <button type="button" onClick={() => void loadBookings()} className="btn-secondary self-start">

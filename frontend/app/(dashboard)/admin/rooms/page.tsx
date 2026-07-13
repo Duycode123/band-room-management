@@ -399,9 +399,6 @@ export default function AdminRoomsPage() {
             onDelete={handleDeleteEquipment}
           />
 
-          <p className="pb-4 text-center text-[11px] text-on-surface-variant">
-            * Danh sách, thêm, sửa, xóa, đổi trạng thái, sức chứa, ảnh phòng và thiết bị đã đồng bộ với hệ thống. Giá vẫn theo hạng phòng, mã phòng sinh theo ID hệ thống.
-          </p>
         </div>
 
         <RoomDetailPanel

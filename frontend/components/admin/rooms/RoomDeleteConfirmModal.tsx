@@ -63,7 +63,7 @@ export default function RoomDeleteConfirmModal({
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-on-surface-variant">
             Bạn đang xóa <strong className="text-on-surface">{room.name}</strong> ({room.code}).
-            Thao tác này sẽ gọi API thực tế và có thể bị chặn nếu phòng đã có đơn đặt hoặc thiết bị liên kết.
+            Thao tác này có thể bị chặn nếu phòng đã có đơn đặt hoặc thiết bị liên kết.
           </p>
 
           {room.status === 'occupied' && (

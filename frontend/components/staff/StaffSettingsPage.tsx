@@ -293,7 +293,7 @@ export default function StaffSettingsPage() {
                         className="block w-full text-xs text-on-surface-variant file:mr-3 file:rounded-2xl file:border-0 file:bg-brand-orange file:px-4 file:py-2.5 file:font-display file:text-sm file:font-bold file:text-white hover:file:bg-brand-orangeHover disabled:cursor-not-allowed disabled:opacity-60"
                       />
                       <span className="mt-2 block text-xs text-on-surface-variant">
-                        {isAvatarUploading ? 'Đang tải ảnh lên Cloudinary...' : 'Tối đa 5MB. URL avatar sẽ được lưu vào database.'}
+                        {isAvatarUploading ? 'Đang tải ảnh lên...' : 'Chấp nhận file ảnh JPG/PNG, tối đa 5MB.'}
                       </span>
                     </label>
                   </div>

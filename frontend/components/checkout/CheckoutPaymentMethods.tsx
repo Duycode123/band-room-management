@@ -68,11 +68,11 @@ function PaymentMethodInstruction({
     <div className="mt-4 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-3 text-sm text-[#5C5348]">
       <p className="font-display font-semibold text-[#1A1C1E]">
         {paymentOption === 'deposit'
-          ? 'Đặt cọc 50.000 VND qua portal SePay'
-          : 'Thanh toán toàn bộ qua portal SePay'}
+          ? 'Đặt cọc 50.000 VND online'
+          : 'Thanh toán toàn bộ online'}
       </p>
       <p className="mt-2">
-        Hệ thống sẽ chuyển bạn sang portal thanh toán riêng của SePay và tự xác nhận khi webhook báo tiền vào.
+        Bạn sẽ được chuyển sang trang thanh toán an toàn. Giao dịch được xác nhận tự động sau khi chuyển khoản thành công.
       </p>
       <p className="mt-2 text-xs">Mã đặt phòng: {bookingId}</p>
       <p className="sr-only">Phương thức đang chọn: {getPaymentMethodLabel(method)}</p>
