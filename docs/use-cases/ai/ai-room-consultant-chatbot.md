@@ -18,22 +18,24 @@ Help a customer ask natural-language questions about room options, pricing, capa
 
 ## Main flow
 
-1. Client calls `POST /api/ai/chat` with a message.
-2. Backend extracts intent hints such as people count, price ceiling, and time range.
-3. Backend loads room, room type, price, capacity, status, image URL, equipment, approved review stats, booking availability context, and active coupon rules from the database.
-4. Backend filters matching rooms using deterministic business rules.
-5. Backend adds relevant booking, payment, coupon, cancellation, and fallback policy context.
-6. If Gemini is configured, backend sends the customer message plus database context to Gemini.
-7. Backend returns the Gemini answer, suggested room cards, interpreted filters, and suggested follow-up questions.
+1. Client calls `POST /api/ai/chat` with the latest message, optional recent `history` turns, and optional `excludeRoomIds` (rooms already suggested in this chat).
+2. Backend resolves intent:
+   - Prefer Gemini JSON extraction with conversation history for people / budget / time / equipment / category / follow-ups
+   - Fill gaps with deterministic regex parsing
+   - Short follow-ups such as "phòng khác" inherit prior filters from history when possible
+   - Explicit request fields always win
+3. Backend loads room facts from the database and filters by the resolved intent.
+4. For "phòng khác" / alternative requests, backend excludes previously suggested room IDs when provided.
+5. Backend builds a deterministic local answer from filtered rooms.
+6. If Gemini is configured, backend asks Gemini to rewrite a natural answer using matched room context plus conversation continuity.
+7. Backend returns answer, suggested rooms, interpreted filters, and follow-up questions.
 
 ## Alternate and error flows
 
-- Gemini API key is missing: backend returns a deterministic local answer from database rules.
-- Gemini request fails: backend falls back to the deterministic local answer.
-- No matching room is found: backend explains the missing condition and asks for another time, budget, or party size.
-- Missing requested time: backend can suggest rooms by price/capacity/status and asks for a time window for exact availability.
-- No exact match: backend explains the limiting factor and can suggest closest alternatives by capacity, price, or time availability.
-- Room detail or equipment question: backend can answer from local database context even when Gemini is unavailable.
+- Gemini API key is missing: regex intent + local DB answer.
+- Gemini extraction fails: fall back to regex intent.
+- Gemini answer rewrite fails/incomplete: keep local DB answer.
+- No matching room: explain missing condition and suggest closest alternatives.
 
 ## Business rules
 
@@ -64,14 +66,22 @@ Help a customer ask natural-language questions about room options, pricing, capa
 
 ## Current implementation notes
 
-- Implemented by `AiConsultantServiceImpl`.
-- The endpoint keeps the existing response shape used by the frontend chatbot.
+- Orchestrated by `AiConsultantServiceImpl`.
+- Collaborators live under `backend.service.ai`:
+  - `ChatIntentResolver` (AI extract → merge regex → request overrides)
+  - `AiChatIntentExtractor`
+  - `ChatIntentParser` (regex fallback)
+  - `RoomRecommendationService`
+  - `LocalChatAnswerBuilder`
+  - `GeminiChatAdvisor`
+  - `SuggestedQuestionsProvider`
+- Pipeline: understand (AI/regex) → filter DB → answer (local + optional Gemini rewrite).
 - Gemini integration is implemented by `GeminiAiClient`.
 - Configuration lives under `gemini.ai.*`.
-- Room context now includes room images, equipment summaries, unavailable equipment, approved review rating/count, upcoming booking aggregates, requested-time availability, and active coupon guidance.
+- Natural-language parsing covers people slang (`8ng`), budget (`duoi 300k`), hour ranges, soft periods (`toi nay`), and equipment keywords.
 
 ## Known gaps
 
-- Chat history is not persisted.
+- Chat history is client-owned (sent per request); not persisted server-side across devices/sessions.
 - Retrieval is currently based on structured rooms and blocking bookings, not embeddings.
 - The chatbot does not create bookings directly.

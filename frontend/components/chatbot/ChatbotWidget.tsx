@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { CHATBOT_WELCOME, sendChatbotMessage } from '@/lib/chatbot/chatbot-service'
-import type { ChatMessage, QuickReply } from '@/lib/chatbot/types'
+import type { ChatHistoryTurn, ChatMessage, QuickReply } from '@/lib/chatbot/types'
 
 function createId() {
   return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -160,6 +160,22 @@ export default function ChatbotWidget() {
       const trimmed = text.trim()
       if (!trimmed || typing) return
 
+      const history: ChatHistoryTurn[] = messages
+        .filter((message) => message.role === 'user' || message.role === 'assistant')
+        .slice(-8)
+        .map((message) => ({
+          role: message.role as 'user' | 'assistant',
+          content: message.content,
+        }))
+
+      const excludeRoomIds = Array.from(
+        new Set(
+          messages
+            .flatMap((message) => message.suggestedRoomIds ?? [])
+            .filter((id) => Number.isFinite(id)),
+        ),
+      )
+
       setQuickReplies([])
       setInput('')
       setMessages((prev) => [
@@ -169,7 +185,7 @@ export default function ChatbotWidget() {
       setTyping(true)
 
       try {
-        const reply = await sendChatbotMessage(trimmed)
+        const reply = await sendChatbotMessage(trimmed, { history, excludeRoomIds })
         setMessages((prev) => [
           ...prev,
           {
@@ -177,6 +193,7 @@ export default function ChatbotWidget() {
             role: 'assistant',
             content: reply.content,
             createdAt: new Date().toISOString(),
+            suggestedRoomIds: reply.suggestedRoomIds,
           },
         ])
         setQuickReplies(reply.quickReplies ?? [])
@@ -184,7 +201,7 @@ export default function ChatbotWidget() {
         setTyping(false)
       }
     },
-    [typing],
+    [messages, typing],
   )
 
   const handleSubmit = (e: React.FormEvent) => {

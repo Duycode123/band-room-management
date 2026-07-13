@@ -25,6 +25,10 @@ public class GeminiAiClient {
     }
 
     public String chat(String systemPrompt, String userPrompt) {
+        return chat(systemPrompt, userPrompt, properties.getTemperature(), properties.getMaxOutputTokens());
+    }
+
+    public String chat(String systemPrompt, String userPrompt, double temperature, int maxOutputTokens) {
         Map<String, Object> body = Map.of(
                 "systemInstruction", Map.of(
                         "parts", List.of(Map.of("text", systemPrompt))
@@ -36,8 +40,8 @@ public class GeminiAiClient {
                         )
                 ),
                 "generationConfig", Map.of(
-                        "temperature", properties.getTemperature(),
-                        "maxOutputTokens", properties.getMaxOutputTokens()
+                        "temperature", temperature,
+                        "maxOutputTokens", maxOutputTokens
                 )
         );
 
