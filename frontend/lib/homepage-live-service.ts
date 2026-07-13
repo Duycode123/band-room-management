@@ -178,7 +178,7 @@ export function formatSlotDateLabel(date: string, now = new Date()) {
 export function getFallbackAvailabilityStatus() {
   return {
     status: 'CLOSED',
-    label: 'Đang cập nhật lịch phòng từ backend...',
+    label: 'Đang cập nhật lịch phòng...',
     count: 0,
     tone: 'muted',
   } satisfies AvailabilityStatus

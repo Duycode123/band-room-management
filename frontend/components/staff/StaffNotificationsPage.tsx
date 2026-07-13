@@ -176,7 +176,7 @@ export default function StaffNotificationsPage() {
     try {
       const data = await markAllStaffNotificationsRead()
       setNotifications(data.map(mapBackendNotification))
-      setToast('Da danh dau tat ca thong bao la da doc.')
+      setToast('Đã đánh dấu tất cả thông báo là đã đọc.')
       return
     } catch (error) {
       setToast(error instanceof Error ? error.message : 'Khong the danh dau tat ca thong bao da doc.')

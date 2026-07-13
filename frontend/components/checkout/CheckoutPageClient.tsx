@@ -351,7 +351,7 @@ export default function CheckoutPageClient() {
             </div>
             <h1 className="font-display text-4xl font-bold tracking-tight">Thanh toán đặt phòng</h1>
             <p className="mt-2 text-[#5C5348]">
-              Hệ thống đang đọc lại booking từ backend trước khi tạo phiên thanh toán SePay.
+              Xác nhận thông tin đặt phòng trước khi thanh toán.
             </p>
           </div>
           <span className="w-fit rounded-full bg-[#FFE8D6] px-4 py-2 font-display text-sm font-bold text-[#6B3200]">
@@ -418,7 +418,7 @@ export default function CheckoutPageClient() {
                     <PaymentOptionButton
                       active={paymentOption === 'deposit'}
                       title="Đặt cọc 50.000 VND"
-                      description="Thanh toán online bằng VietQR và tự xác nhận qua SePay."
+                      description="Thanh toán online bằng VietQR. Giao dịch được xác nhận tự động sau khi chuyển khoản."
                       onClick={() => {
                         setPaymentOption('deposit')
                         setPaymentError('')
@@ -487,7 +487,7 @@ export default function CheckoutPageClient() {
 
                   <p className="mt-3 text-xs leading-5 text-[#5C5348]">
                     {isCheckingPayment
-                      ? 'Đang kiểm tra giao dịch với SePay...'
+                      ? 'Đang xác nhận giao dịch...'
                       : 'Sau khi chuyển khoản, trang này sẽ tự chuyển sang kết quả thanh toán.'}
                   </p>
                 </div>

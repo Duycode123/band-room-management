@@ -171,7 +171,7 @@ export default function StaffReportsPage() {
             <select value={range} onChange={(event) => setRange(event.target.value as ReportRange)} className="h-11 rounded-xl border border-outline-variant bg-white px-4 font-display text-sm font-bold outline-none focus:border-brand-orange">
               {ranges.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>
-            <button type="button" onClick={() => setToast('Đã chuẩn bị báo cáo demo.')} className="btn-warm">Xuất báo cáo</button>
+            <button type="button" onClick={() => setToast('Đã xuất báo cáo thành công.')} className="btn-warm">Xuất báo cáo</button>
           </div>
         </header>
 

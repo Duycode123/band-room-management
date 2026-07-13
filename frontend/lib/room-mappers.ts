@@ -270,7 +270,7 @@ export function mapBackendRoomToAdminRoom(
     equipmentCount: equipments.length,
     equipments,
     todaySchedule: availability.todaySchedule,
-    lastUpdated: 'Đồng bộ từ backend',
+    lastUpdated: 'Vừa cập nhật',
     description: getRoomDescription(room, category),
     occupancyRateToday: availability.occupancyRateToday,
     monthlyRevenue,

@@ -113,7 +113,7 @@ export default function BookingRoomCard({ room, renderIcon, onOpenDetail, onBook
           <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_top,#FFE8D6,transparent_55%),linear-gradient(135deg,#F5F2EC,#E8E4DC)] px-6 text-center">
             <div>
               <p className="font-display text-lg font-bold text-[#6B3200]">{room.name}</p>
-              <p className="mt-2 text-sm text-[#5C5348]">Backend chưa cung cấp ảnh phòng.</p>
+              <p className="mt-2 text-sm text-[#5C5348]">Chưa có ảnh minh họa cho phòng này.</p>
             </div>
           </div>
         )}
@@ -142,7 +142,7 @@ export default function BookingRoomCard({ room, renderIcon, onOpenDetail, onBook
         </div>
         <h3 className="mt-1.5 font-display text-xl font-bold text-on-surface">{room.name}</h3>
         <p className="mt-2 line-clamp-2 text-sm leading-6 text-on-surface-variant">
-          {room.description || 'Backend chưa cung cấp mô tả cho phòng này.'}
+          {room.description || 'Mô tả phòng sẽ được cập nhật sớm.'}
         </p>
 
         <div className="mt-4 flex flex-wrap gap-4 text-xs text-on-surface-variant">

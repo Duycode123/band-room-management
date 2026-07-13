@@ -31,19 +31,19 @@ function getAvailabilityLabel(room: BookingRoom) {
 
 function getAvailabilityDescription(room: BookingRoom) {
   if (!room.availabilityKnown) {
-    return 'Backend chưa trả về trạng thái phòng theo thời gian thực. Bạn vẫn có thể mở lịch để kiểm tra khung giờ trống.'
+    return 'Lịch trống có thể thay đổi. Mở lịch để xem khung giờ còn trống.'
   }
 
   if (room.isAvailable) {
-    return 'Dữ liệu lịch trống đang được đồng bộ trực tiếp từ backend cho ngày hôm nay.'
+    return 'Lịch trống hôm nay được cập nhật theo thời gian thực.'
   }
 
-  return 'Backend đang cho biết phòng đã kín lịch trong hôm nay. Bạn có thể chọn ngày khác để kiểm tra lại.'
+  return 'Phòng đã kín lịch hôm nay. Hãy chọn ngày khác để xem khung giờ trống.'
 }
 
 function RatingStars({ rating }: { rating?: number }) {
   const filledStars = typeof rating === 'number' ? Math.max(0, Math.min(5, Math.round(rating))) : 0
-  const label = typeof rating === 'number' ? `${rating.toFixed(1)} tren 5 sao` : 'Chua co danh gia'
+  const label = typeof rating === 'number' ? `${rating.toFixed(1)} trên 5 sao` : 'Chưa có đánh giá'
 
   return (
     <div className="mt-1 flex items-center gap-1 text-xl" aria-label={label} title={label}>
@@ -99,7 +99,7 @@ export default function RoomDetailModal({ room, open, onClose, onBook }: RoomDet
             <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_top,#FFE8D6,transparent_52%),linear-gradient(135deg,#042A16,#0B3E24)] px-6 text-center">
               <div>
                 <p className="font-display text-2xl font-bold text-white">{room.name}</p>
-                <p className="mt-3 text-sm text-white/72">Backend chưa cung cấp ảnh cho phòng này.</p>
+                <p className="mt-3 text-sm text-white/72">Chưa có ảnh minh họa cho phòng này.</p>
               </div>
             </div>
           )}
@@ -119,7 +119,7 @@ export default function RoomDetailModal({ room, open, onClose, onBook }: RoomDet
               {room.name}
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-white/72">
-              {room.description || 'Backend chưa cung cấp mô tả chi tiết cho phòng này.'}
+              {room.description || 'Mô tả chi tiết sẽ được cập nhật sớm.'}
             </p>
           </div>
         </div>

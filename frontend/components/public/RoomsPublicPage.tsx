@@ -282,8 +282,8 @@ export default function RoomsPublicPage() {
                 : catalogSource === 'backend'
                   ? isRefreshing
                     ? 'Đang cập nhật dữ liệu mới nhất...'
-                    : 'Danh sách phòng từ hệ thống Band Room.'
-                  : 'Không kết nối được backend, đang hiển thị dữ liệu dự phòng.'}
+                    : 'Danh sách phòng mới nhất.'
+                  : 'Không tải được danh sách phòng mới nhất. Đang hiển thị thông tin dự phòng.'}
             </p>
           </div>
           <button type="button" onClick={() => setFilters(defaultFilters)} className="btn-secondary">

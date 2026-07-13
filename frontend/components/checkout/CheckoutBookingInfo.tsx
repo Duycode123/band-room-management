@@ -23,7 +23,7 @@ export default function CheckoutBookingInfo({ booking }: { booking: CheckoutBook
       <InfoList title="Thiết bị có sẵn" items={booking.equipments} />
 
       <div className="mt-6 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4 text-sm text-[#5C5348]">
-        Bước tiếp theo sẽ tạo phiên thanh toán tạm thời. Trạng thái booking trong hệ thống vẫn giữ là chờ thanh toán.
+        Sau khi xác nhận, bạn sẽ chuyển sang bước thanh toán. Đơn đặt vẫn ở trạng thái chờ thanh toán cho đến khi hoàn tất.
       </div>
     </section>
   )

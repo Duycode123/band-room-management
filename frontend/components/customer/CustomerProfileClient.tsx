@@ -217,7 +217,7 @@ export default function CustomerProfileClient() {
                 </div>
                 <p className="text-[#5C5348]">{isFetchingProfile ? 'Đang đồng bộ thông tin tài khoản...' : displayEmail}</p>
                 <p className="mt-2 max-w-2xl text-sm text-[#5C5348]">
-                  Hồ sơ này đang đọc và ghi trực tiếp vào backend. Avatar chỉ hiển thị nếu backend đã có sẵn dữ liệu.
+                  Cập nhật thông tin liên hệ và ảnh đại diện dùng cho đặt phòng.
                 </p>
               </div>
             </div>
@@ -244,7 +244,7 @@ export default function CustomerProfileClient() {
                   className="block w-full text-sm text-[#5C5348] file:mr-3 file:rounded-2xl file:border-0 file:bg-[#FF7518] file:px-4 file:py-2.5 file:font-display file:text-sm file:font-semibold file:text-white hover:file:bg-[#E6640F] disabled:cursor-not-allowed disabled:opacity-60"
                 />
                 <p className="mt-2 text-xs text-[#5C5348]">
-                  {isUploadingAvatar ? 'Đang tải ảnh lên Cloudinary...' : 'Chấp nhận file ảnh tối đa 5MB. Link ảnh sẽ được lưu vào database.'}
+                  {isUploadingAvatar ? 'Đang tải ảnh lên...' : 'Chấp nhận file ảnh JPG/PNG, tối đa 5MB.'}
                 </p>
               </FormField>
 
@@ -301,7 +301,7 @@ export default function CustomerProfileClient() {
               Thông tin này được dùng để xác nhận lịch đặt phòng và liên hệ khi cần.
             </p>
             <div className="mt-5 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4 text-sm text-[#5C5348]">
-              Avatar mới sẽ được upload lên Cloudinary qua backend, sau đó link ảnh được lưu vào database account.avatar_url.
+              Ảnh đại diện mới sẽ hiển thị ngay sau khi tải lên thành công.
             </div>
           </aside>
         </div>

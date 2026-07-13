@@ -169,7 +169,7 @@ export default function BookingQuickModal({
       labelledBy="quick-booking-title"
       eyebrow="Đặt phòng"
       title="Xác nhận nhanh"
-      description="Đặt phòng nhanh này đã bỏ add-on mock và chỉ giữ thông tin mà backend hiện đang xử lý được."
+      description="Chọn khung giờ và xác nhận thông tin để tiếp tục đặt phòng."
       maxWidthClassName="max-w-[720px]"
       bodyClassName="space-y-0 bg-white"
       footer={
@@ -207,7 +207,7 @@ export default function BookingQuickModal({
             <div className="flex h-[150px] w-full items-center justify-center rounded-2xl bg-[radial-gradient(circle_at_top,#FFE8D6,transparent_55%),linear-gradient(135deg,#F5F2EC,#E8E4DC)] px-4 text-center">
               <div>
                 <p className="font-display text-lg font-bold text-[#6B3200]">{room.name}</p>
-                <p className="mt-2 text-sm text-[#5C5348]">Backend chưa cung cấp ảnh phòng.</p>
+                <p className="mt-2 text-sm text-[#5C5348]">Chưa có ảnh minh họa cho phòng này.</p>
               </div>
             </div>
           )}
@@ -254,10 +254,6 @@ export default function BookingQuickModal({
           onChange={handleScheduleChange}
           className="mt-6"
         />
-
-        <section className="mt-6 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4 text-sm text-[#5C5348]">
-          Add-on hiện không còn được đề xuất trong quick booking vì backend chưa có contract phần này.
-        </section>
 
         <Field label="Ghi chú khách hàng" className="mt-6 block">
           <textarea

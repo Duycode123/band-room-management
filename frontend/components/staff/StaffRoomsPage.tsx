@@ -421,7 +421,7 @@ export default function StaffRoomsPage() {
         showToast('Đã làm mới dữ liệu vận hành mới nhất.')
       }
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Không thể tải dữ liệu vận hành từ backend.')
+      showToast(error instanceof Error ? error.message : 'Không thể tải dữ liệu vận hành. Vui lòng thử lại.')
     } finally {
       setIsLoading(false)
     }
@@ -440,13 +440,13 @@ export default function StaffRoomsPage() {
     showToast(`Đã cập nhật trạng thái ${room.name} thành ${getRoomStatusMeta(nextStatus).label}.`)
     const backendRoomId = parseBackendId(room.id)
     if (!backendRoomId) {
-      showToast(`Da cap nhat local ${room.name}. Phong nay chua co id backend de dong bo.`)
+      showToast(`Đã cập nhật tạm thời ${room.name}. Không thể đồng bộ phòng này lên hệ thống.`)
       return
     }
 
     try {
-      await updateStaffRoomStatus(backendRoomId, mapRoomStatusToBackend(nextStatus), `Staff changed status to ${nextStatus}`)
-      showToast(`Da dong bo trang thai ${room.name} voi backend.`)
+      await updateStaffRoomStatus(backendRoomId, mapRoomStatusToBackend(nextStatus), `Nhân viên đổi trạng thái sang ${nextStatus}`)
+      showToast(`Đã cập nhật trạng thái ${room.name}.`)
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Không thể đồng bộ trạng thái phòng.')
     }
@@ -465,7 +465,7 @@ export default function StaffRoomsPage() {
     showToast(`Đã cập nhật ${item.name} thành ${getEquipmentStatusMeta(nextStatus).label}.`)
     const backendEquipmentId = parseBackendId(item.id)
     if (!backendEquipmentId) {
-      showToast(`Da cap nhat local ${item.name}. Thiet bi nay chua co id backend de dong bo.`)
+      showToast(`Đã cập nhật tạm thời ${item.name}. Không thể đồng bộ thiết bị này lên hệ thống.`)
       return
     }
 
@@ -475,7 +475,7 @@ export default function StaffRoomsPage() {
         mapEquipmentStatusToCondition(nextStatus),
         `Staff changed equipment status to ${nextStatus}`,
       )
-      showToast(`Da dong bo tinh trang ${item.name} voi backend.`)
+      showToast(`Đã cập nhật tình trạng ${item.name}.`)
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Không thể đồng bộ tình trạng thiết bị.')
     }
@@ -509,7 +509,7 @@ export default function StaffRoomsPage() {
     showToast('Đã ghi nhận sự cố. Bộ phận phụ trách sẽ kiểm tra.')
     const backendTargetId = parseBackendId(draft.targetId)
     if (!backendTargetId) {
-      showToast('Da ghi nhan su co local. Doi tuong nay chua co id backend de dong bo.')
+      showToast('Đã ghi nhận sự cố tạm thời. Không thể đồng bộ lên hệ thống.')
       return
     }
 
@@ -520,9 +520,9 @@ export default function StaffRoomsPage() {
         await recordStaffEquipmentCondition(backendTargetId, mapIssueTypeToCondition(draft.issueType), draft.description.trim())
       }
 
-      showToast('Da ghi nhan su co va dong bo backend.')
+      showToast('Đã ghi nhận sự cố thành công.')
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Không thể đồng bộ sự cố với backend.')
+      showToast(error instanceof Error ? error.message : 'Không thể ghi nhận sự cố. Vui lòng thử lại.')
     }
   }
 
@@ -1640,7 +1640,7 @@ function mapBackendRoomsToStaffRooms(rooms: BackendRoom[], equipment: AdminEquip
       capacity: Number(room.maxPeople ?? room.roomType?.capacity ?? 0),
       status: mapBackendRoomStatusToStaff(room.status),
       equipment: roomEquipment.map((item) => item.equipmentName),
-      updatedAt: 'Backend',
+      updatedAt: 'Vừa cập nhật',
       assignedStaff: undefined,
       note: room.description ?? undefined,
     }
@@ -1656,7 +1656,7 @@ function mapBackendEquipmentToStaffEquipment(item: AdminEquipment): StaffEquipme
     location: item.roomName,
     status: mapBackendEquipmentStatus(item.status),
     quantity: 1,
-    lastCheckedAt: 'Backend',
+    lastCheckedAt: 'Vừa cập nhật',
     note: item.notes,
   }
 }

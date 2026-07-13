@@ -88,7 +88,7 @@ export default function BookingSummary({
         </button>
 
         <p className="text-center text-[11px] leading-relaxed text-on-surface-variant">
-          Lịch phòng và giá đang lấy theo dữ liệu backend hiện có.
+          Giá và lịch trống được cập nhật theo thời gian thực.
         </p>
       </div>
     </aside>

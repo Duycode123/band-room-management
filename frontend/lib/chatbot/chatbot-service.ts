@@ -97,7 +97,7 @@ const RESPONSE_RULES: Array<{ keywords: string[]; reply: ChatbotReply }> = [
     keywords: ['link', 'ở đâu', 'trang', 'đường dẫn'],
     reply: {
       content:
-        'Đăng nhập tài khoản khách → menu **Đặt phòng** (`/rooms`) hoặc từ trang chủ chọn **Đặt ngay** trên thẻ phòng.',
+        'Đăng nhập tài khoản khách → menu **Đặt phòng** hoặc từ trang chủ chọn **Đặt ngay** trên thẻ phòng.',
     },
   },
   {
@@ -147,7 +147,7 @@ async function sendBackendChatbotMessage(message: string): Promise<ChatbotReply>
 
 const SUPPORT_REPLY: ChatbotReply = {
   content:
-    'Bạn có thể liên hệ qua hotline **1900 xxxx** hoặc email **support@bandspace.vn**. Hoặc vào **Trợ giúp** (`/customer/support`) để xem FAQ.',
+    'Bạn có thể liên hệ qua hotline **1900 xxxx** hoặc email **support@bandspace.vn**. Hoặc vào mục **Trợ giúp** để xem câu hỏi thường gặp.',
 }
 
 const ROOM_FALLBACK_QUICK_REPLIES = [
