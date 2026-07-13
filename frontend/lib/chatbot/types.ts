@@ -5,6 +5,7 @@ export type ChatMessage = {
   role: ChatRole
   content: string
   createdAt: string
+  suggestedRoomIds?: number[]
 }
 
 export type QuickReply = {
@@ -13,9 +14,20 @@ export type QuickReply = {
   message: string
 }
 
+export type ChatHistoryTurn = {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export type ChatbotSendOptions = {
+  history?: ChatHistoryTurn[]
+  excludeRoomIds?: number[]
+}
+
 export type ChatbotReply = {
   content: string
   quickReplies?: QuickReply[]
   usedAi?: boolean
   mode?: string
+  suggestedRoomIds?: number[]
 }

@@ -1,9 +1,15 @@
 import api from '@/lib/api'
-import type { ChatbotReply } from './types'
+import type { ChatbotReply, ChatbotSendOptions } from './types'
+
+type BackendSuggestedRoom = {
+  roomId?: number
+  id?: number
+}
 
 type BackendChatbotReply = {
   answer: string
   suggestedQuestions?: string[]
+  suggestedRooms?: BackendSuggestedRoom[]
   usedAi?: boolean
   mode?: string
 }
@@ -32,7 +38,7 @@ const RESPONSE_RULES: Array<{ keywords: string[]; reply: ChatbotReply }> = [
     keywords: ['đặt phòng', 'dat phong', 'booking', 'đặt lịch', 'book'],
     reply: {
       content:
-        'Bạn có thể đặt phòng trong vài bước: chọn studio → chọn ngày & khung giờ trống → xác nhận. Vào **Đặt phòng** hoặc trang chủ phần Room Catalog để bắt đầu nhé!',
+        'Bạn có thể đặt phòng nhanh: chọn phòng → chọn ngày & khung giờ trống → xác nhận → thanh toán. Vào **Đặt phòng** hoặc trang chủ để bắt đầu nhé!',
       quickReplies: [
         { id: 'qr-book', label: 'Hướng dẫn đặt phòng', message: 'Hướng dẫn chi tiết cách đặt phòng' },
         { id: 'qr-price', label: 'Giá thuê phòng', message: 'Giá thuê phòng bao nhiêu?' },
@@ -43,9 +49,10 @@ const RESPONSE_RULES: Array<{ keywords: string[]; reply: ChatbotReply }> = [
     keywords: ['giá', 'gia', 'price', 'bao nhiêu', 'chi phí', 'phí'],
     reply: {
       content:
-        'Giá phụ thuộc loại phòng và khung giờ (thường tính theo giờ). Studio rehearsal từ ~350.000đ/giờ, phòng thu âm cao hơn. Bạn chọn phòng cụ thể để xem giá chính xác trên lịch trống.',
+        'Giá tính theo giờ, tùy loại phòng và khung giờ. Bạn hỏi kiểu **"Có phòng nào dưới 300k?"** hoặc **"Band 4 người giá khoảng bao nhiêu?"** để mình lọc sát hơn.',
       quickReplies: [
         { id: 'qr-types', label: 'Các loại phòng', message: 'Có những loại phòng nào?' },
+        { id: 'qr-budget', label: 'Dưới 300k', message: 'Có phòng nào dưới 300k một giờ không?' },
       ],
     },
   },
@@ -53,43 +60,44 @@ const RESPONSE_RULES: Array<{ keywords: string[]; reply: ChatbotReply }> = [
     keywords: ['loại phòng', 'phòng nào', 'studio', 'thu âm', 'rehearsal'],
     reply: {
       content:
-        'BandSpace có rehearsal room, vocal booth, live room và phòng thu chuyên sâu — mỗi phòng kèm thiết bị khác nhau (trống, amp, micro, mixer). Bạn cho mình biết band mấy người để gợi ý phòng phù hợp!',
+        'BandHub có các phòng rehearsal/band với sức chứa và thiết bị khác nhau. Cho mình biết số người hoặc thiết bị cần (micro, mixer, trống...) để gợi ý phòng phù hợp!',
     },
   },
   {
     keywords: ['hủy', 'huy', 'cancel', 'đổi lịch', 'doi lich'],
     reply: {
       content:
-        'Bạn có thể hủy hoặc đổi lịch trước giờ tập theo chính sách từng phòng (thường trước 2 giờ). Vào **Lịch của tôi** hoặc liên hệ hotline nếu cần hỗ trợ gấp.',
+        'Bạn có thể hủy lịch trước giờ tập tối thiểu **24 tiếng** theo chính sách hiện tại. Vào **Lịch của tôi** để thao tác, hoặc liên hệ hỗ trợ nếu cần xử lý gấp.',
     },
   },
   {
-    keywords: ['thanh toán', 'payment', 'vnpay', 'chuyển khoản', 'tiền mặt'],
+    keywords: ['thanh toán', 'payment', 'vnpay', 'sepay', 'chuyển khoản', 'tiền mặt', 'đặt cọc'],
     reply: {
       content:
-        'Hỗ trợ chuyển khoản, ví điện tử và thanh toán tại quầy tùy bước checkout. Sau khi đặt, bạn sẽ thấy hướng dẫn thanh toán chi tiết trên màn hình xác nhận.',
+        'Thanh toán online qua VietQR/SePay. Ở checkout bạn có thể **đặt cọc 50.000đ** hoặc thanh toán toàn bộ. Booking chờ thanh toán có thể hết hạn nếu chưa hoàn tất.',
     },
   },
   {
     keywords: ['giờ mở', 'mở cửa', 'open', 'đóng cửa', 'giờ hoạt động'],
     reply: {
-      content: 'Studio mở cửa từ **08:00 – 24:00** mỗi ngày. Khung giờ đặt online theo lịch trống real-time trên từng phòng.',
+      content: 'Studio mở cửa từ **08:00 – 24:00** mỗi ngày. Bạn có thể đặt online theo lịch trống real-time của từng phòng.',
     },
   },
   {
-    keywords: ['thiết bị', 'nhạc cụ', 'micro', 'amp', 'trống'],
+    keywords: ['thiết bị', 'nhạc cụ', 'micro', 'amp', 'trống', 'mixer', 'guitar'],
     reply: {
       content:
-        'Mỗi phòng có gói thiết bị cơ bản; bạn có thể thêm thuê guitar, micro, pedal trong bước đặt phòng. Ghi chú nhu cầu setup để nhân viên chuẩn bị trước.',
+        'Mỗi phòng có gói thiết bị riêng. Bạn có thể hỏi cụ thể: **"Phòng nào có micro và mixer?"** hoặc ghi chú nhu cầu khi đặt để nhân viên chuẩn bị.',
     },
   },
   {
     keywords: ['hướng dẫn', 'chi tiết', 'cách đặt', 'làm sao'],
     reply: {
       content:
-        '**4 bước đặt phòng:**\n1. Chọn phòng phù hợp\n2. Chọn ngày & giờ trống\n3. Thêm ghi chú / thiết bị (nếu cần)\n4. Xác nhận & thanh toán\n\nCần mình dẫn tới trang đặt phòng không?',
+        '**4 bước đặt phòng:**\n1. Chọn phòng phù hợp\n2. Chọn ngày & giờ trống\n3. Kiểm tra tổng tiền / mã giảm giá\n4. Xác nhận & thanh toán\n\nCần mình gợi ý phòng theo số người không?',
       quickReplies: [
         { id: 'qr-go-book', label: 'Đi tới đặt phòng', message: 'Link đặt phòng ở đâu?' },
+        { id: 'qr-people', label: 'Cho 4 người', message: 'Band 4 người nên chọn phòng nào?' },
       ],
     },
   },
@@ -97,13 +105,13 @@ const RESPONSE_RULES: Array<{ keywords: string[]; reply: ChatbotReply }> = [
     keywords: ['link', 'ở đâu', 'trang', 'đường dẫn'],
     reply: {
       content:
-        'Đăng nhập tài khoản khách → menu **Đặt phòng** hoặc từ trang chủ chọn **Đặt ngay** trên thẻ phòng.',
+        'Đăng nhập tài khoản khách → menu **Đặt phòng**, hoặc từ trang chủ chọn **Đặt ngay** trên thẻ phòng.',
     },
   },
   {
     keywords: ['xin chào', 'hello', 'hi', 'chào', 'hey'],
     reply: {
-      content: 'Chào bạn! Mình là **BandBot** — trợ lý ảo của BandSpace. Hôm nay bạn muốn đặt phòng, hỏi giá hay cần hỗ trợ gì?',
+      content: 'Chào bạn! Mình là **BandBot** của BandHub Studio. Bạn muốn đặt phòng, hỏi giá, kiểm tra lịch trống hay cần hỗ trợ gì?',
       quickReplies: [
         { id: 'qr-1', label: 'Đặt phòng', message: 'Tôi muốn đặt phòng' },
         { id: 'qr-2', label: 'Giá phòng', message: 'Giá thuê phòng bao nhiêu?' },
@@ -130,18 +138,30 @@ function toQuickReplies(questions?: string[]) {
   }))
 }
 
-async function sendBackendChatbotMessage(message: string): Promise<ChatbotReply> {
-  const response = await api.post<ApiEnvelope<BackendChatbotReply>>('/api/ai/chat', { message })
+async function sendBackendChatbotMessage(
+  message: string,
+  options: ChatbotSendOptions = {},
+): Promise<ChatbotReply> {
+  const response = await api.post<ApiEnvelope<BackendChatbotReply>>('/api/ai/chat', {
+    message,
+    history: options.history ?? [],
+    excludeRoomIds: options.excludeRoomIds ?? [],
+  })
   const payload = response.data
   if (!payload.success || !payload.data?.answer) {
     throw new Error(payload.message || 'Chatbot chưa phản hồi được')
   }
+
+  const suggestedRoomIds = (payload.data.suggestedRooms ?? [])
+    .map((room) => room.roomId ?? room.id)
+    .filter((id): id is number => typeof id === 'number')
 
   return {
     content: payload.data.answer,
     quickReplies: toQuickReplies(payload.data.suggestedQuestions),
     usedAi: payload.data.usedAi,
     mode: payload.data.mode,
+    suggestedRoomIds,
   }
 }
 
@@ -166,8 +186,16 @@ function normalize(text: string) {
 }
 
 function extractPeopleCount(normalized: string) {
-  const match = normalized.match(/(\d{1,3})\s*(nguoi|khach|thanh vien|ban)/)
-  return match ? Number(match[1]) : null
+  const withUnit = normalized.match(/(\d{1,3})\s*(?:nguoi|ng|khach|thanh vien|ban)\b/)
+  if (withUnit) return Number(withUnit[1])
+
+  const shortForm = normalized.match(/(?:cho|band|nhom|to)\s*(\d{1,3})\b/)
+  if (shortForm) {
+    const people = Number(shortForm[1])
+    if (people >= 1 && people <= 50) return people
+  }
+
+  return null
 }
 
 function extractMaxPrice(normalized: string) {
@@ -214,8 +242,52 @@ function buildRoomAdvice(room: RoomApiItem, peopleCount: number | null, maxPrice
     reasons.push('đang sẵn sàng đặt')
   }
 
-  const reasonText = reasons.length > 0 ? ` vì phòng này ${reasons.join(', ')}` : ''
-  return `Mình gợi ý **${room.roomName}**${reasonText}. Đây là phòng ${room.roomType?.typeName ?? 'phù hợp'}, giá ${formatMoney(room.roomType?.pricePerHour)}${room.maxPeople ? `, sức chứa tối đa ${room.maxPeople} người` : ''}.`
+  const reasonText = reasons.length > 0 ? ` vì ${reasons.join(', ')}` : ''
+  return `Cho nhu cầu của bạn, ưu tiên **${room.roomName}**${reasonText}. Đây là phòng ${room.roomType?.typeName ?? 'phù hợp'}, giá ${formatMoney(room.roomType?.pricePerHour)}${room.maxPeople ? `, sức chứa tối đa ${room.maxPeople} người` : ''}.`
+}
+
+const ROOM_NAME_STOPWORDS = new Set([
+  'cho', 'nao', 're', 'tot', 'trong', 'co', 'voi', 'theo', 'duoi', 'tren',
+  'ban', 'may', 'gi', 'dang', 'san', 'lon', 'nho', 'dep', 'hat', 'nhac',
+  'karaoke', 'studio', 'band', 'rehearsal', 'thue', 'dat', 'xem', 'het',
+  'all', 'moi', 'cac', 'nhung', 'mot', 'cai', 'nay', 'kia', 'ay', 'do',
+  'thi', 'sao', 'nhi', 'nhe', 'di', 'khong', 'duoc', 'phu', 'hop',
+  'loai', 'kieu', 'khac', 'them', 'nua', 'tim', 'tu', 'van', 'goi',
+])
+
+function isAskingOtherRooms(normalized: string) {
+  return (
+    normalized.includes('phong khac') ||
+    normalized.includes('loai khac') ||
+    normalized.includes('phong loai') ||
+    normalized.includes('lua chon khac') ||
+    normalized.includes('goi y khac') ||
+    normalized.includes('tu van phong khac') ||
+    normalized.includes('tim phong loai') ||
+    normalized.includes('phong kieu khac')
+  )
+}
+
+function extractRequestedRoomName(normalized: string): string | null {
+  if (isAskingOtherRooms(normalized)) return null
+  const match = normalized.match(/(?:phong|room)\s+([a-z0-9_-]{2,40})\b/)
+  if (
+    match?.[1] &&
+    !ROOM_NAME_STOPWORDS.has(match[1]) &&
+    !/^\d+$/.test(match[1]) &&
+    !/^\d+ng$/.test(match[1])
+  ) {
+    return match[1]
+  }
+  return null
+}
+
+function roomNameMatches(roomName: string, query: string) {
+  const name = normalize(roomName)
+  const q = normalize(query)
+  if (name === q) return true
+  if (q.length >= 2 && name.includes(q)) return true
+  return name.length >= 3 && q.includes(name)
 }
 
 function isAskingPrice(normalized: string) {
@@ -268,56 +340,92 @@ async function buildRoomDbFallbackReply(message: string): Promise<ChatbotReply |
   const normalized = normalize(message)
   const peopleCount = extractPeopleCount(normalized)
   const maxPrice = extractMaxPrice(normalized)
+  const requestedRoomName = extractRequestedRoomName(normalized)
   const asksRoom =
     normalized.includes('phong') ||
     normalized.includes('band') ||
     normalized.includes('studio') ||
     normalized.includes('tap') ||
     peopleCount != null ||
-    maxPrice != null
+    maxPrice != null ||
+    requestedRoomName != null
 
   if (!asksRoom) return null
 
   const response = await api.get<ApiEnvelope<RoomApiItem[]>>('/api/rooms')
   const rooms = response.data.data ?? []
-  const candidates = rooms
-    .filter((room) => room.status !== 'MAINTENANCE')
-    .filter((room) => peopleCount == null || (room.maxPeople ?? 0) >= peopleCount)
-    .filter((room) => maxPrice == null || normalizeRoomPrice(room) <= maxPrice)
-    .sort((first, second) => normalizeRoomPrice(first) - normalizeRoomPrice(second))
+  const availableRooms = rooms.filter((room) => room.status !== 'MAINTENANCE')
 
-  const roomList = (candidates.length > 0 ? candidates : rooms)
-    .slice(0, 3)
-    .map(roomSummary)
-    .join('; ')
+  if (requestedRoomName) {
+    const namedRooms = availableRooms.filter((room) => roomNameMatches(room.roomName, requestedRoomName))
+    if (namedRooms.length === 0) {
+      const alternatives = availableRooms.slice(0, 3).map(roomSummary).join('; ')
+      return {
+        content: alternatives
+          ? `Mình không tìm thấy phòng tên "${requestedRoomName}" trong hệ thống. Các phòng đang có thể tham khảo: ${alternatives}. Bạn gõ đúng tên phòng nếu muốn mình tư vấn chi tiết.`
+          : `Mình không tìm thấy phòng tên "${requestedRoomName}" trong hệ thống. Bạn hỏi "Cho tôi xem tất cả phòng đang có" nhé.`,
+        quickReplies: ROOM_FALLBACK_QUICK_REPLIES,
+        mode: 'FRONTEND_DB_FALLBACK',
+      }
+    }
 
-  if (!roomList) {
+    const room = namedRooms[0]
     return {
-      content: 'Hiện tại mình chưa thấy dữ liệu phòng để tư vấn chính xác. Bạn thử tải lại trang hoặc liên hệ nhân viên để được hỗ trợ nhanh nhé.',
+      content: `Thông tin phòng bạn hỏi: ${roomSummary(room)}. Bạn muốn kiểm tra lịch trống theo khung giờ cụ thể không?`,
       quickReplies: ROOM_FALLBACK_QUICK_REPLIES,
       mode: 'FRONTEND_DB_FALLBACK',
     }
   }
 
-  const selectedRooms = (candidates.length > 0 ? candidates : rooms).slice(0, 3)
+  if (isAskingOtherRooms(normalized)) {
+    const selectedRooms = availableRooms.slice(0, 5)
+    if (selectedRooms.length === 0) {
+      return {
+        content: 'Hiện mình chưa có phòng khác để gợi ý. Bạn thử hỏi theo số người, ngân sách hoặc khung giờ nhé.',
+        quickReplies: ROOM_FALLBACK_QUICK_REPLIES,
+        mode: 'FRONTEND_DB_FALLBACK',
+      }
+    }
+    return {
+      content: `Mình gợi ý thêm các phòng sau: ${selectedRooms.map(roomSummary).join('; ')}. Bạn muốn lọc theo số người, ngân sách, hay khung giờ cụ thể không?`,
+      quickReplies: ROOM_FALLBACK_QUICK_REPLIES,
+      mode: 'FRONTEND_DB_FALLBACK',
+    }
+  }
+
+  const candidates = availableRooms
+    .filter((room) => peopleCount == null || (room.maxPeople ?? 0) >= peopleCount)
+    .filter((room) => maxPrice == null || normalizeRoomPrice(room) <= maxPrice)
+    .sort((first, second) => {
+      const capacityScore = (room: RoomApiItem) =>
+        peopleCount == null || room.maxPeople == null ? Number.MAX_SAFE_INTEGER : Math.max(0, room.maxPeople - peopleCount)
+      return capacityScore(first) - capacityScore(second) || normalizeRoomPrice(first) - normalizeRoomPrice(second)
+    })
+
+  if (candidates.length === 0) {
+    const constraints = [
+      peopleCount != null ? `${peopleCount} người` : null,
+      maxPrice != null ? `ngân sách ${formatMoney(maxPrice)}` : null,
+    ].filter(Boolean)
+    return {
+      content: constraints.length
+        ? `Mình chưa thấy phòng phù hợp với ${constraints.join(' và ')}. Bạn thử nới ngân sách, giảm số người, hoặc hỏi khung giờ khác nhé.`
+        : 'Hiện tại mình chưa thấy dữ liệu phòng để tư vấn chính xác. Bạn thử tải lại trang hoặc liên hệ nhân viên nhé.',
+      quickReplies: ROOM_FALLBACK_QUICK_REPLIES,
+      mode: 'FRONTEND_DB_FALLBACK',
+    }
+  }
+
+  const selectedRooms = candidates.slice(0, 3)
   const bestRoom = selectedRooms[0]
-
-  const otherRooms = selectedRooms
-    .slice(1)
-    .map(roomSummary)
-    .join('; ')
-
+  const otherRooms = selectedRooms.slice(1).map(roomSummary).join('; ')
   const timeHint = /\b\d{1,2}h\b/.test(normalized) || normalized.includes('toi nay') || normalized.includes('hom nay')
     ? ' Bạn bấm đặt phòng để kiểm tra lịch trống chính xác theo khung giờ vừa chọn nhé.'
     : ''
-
-  const alternatives = otherRooms ? ` Nếu muốn so sánh thêm, bạn có thể xem: ${otherRooms}.` : ''
-  const content = bestRoom
-    ? `${buildRoomAdvice(bestRoom, peopleCount, maxPrice)}${alternatives}${timeHint}`
-    : `Mình tìm được một số phòng có thể phù hợp: ${roomList}.${timeHint}`
+  const alternatives = otherRooms ? ` Các lựa chọn khác: ${otherRooms}.` : ''
 
   return {
-    content,
+    content: `${buildRoomAdvice(bestRoom, peopleCount, maxPrice)}${alternatives}${timeHint}`,
     quickReplies: ROOM_FALLBACK_QUICK_REPLIES,
     mode: 'FRONTEND_DB_FALLBACK',
   }
@@ -375,7 +483,7 @@ function matchReply(message: string): ChatbotReply {
     normalized.includes('studio') ||
     normalized.includes('rehearsal') ||
     normalized.includes('tap band')
-  const onlyPeopleCount = peopleCount != null && normalized.replace(/\d{1,3}\s*(nguoi|khach|thanh vien|ban)/, '').trim().length === 0
+  const onlyPeopleCount = peopleCount != null && normalized.replace(/\d{1,3}\s*(?:nguoi|ng|khach|thanh vien|ban)\b/, '').replace(/(?:cho|band|nhom|to)\s*\d{1,3}\b/, '').trim().length === 0
   const asksAvailability =
     normalized.includes('con trong') ||
     normalized.includes('trong khong') ||
@@ -491,14 +599,17 @@ export const CHATBOT_WELCOME: ChatbotReply = {
   ],
 }
 
-export async function sendChatbotMessage(message: string): Promise<ChatbotReply> {
+export async function sendChatbotMessage(
+  message: string,
+  options: ChatbotSendOptions = {},
+): Promise<ChatbotReply> {
   const trimmed = message.trim()
   if (!trimmed) {
     return { content: 'Bạn gõ câu hỏi nhé — mình sẵn sàng hỗ trợ!' }
   }
 
   try {
-    return await sendBackendChatbotMessage(trimmed)
+    return await sendBackendChatbotMessage(trimmed, options)
   } catch {
     if (isAskingPrice(normalize(trimmed))) {
       try {
