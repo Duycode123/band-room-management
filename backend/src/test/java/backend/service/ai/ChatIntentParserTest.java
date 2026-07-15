@@ -93,6 +93,13 @@ class ChatIntentParserTest {
     }
 
     @Test
+    void treatsHighestRatedQuestionAsTopRatedCategory() {
+        ChatIntent intent = parser.parse(request("phòng nào đánh giá cao nhất"));
+        assertNull(intent.requestedRoomName());
+        assertEquals("TOP_RATED", intent.category());
+    }
+
+    @Test
     void parsesSpecificRoomNameStillWorks() {
         ChatIntent intent = parser.parse(request("xem phòng A1"));
         assertEquals("a1", intent.requestedRoomName());

@@ -2,7 +2,6 @@ package backend.service.ai;
 
 import backend.dto.response.AiSuggestedRoomResponse;
 import backend.entity.Booking;
-import backend.entity.BookingStatus;
 import backend.entity.Room;
 import backend.entity.RoomStatus;
 import backend.equipment.adapter.out.persistence.EquipmentJpaEntity;
@@ -31,11 +30,7 @@ public class RoomRecommendationService {
     private final EquipmentRepository equipmentRepository;
 
     public List<AiSuggestedRoomResponse> findAvailableRooms(ChatTimeRange timeRange) {
-        try {
-            return getRoomContext(timeRange);
-        } catch (RuntimeException ignored) {
-            return List.of();
-        }
+        return getRoomContext(timeRange);
     }
 
     public List<AiSuggestedRoomResponse> filterRooms(
@@ -83,6 +78,24 @@ public class RoomRecommendationService {
                 .toList();
     }
 
+    public List<AiSuggestedRoomResponse> sortByRatingDesc(List<AiSuggestedRoomResponse> rooms) {
+        return rooms.stream()
+                .filter(room -> room.getStatus() != RoomStatus.MAINTENANCE)
+                .sorted(Comparator
+                        .comparing(
+                                (AiSuggestedRoomResponse room) ->
+                                        room.getAverageRating() == null ? -1D : room.getAverageRating(),
+                                Comparator.reverseOrder()
+                        )
+                        .thenComparing(
+                                (AiSuggestedRoomResponse room) ->
+                                        room.getApprovedReviewCount() == null ? 0L : room.getApprovedReviewCount(),
+                                Comparator.reverseOrder()
+                        )
+                        .thenComparing(AiSuggestedRoomResponse::getRoomName))
+                .toList();
+    }
+
     private boolean matchesEquipment(AiSuggestedRoomResponse room, List<String> equipmentFilter) {
         String haystack = AiChatText.normalize(AiChatText.blankToUnknown(room.getEquipmentSummary())
                 + " "
@@ -118,42 +131,27 @@ public class RoomRecommendationService {
     }
 
     private Map<Integer, List<EquipmentJpaEntity>> getEquipmentByRoom() {
-        try {
-            return equipmentRepository.search(null, null, null).stream()
-                    .collect(Collectors.groupingBy(equipment -> equipment.getRoom().getId()));
-        } catch (RuntimeException ignored) {
-            return Map.of();
-        }
+        // Prefer findAllWithRoom: search(null,...) hits PostgreSQL named-enum null typing bugs.
+        return equipmentRepository.findAllWithRoom().stream()
+                .collect(Collectors.groupingBy(equipment -> equipment.getRoom().getId()));
     }
 
     private Map<Integer, ReviewRepository.RoomReviewStatsProjection> getReviewStatsByRoom() {
-        try {
-            return reviewRepository.findApprovedRoomReviewStats().stream()
-                    .collect(Collectors.toMap(
-                            ReviewRepository.RoomReviewStatsProjection::getRoomId,
-                            stats -> stats
-                    ));
-        } catch (RuntimeException ignored) {
-            return Map.of();
-        }
+        return reviewRepository.findApprovedRoomReviewStats().stream()
+                .collect(Collectors.toMap(
+                        ReviewRepository.RoomReviewStatsProjection::getRoomId,
+                        stats -> stats
+                ));
     }
 
     private Map<Integer, BookingRepository.RoomUpcomingBookingStatsProjection> getBookingStatsByRoom() {
-        try {
-            LocalDateTime now = LocalDateTime.now();
-            return bookingRepository.findUpcomingRoomBookingStats(
-                            now,
-                            now.plusDays(14),
-                            BookingStatus.CANCELLED
-                    )
-                    .stream()
-                    .collect(Collectors.toMap(
-                            BookingRepository.RoomUpcomingBookingStatsProjection::getRoomId,
-                            stats -> stats
-                    ));
-        } catch (RuntimeException ignored) {
-            return Map.of();
-        }
+        LocalDateTime now = LocalDateTime.now();
+        return bookingRepository.findUpcomingRoomBookingStats(now, now.plusDays(14))
+                .stream()
+                .collect(Collectors.toMap(
+                        BookingRepository.RoomUpcomingBookingStatsProjection::getRoomId,
+                        stats -> stats
+                ));
     }
 
     private AiSuggestedRoomResponse toSuggestedRoom(
@@ -168,8 +166,7 @@ public class RoomRecommendationService {
             List<Booking> blockingBookings = bookingRepository.findBlockingBookings(
                     room.getId(),
                     timeRange.startTime(),
-                    timeRange.endTime(),
-                    BookingStatus.CANCELLED
+                    timeRange.endTime()
             );
             available = blockingBookings.isEmpty();
         }

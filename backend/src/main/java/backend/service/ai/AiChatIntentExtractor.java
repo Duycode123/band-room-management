@@ -75,7 +75,7 @@ public class AiChatIntentExtractor {
                   "endTime": "yyyy-MM-dd'T'HH:mm:ss"|null,
                   "equipmentKeywords": ["mic"|"drum"|"amp"|"mixer"|"guitar"|"keyboard"],
                   "requestedRoomName": string|null,
-                  "category": "ROOM_SEARCH"|"ROOM_LOOKUP"|"GREETING"|"OPENING_HOURS"|"BOOKING_GUIDE"|"PAYMENT"|"CANCELLATION"|"COUPON"|"CONTACT"|"OTHER"
+                  "category": "ROOM_SEARCH"|"ROOM_LOOKUP"|"TOP_RATED"|"GREETING"|"OPENING_HOURS"|"BOOKING_GUIDE"|"PAYMENT"|"CANCELLATION"|"COUPON"|"CONTACT"|"OTHER"
                 }
                 Rules:
                 - Understand the LATEST customer message in context of recent conversation.
@@ -85,7 +85,8 @@ public class AiChatIntentExtractor {
                 - "phòng ssssss", "xem phòng A1", "phòng 12ewwq thì sao" => requestedRoomName is that room token, category=ROOM_LOOKUP
                 - Do NOT set requestedRoomName for generic phrases like "phòng nào", "phòng cho 8 người", "phòng rẻ"
                 - "tư vấn phòng khác", "phòng loại khác", "ý tôi là tìm phòng loại khác", "còn phòng nào khác" => requestedRoomName=null, category=ROOM_SEARCH
-                - Never use Vietnamese function words as room names: khác, loại, nào, cho, rẻ, tốt, ...
+                - "phòng nào đánh giá cao nhất", "rating cao nhất", "phòng review tốt nhất" => requestedRoomName=null, category=TOP_RATED
+                - Never use Vietnamese function words as room names: khác, loại, nào, cho, rẻ, tốt, đánh, giá, cao, nhất, ...
                 - Pronouns / short follow-ups ("còn không", "cái khác đi", "ok còn nữa") inherit prior filters.
                 - Use absolute local datetimes based on provided current time.
                 - "toi nay 18h-20h" => tonight 18:00-20:00

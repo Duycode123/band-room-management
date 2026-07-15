@@ -48,6 +48,20 @@ public class AiConsultantServiceImpl implements AiConsultantService {
             }
         }
 
+        // Prefer rooms that actually have ratings when answering "highest rated".
+        if ("TOP_RATED".equals(intent.category())
+                || RoomNameIntentGuard.isAskingHighestRated(intent.normalizedMessage())) {
+            List<AiSuggestedRoomResponse> ranked = roomRecommendationService.sortByRatingDesc(
+                    matchedRooms.isEmpty() ? allAvailableRooms : matchedRooms
+            );
+            List<AiSuggestedRoomResponse> withReviews = ranked.stream()
+                    .filter(room -> room.getAverageRating() != null
+                            && room.getApprovedReviewCount() != null
+                            && room.getApprovedReviewCount() > 0)
+                    .toList();
+            matchedRooms = withReviews.isEmpty() ? ranked : withReviews;
+        }
+
         // 3) Deterministic local answer from filtered DB data
         String localAnswer = localChatAnswerBuilder.build(intent, matchedRooms, allAvailableRooms);
 
