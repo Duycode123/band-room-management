@@ -131,7 +131,7 @@ export default function PaymentReturnStatus() {
             <TransactionRow label="Phương thức" value={getPaymentMethodLabel(method)} />
             <TransactionRow
               label="Lựa chọn"
-              value={paymentOption === 'full' ? 'Thanh toán toàn bộ' : 'Đặt cọc 50.000 VND'}
+              value={paymentOption === 'deposit' ? 'Đặt cọc' : 'Thanh toán toàn bộ'}
             />
             {paymentId && <TransactionRow label="Mã giao dịch" value={paymentId} />}
           </div>

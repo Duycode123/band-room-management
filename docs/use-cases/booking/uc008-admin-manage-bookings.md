@@ -64,6 +64,11 @@ Allow operational staff to inspect bookings, review details, update booking stat
 - Only admin/staff management roles can use the admin booking endpoints.
 - Completed bookings cannot be cancelled through the current management flow.
 - Cancellation reason, if provided, is appended into booking note history.
+- Status transitions are restricted:
+  - `PENDING_PAYMENT` → `PAID` or `CANCELLED`
+  - `PAID` → `CHECKED_IN` or `CANCELLED`
+  - `CHECKED_IN` → `COMPLETED`
+  - Check-in (`CHECKED_IN`) is only allowed from `PAID` and only during the booking window (`startTime` ≤ now < `endTime`). Staff cannot mark a guest as in-use before the scheduled start.
 
 ## Data Touched
 
@@ -82,8 +87,8 @@ Allow operational staff to inspect bookings, review details, update booking stat
 
 ## Known Gaps / Follow-up
 
+- Explicit state-transition rules and check-in time window are enforced in `BookingUseCaseService.updateBookingStatus`.
 - Payment-status synchronization and a structured audit log should still be formalized.
-- Explicit state-transition rules should move into domain/application policy during hexagonal refactor.
 - The customer/room search is a leading-wildcard LIKE; acceptable at current volume, revisit indexing (e.g. `pg_trgm`) if booking volume grows large.
 
 ## Hexagonal Notes

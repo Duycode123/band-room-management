@@ -112,7 +112,7 @@ public class GeminiChatAdvisor {
 
         prompt.append("Business policy context:\n");
         prompt.append("- Opening hours: 08:00-24:00 daily.\n");
-        prompt.append("- Booking flow: choose room -> choose time -> confirm -> pay online (deposit 50,000 VND or full).\n");
+        prompt.append("- Booking flow: choose room -> choose time -> confirm -> pay online in full via bank transfer.\n");
         prompt.append("- Cancellation: customer can cancel at least 24 hours before start.\n");
         prompt.append("- Coupon is validated at checkout only.\n");
         prompt.append("- MAINTENANCE rooms are not bookable.\n\n");

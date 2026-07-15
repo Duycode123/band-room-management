@@ -59,6 +59,8 @@ class BookingExpiryServiceTest {
                 .thenReturn(List.of(transaction));
         when(bookingRepository.findStalePendingBookings(any(BookingStatus.class), any(LocalDateTime.class)))
                 .thenReturn(List.of());
+        when(bookingRepository.findCheckedInBookingsPastEnd(any(BookingStatus.class), any(LocalDateTime.class)))
+                .thenReturn(List.of());
 
         bookingExpiryService.expireStalePendingBookings();
 

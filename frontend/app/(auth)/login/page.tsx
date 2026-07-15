@@ -21,20 +21,47 @@ export default function LoginPage() {
   const router = useRouter()
   const { login } = useAuth()
   const [formData, setFormData] = useState({ identifier: '', password: '' })
+  const [fieldErrors, setFieldErrors] = useState<{ identifier?: string; password?: string }>({})
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [requiresEmailVerification, setRequiresEmailVerification] = useState(false)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value })
+    const { name, value } = e.target
+    setFormData({ ...formData, [name]: value })
+    setFieldErrors((prev) => ({ ...prev, [name]: undefined }))
+  }
+
+  const validateLoginForm = () => {
+    const nextErrors: { identifier?: string; password?: string } = {}
+    const identifier = formData.identifier.trim()
+    const password = formData.password
+
+    if (!identifier) {
+      nextErrors.identifier = 'Email không được để trống.'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)) {
+      nextErrors.identifier = 'Email không hợp lệ.'
+    }
+
+    if (!password) {
+      nextErrors.password = 'Mật khẩu không được để trống.'
+    }
+
+    setFieldErrors(nextErrors)
+    return Object.keys(nextErrors).length === 0
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
     setError('')
     setRequiresEmailVerification(false)
+
+    if (!validateLoginForm()) {
+      return
+    }
+
+    setIsLoading(true)
 
     try {
       const sessionUser = await loginSession(formData.identifier.trim(), formData.password)
@@ -89,7 +116,7 @@ export default function LoginPage() {
           </button>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <AuthField
             label="Email"
             name="identifier"
@@ -97,6 +124,7 @@ export default function LoginPage() {
             onChange={handleChange}
             placeholder="Nhập email của bạn"
             icon="user"
+            error={fieldErrors.identifier}
           />
 
           <AuthField
@@ -107,6 +135,7 @@ export default function LoginPage() {
             onChange={handleChange}
             placeholder="Nhập mật khẩu của bạn"
             icon="lock"
+            error={fieldErrors.password}
             trailing={
               <button
                 type="button"

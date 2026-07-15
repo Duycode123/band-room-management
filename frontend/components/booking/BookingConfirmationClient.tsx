@@ -33,6 +33,7 @@ import { resolveBookingRoom } from '@/lib/booking-room-service'
 import { createBooking, mapPaymentMethodToBackend } from '@/lib/booking/bookingApi'
 import type { AppliedDiscount } from '@/lib/discount-service'
 import { savePendingBooking } from '@/lib/pending-booking'
+import { readPendingPayment } from '@/lib/pending-payment-session'
 
 export default function BookingConfirmationClient() {
   const router = useRouter()
@@ -131,6 +132,16 @@ export default function BookingConfirmationClient() {
       return
     }
 
+    const pendingPayment = readPendingPayment()
+    if (pendingPayment) {
+      setConfirmError(
+        `Bạn đang có giao dịch QR chờ thanh toán cho đơn ${pendingPayment.bookingId}` +
+          `${pendingPayment.roomName ? ` (${pendingPayment.roomName})` : ''}. ` +
+          'Vui lòng hoàn tất giao dịch đó trước khi đặt phòng mới — bấm vào thông báo "giao dịch đang chờ thanh toán" ở góc màn hình để quay lại mã QR.',
+      )
+      return
+    }
+
     setConfirmError('')
     setIsSubmitting(true)
 
@@ -201,9 +212,6 @@ export default function BookingConfirmationClient() {
             </div>
 
             <h1 className="font-display text-4xl font-bold tracking-tight">Xác nhận đặt phòng</h1>
-            <p className="mt-2 text-[#5C5348]">
-              Bước này sẽ tạo booking thật trên hệ thống trước khi chuyển sang checkout.
-            </p>
           </div>
 
           <span className="w-fit rounded-full bg-[#0A4D27] px-4 py-2 font-display text-sm font-semibold text-white">
@@ -279,7 +287,7 @@ export default function BookingConfirmationClient() {
                   <p className="font-display text-xs font-bold uppercase tracking-wider text-[#5C5348]">
                     Tóm tắt thanh toán
                   </p>
-                  <p className="mt-1 font-display font-semibold">Booking sẽ được tạo trước khi vào checkout</p>
+                  <p className="mt-1 font-display font-semibold">Chi tiết đơn đặt phòng</p>
                 </div>
                 <span className="rounded-full bg-[#FFE8D6] px-3 py-1 font-display text-xs font-bold text-[#6B3200]">
                   Chờ thanh toán
@@ -443,7 +451,7 @@ function PaymentInstruction({ method }: { method: PaymentMethod }) {
     <div className="mt-5 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F4] p-4 text-sm text-[#5C5348]">
       <p className="font-display font-semibold text-[#1A1C1E]">{method.label}</p>
       <p className="mt-2">{method.description}</p>
-      <p className="mt-2">Ở bước tiếp theo, bạn sẽ chọn đặt cọc 50.000 VND hoặc thanh toán toàn bộ.</p>
+      <p className="mt-2">Ở bước tiếp theo, bạn thanh toán toàn bộ bằng chuyển khoản ngân hàng (VietQR).</p>
     </div>
   )
 }

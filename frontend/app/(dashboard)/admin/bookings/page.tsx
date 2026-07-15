@@ -94,7 +94,7 @@ export default function AdminBookingsPage() {
         <AdminPageHeader
           eyebrow="Đơn đặt phòng"
           title="Quản lý đơn đặt phòng"
-          description="Danh sách theo ngày sử dụng — lọc nhanh hôm nay/mai, theo dõi thanh toán và trạng thái đơn."
+          description="Theo ngày sử dụng — trong mỗi ngày ưu tiên đơn chờ thanh toán và đang dùng phòng trước."
           breadcrumbs={[
             { label: 'Tổng quan', href: '/admin/dashboard' },
             { label: 'Đơn đặt phòng' },

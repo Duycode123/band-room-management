@@ -16,12 +16,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 /**
- * Auto-cancels PENDING_PAYMENT bookings that stay unpaid past the configured grace period.
- * Without this, an abandoned pending booking would block its room/time slot forever, because
- * both the overlap query and the DB exclusion constraint treat every non-CANCELLED booking as busy.
+ * Periodic booking hygiene:
+ * <ul>
+ *   <li>Auto-cancels PENDING_PAYMENT bookings unpaid past the grace period (frees room slots).</li>
+ *   <li>Auto-completes CHECKED_IN bookings after endTime (Vietnam wall-clock) so reviews unlock
+ *       even when staff forgets to press "Hoàn tất".</li>
+ * </ul>
  */
 @Service
 @RequiredArgsConstructor
@@ -29,6 +33,7 @@ import java.util.List;
 public class BookingExpiryService {
 
     private static final Logger log = LoggerFactory.getLogger(BookingExpiryService.class);
+    private static final ZoneId STUDIO_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
     private final BookingRepository bookingRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
@@ -72,18 +77,42 @@ public class BookingExpiryService {
                 cutoff
         );
 
-        if (stale.isEmpty()) {
+        if (!stale.isEmpty()) {
+            stale.forEach(booking -> booking.setStatus(BookingStatus.CANCELLED));
+            bookingRepository.saveAll(stale);
+        }
+
+        int cancelledCount = stale.size() + bookingsFromTransactions.size();
+        if (cancelledCount > 0 || !staleTransactions.isEmpty()) {
+            log.info(
+                    "Auto-cancelled {} unpaid booking(s) and {} payment transaction(s) older than {} seconds",
+                    cancelledCount,
+                    staleTransactions.size(),
+                    paymentExpirationSeconds
+            );
+        }
+
+        completeFinishedCheckedInBookings();
+    }
+
+    private void completeFinishedCheckedInBookings() {
+        LocalDateTime nowVn = LocalDateTime.now(STUDIO_ZONE);
+        List<Booking> finished = bookingRepository.findCheckedInBookingsPastEnd(
+                BookingStatus.CHECKED_IN,
+                nowVn
+        );
+
+        if (finished.isEmpty()) {
             return;
         }
 
-        stale.forEach(booking -> booking.setStatus(BookingStatus.CANCELLED));
-        bookingRepository.saveAll(stale);
+        finished.forEach(booking -> booking.setStatus(BookingStatus.COMPLETED));
+        bookingRepository.saveAll(finished);
 
         log.info(
-                "Auto-cancelled {} unpaid booking(s) and {} payment transaction(s) older than {} seconds",
-                stale.size() + bookingsFromTransactions.size(),
-                staleTransactions.size(),
-                paymentExpirationSeconds
+                "Auto-completed {} checked-in booking(s) past endTime (studio clock {})",
+                finished.size(),
+                nowVn
         );
     }
 }

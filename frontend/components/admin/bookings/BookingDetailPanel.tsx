@@ -41,8 +41,8 @@ export default function BookingDetailPanel({ booking, onClose, onStatusChange }:
       await onStatusChange(booking.bookingId, pendingStatus)
       setMessage('Cập nhật trạng thái thành công.')
       setPendingStatus('')
-    } catch {
-      setMessage('Không thể cập nhật trạng thái. Thử lại sau.')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Không thể cập nhật trạng thái. Thử lại sau.')
     } finally {
       setIsSaving(false)
     }

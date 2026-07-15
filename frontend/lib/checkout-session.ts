@@ -1,33 +1,36 @@
-import type { AppliedDiscount } from '@/lib/discount-service'
+import type { AppliedDiscount } from "@/lib/discount-service";
 
-const CHECKOUT_SESSION_KEY = 'band-room.checkout-session'
+const CHECKOUT_SESSION_KEY = "band-room.checkout-session";
 
 export type CheckoutSession = {
-  bookingId: string
-  appliedCoupon: AppliedDiscount | null
-}
+  bookingId: string;
+  appliedCoupon: AppliedDiscount | null;
+};
 
 export function saveCheckoutSession(session: CheckoutSession) {
-  if (typeof window === 'undefined') return
+  if (typeof window === "undefined") return;
 
-  window.sessionStorage.setItem(CHECKOUT_SESSION_KEY, JSON.stringify(session))
+  window.sessionStorage.setItem(CHECKOUT_SESSION_KEY, JSON.stringify(session));
 }
 
 export function getCheckoutSession(bookingId: string): CheckoutSession | null {
-  if (typeof window === 'undefined') return null
+  if (typeof window === "undefined") return null;
 
   try {
-    const raw = window.sessionStorage.getItem(CHECKOUT_SESSION_KEY)
-    if (!raw) return null
+    const raw = window.sessionStorage.getItem(CHECKOUT_SESSION_KEY);
+    if (!raw) return null;
 
-    const session = JSON.parse(raw) as Partial<CheckoutSession>
+    const session = JSON.parse(raw) as Partial<CheckoutSession>;
     if (session.bookingId !== bookingId || !session.appliedCoupon) {
-      return null
+      return null;
     }
 
-    const coupon = session.appliedCoupon
-    if (typeof coupon.code !== 'string' || typeof coupon.discountAmount !== 'number') {
-      return null
+    const coupon = session.appliedCoupon;
+    if (
+      typeof coupon.code !== "string" ||
+      typeof coupon.discountAmount !== "number"
+    ) {
+      return null;
     }
 
     return {
@@ -36,15 +39,15 @@ export function getCheckoutSession(bookingId: string): CheckoutSession | null {
         code: coupon.code,
         discountAmount: coupon.discountAmount,
       },
-    }
+    };
   } catch {
-    clearCheckoutSession()
-    return null
+    clearCheckoutSession();
+    return null;
   }
 }
 
 export function clearCheckoutSession() {
-  if (typeof window === 'undefined') return
+  if (typeof window === "undefined") return;
 
-  window.sessionStorage.removeItem(CHECKOUT_SESSION_KEY)
+  window.sessionStorage.removeItem(CHECKOUT_SESSION_KEY);
 }

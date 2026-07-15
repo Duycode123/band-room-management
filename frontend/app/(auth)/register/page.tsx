@@ -44,6 +44,13 @@ export default function RegisterPage() {
     dateOfBirth: '',
     password: '',
   })
+  const [fieldErrors, setFieldErrors] = useState<{
+    fullName?: string
+    email?: string
+    phone?: string
+    dateOfBirth?: string
+    password?: string
+  }>({})
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
@@ -51,13 +58,19 @@ export default function RegisterPage() {
   const minBirthDate = useMemo(() => minBirthDateIso(), [])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value })
+    const { name, value } = e.target
+    setFormData({ ...formData, [name]: value })
+    setFieldErrors((prev) => ({ ...prev, [name]: undefined }))
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setIsLoading(true)
+  const validateRegisterForm = () => {
+    const nextErrors: {
+      fullName?: string
+      email?: string
+      phone?: string
+      dateOfBirth?: string
+      password?: string
+    } = {}
 
     const fullName = formData.fullName.trim()
     const email = formData.email.trim().toLowerCase()
@@ -66,45 +79,54 @@ export default function RegisterPage() {
     const password = formData.password
 
     if (!fullName) {
-      setError('Họ tên không được để trống.')
-      setIsLoading(false)
-      return
+      nextErrors.fullName = 'Họ tên không được để trống.'
     }
+
     if (!email) {
-      setError('Email không được để trống.')
-      setIsLoading(false)
-      return
+      nextErrors.email = 'Email không được để trống.'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      nextErrors.email = 'Email không hợp lệ.'
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError('Email không hợp lệ.')
-      setIsLoading(false)
-      return
-    }
+
     if (!phone) {
-      setError('Số điện thoại không được để trống.')
-      setIsLoading(false)
-      return
+      nextErrors.phone = 'Số điện thoại không được để trống.'
+    } else if (!/^(0|\+84)[0-9]{9}$/.test(phone)) {
+      nextErrors.phone = 'Số điện thoại không hợp lệ.'
     }
-    if (!/^(0|\+84)[0-9]{9}$/.test(phone)) {
-      setError('Số điện thoại không hợp lệ.')
-      setIsLoading(false)
-      return
-    }
+
     if (!dateOfBirth) {
-      setError('Ngày sinh không được để trống.')
-      setIsLoading(false)
+      nextErrors.dateOfBirth = 'Ngày sinh không được để trống.'
+    } else if (dateOfBirth > maxBirthDate) {
+      nextErrors.dateOfBirth = 'Bạn phải đủ 13 tuổi để tạo tài khoản.'
+    } else if (dateOfBirth < minBirthDate) {
+      nextErrors.dateOfBirth = 'Ngày sinh không hợp lệ.'
+    }
+
+    if (!password) {
+      nextErrors.password = 'Mật khẩu không được để trống.'
+    } else if (password.length < 6) {
+      nextErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự.'
+    }
+
+    setFieldErrors(nextErrors)
+    return Object.keys(nextErrors).length === 0
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+
+    if (!validateRegisterForm()) {
       return
     }
-    if (dateOfBirth > maxBirthDate) {
-      setError('Bạn phải đủ 13 tuổi để tạo tài khoản.')
-      setIsLoading(false)
-      return
-    }
-    if (password.length < 6) {
-      setError('Mật khẩu phải có ít nhất 6 ký tự.')
-      setIsLoading(false)
-      return
-    }
+
+    setIsLoading(true)
+
+    const fullName = formData.fullName.trim()
+    const email = formData.email.trim().toLowerCase()
+    const phone = formData.phone.trim()
+    const dateOfBirth = formData.dateOfBirth
+    const password = formData.password
 
     try {
       const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/auth/register`, {
@@ -129,6 +151,7 @@ export default function RegisterPage() {
       } else {
         setError('Đăng ký thất bại, vui lòng thử lại.')
       }
+    } finally {
       setIsLoading(false)
     }
   }
@@ -151,7 +174,7 @@ export default function RegisterPage() {
 
         {error && <AuthError message={error} />}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <AuthField
             label="Họ và tên"
             name="fullName"
@@ -159,6 +182,7 @@ export default function RegisterPage() {
             onChange={handleChange}
             placeholder="Nguyễn Văn A"
             icon="user"
+            error={fieldErrors.fullName}
           />
           <AuthField
             label="Nhập email"
@@ -168,6 +192,7 @@ export default function RegisterPage() {
             onChange={handleChange}
             placeholder="Nhập email của bạn"
             icon="email"
+            error={fieldErrors.email}
           />
           <AuthField
             label="Nhập số điện thoại"
@@ -177,6 +202,7 @@ export default function RegisterPage() {
             onChange={handleChange}
             placeholder="Nhập số điện thoại của bạn"
             icon="user"
+            error={fieldErrors.phone}
           />
           <AuthField
             label="Ngày sinh"
@@ -188,6 +214,7 @@ export default function RegisterPage() {
             icon="calendar"
             max={maxBirthDate}
             min={minBirthDate}
+            error={fieldErrors.dateOfBirth}
           />
           <AuthField
             label="Mật khẩu"
@@ -197,6 +224,7 @@ export default function RegisterPage() {
             onChange={handleChange}
             placeholder="Tối thiểu 6 ký tự"
             icon="lock"
+            error={fieldErrors.password}
           />
 
           <AuthSubmitButton disabled={isLoading}>

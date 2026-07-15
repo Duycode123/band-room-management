@@ -2,6 +2,7 @@ package backend.booking.application.service;
 
 import backend.booking.application.model.PageResult;
 import backend.booking.application.port.in.command.CreateBookingCommand;
+import backend.booking.application.port.in.command.UpdateBookingStatusCommand;
 import backend.booking.application.port.in.query.CustomerBookingHistoryQuery;
 import backend.booking.application.port.in.query.GetCustomerBookingDetailQuery;
 import backend.booking.application.port.in.query.GetRoomAvailabilityQuery;
@@ -367,6 +368,66 @@ class BookingUseCaseServiceTest {
                 new ListBookingsForManagementQuery(null, "customer@example.com")
         ));
         verify(searchBookingsForManagementPort, never()).loadBookingsForManagement(any());
+    }
+
+    @Test
+    void rejectsCheckInBeforeBookingStartTime() {
+        User staff = User.builder().id(3).email("staff@example.com").role(Role.STAFF).build();
+        LocalDateTime nowVn = LocalDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+        Booking booking = bookingAt(nowVn.plusHours(2), nowVn.plusHours(3));
+        booking.setId(28);
+        booking.setStatus(BookingStatus.PAID);
+
+        when(loadUserPort.loadUserByEmail("staff@example.com")).thenReturn(Optional.of(staff));
+        when(loadBookingPort.loadBooking(28)).thenReturn(Optional.of(booking));
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> bookingUseCaseService.updateBookingStatus(
+                        new UpdateBookingStatusCommand(28, BookingStatus.CHECKED_IN, "staff@example.com")
+                )
+        );
+        verify(saveBookingPort, never()).save(any());
+    }
+
+    @Test
+    void allowsCheckInDuringBookingWindow() {
+        User staff = User.builder().id(3).email("staff@example.com").role(Role.STAFF).build();
+        LocalDateTime nowVn = LocalDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+        Booking booking = bookingAt(nowVn.minusMinutes(5), nowVn.plusHours(1));
+        booking.setId(29);
+        booking.setStatus(BookingStatus.PAID);
+
+        when(loadUserPort.loadUserByEmail("staff@example.com")).thenReturn(Optional.of(staff));
+        when(loadBookingPort.loadBooking(29)).thenReturn(Optional.of(booking));
+        when(saveBookingPort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        BookingResponse response = bookingUseCaseService.updateBookingStatus(
+                new UpdateBookingStatusCommand(29, BookingStatus.CHECKED_IN, "staff@example.com")
+        );
+
+        assertEquals(BookingStatus.CHECKED_IN, response.getStatus());
+        verify(saveBookingPort).save(booking);
+    }
+
+    @Test
+    void rejectsInvalidStatusTransition() {
+        User staff = User.builder().id(3).email("staff@example.com").role(Role.STAFF).build();
+        LocalDateTime nowVn = LocalDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+        Booking booking = bookingAt(nowVn.minusMinutes(5), nowVn.plusHours(1));
+        booking.setId(30);
+        booking.setStatus(BookingStatus.PENDING_PAYMENT);
+
+        when(loadUserPort.loadUserByEmail("staff@example.com")).thenReturn(Optional.of(staff));
+        when(loadBookingPort.loadBooking(30)).thenReturn(Optional.of(booking));
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> bookingUseCaseService.updateBookingStatus(
+                        new UpdateBookingStatusCommand(30, BookingStatus.CHECKED_IN, "staff@example.com")
+                )
+        );
+        verify(saveBookingPort, never()).save(any());
     }
 
     private Room availableRoom() {

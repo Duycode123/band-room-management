@@ -139,6 +139,41 @@ function mapBackendBooking(booking: BackendBooking): AdminBooking {
   }
 }
 
+/** Lower = higher priority within the same play date. */
+function getAdminBookingPriority(status: BookingStatus) {
+  switch (status) {
+    case 'PENDING_PAYMENT':
+      return 0
+    case 'CHECKED_IN':
+      return 1
+    case 'PAID':
+      return 2
+    case 'COMPLETED':
+      return 3
+    case 'CANCELLED':
+      return 4
+    default:
+      return 5
+  }
+}
+
+function compareAdminBookings(firstBooking: AdminBooking, secondBooking: AdminBooking) {
+  const firstDate = toDateKey(firstBooking.startTime)
+  const secondDate = toDateKey(secondBooking.startTime)
+  if (firstDate !== secondDate) {
+    return secondDate.localeCompare(firstDate)
+  }
+
+  const priorityDelta =
+    getAdminBookingPriority(firstBooking.bookingStatus) -
+    getAdminBookingPriority(secondBooking.bookingStatus)
+  if (priorityDelta !== 0) {
+    return priorityDelta
+  }
+
+  return new Date(firstBooking.startTime).getTime() - new Date(secondBooking.startTime).getTime()
+}
+
 function applyClientFilters(bookings: AdminBooking[], filters: BookingFilters) {
   const normalizedQuery = filters.query.trim().toLowerCase()
 
@@ -165,14 +200,7 @@ function applyClientFilters(bookings: AdminBooking[], filters: BookingFilters) {
 
       return true
     })
-    .sort((firstBooking, secondBooking) => {
-      const firstDate = toDateKey(firstBooking.startTime)
-      const secondDate = toDateKey(secondBooking.startTime)
-      if (firstDate !== secondDate) {
-        return secondDate.localeCompare(firstDate)
-      }
-      return new Date(firstBooking.startTime).getTime() - new Date(secondBooking.startTime).getTime()
-    })
+    .sort(compareAdminBookings)
 }
 
 export function formatAdminPrice(amount: number) {

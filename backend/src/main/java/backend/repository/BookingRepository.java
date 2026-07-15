@@ -68,6 +68,18 @@ public interface BookingRepository extends JpaRepository<Booking, Integer>, JpaS
     );
 
     @Query("""
+            SELECT b
+            FROM Booking b
+            WHERE b.status = :checkedInStatus
+              AND b.endTime IS NOT NULL
+              AND b.endTime <= :now
+            """)
+    List<Booking> findCheckedInBookingsPastEnd(
+            @Param("checkedInStatus") BookingStatus checkedInStatus,
+            @Param("now") LocalDateTime now
+    );
+
+    @Query("""
             select b.room.id as roomId,
                    count(b.id) as upcomingBookingCount,
                    min(b.startTime) as nextStartTime

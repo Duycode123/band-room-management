@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import BookingQuickModal from '@/components/booking/BookingQuickModal'
 import RoomDetailModal from '@/components/booking/RoomDetailModal'
 import { formatCurrency, type BookingRoom } from '@/components/booking/booking-data'
+import EquipmentShowcase from '@/components/public/EquipmentShowcase'
 import {
   readQuickBookingDraft,
   shouldReopenQuickBooking,
@@ -27,42 +28,24 @@ const stats = [
   { value: '4.9/5', label: 'Điểm đánh giá' },
 ]
 
-const equipmentCategories = [
+const stepAccents = [
   {
-    icon: 'music',
-    title: 'Bộ trống acoustic',
-    description: 'Full kit lắp sẵn trong phòng, cymbal và hardware được kiểm tra trước mỗi ca tập.',
-    items: ['Kick & snare', 'Tom & cymbal', 'Ghế trống'],
+    badge:
+      'bg-primary-container text-brand-orange group-hover:border-brand-orange group-hover:bg-brand-orange group-hover:text-white group-hover:shadow-[0_12px_28px_rgba(255,117,24,0.35)]',
+    cardHover: 'hover:border-brand-orange/25',
+    titleHover: 'group-hover:text-brand-orange',
   },
   {
-    icon: 'amp',
-    title: 'Amp guitar & bass',
-    description: 'Amp guitar và bass sẵn sàng, hỗ trợ DI box khi cần line-out hoặc thu nhanh.',
-    items: ['Guitar amp', 'Bass amp', 'DI box'],
+    badge:
+      'bg-[#E3F0E8] text-brand-greenLight group-hover:border-brand-greenLight group-hover:bg-brand-greenLight group-hover:text-white group-hover:shadow-[0_12px_28px_rgba(10,77,39,0.3)]',
+    cardHover: 'hover:border-brand-greenLight/30',
+    titleHover: 'group-hover:text-brand-greenLight',
   },
   {
-    icon: 'mic',
-    title: 'Micro & vocal',
-    description: 'Micro động/năng lượng, stand và pop filter phục vụ vocal và nhạc cụ có dây.',
-    items: ['Dynamic mic', 'Mic stand', 'Pop filter'],
-  },
-  {
-    icon: 'sliders',
-    title: 'Mixer & monitor',
-    description: 'Mixer analog/digital và monitor studio giúp ban nhạc nghe rõ từng nhạc cụ khi tập.',
-    items: ['Mixer', 'Studio monitor', 'Tai nghe'],
-  },
-  {
-    icon: 'cable',
-    title: 'Cáp & phụ kiện',
-    description: 'Jack, cáp loa, pedalboard và splitter cơ bản — hạn chế mang thêm từ nhà.',
-    items: ['Jack & cáp', 'Pedalboard', 'Splitter'],
-  },
-  {
-    icon: 'shield',
-    title: 'Setup trước giờ tập',
-    description: 'Nhân viên studio hỗ trợ bật thiết bị, chỉnh tư thế mic và kiểm tra âm lượng ban đầu.',
-    items: ['Check-in', 'Sound check', 'Hỗ trợ tại chỗ'],
+    badge:
+      'bg-tertiary-container text-tertiary group-hover:border-tertiary group-hover:bg-tertiary group-hover:text-white group-hover:shadow-[0_12px_28px_rgba(180,83,9,0.3)]',
+    cardHover: 'hover:border-tertiary/30',
+    titleHover: 'group-hover:text-tertiary',
   },
 ] as const
 
@@ -117,16 +100,7 @@ const testimonials = [
   },
 ]
 
-type IconName =
-  | (typeof equipmentCategories)[number]['icon']
-  | 'music'
-  | 'users'
-  | 'clock'
-  | 'star'
-  | 'check'
-  | 'bolt'
-  | 'calendar'
-  | 'sliders'
+type IconName = 'music' | 'users' | 'clock' | 'star' | 'check' | 'bolt' | 'calendar' | 'sliders'
 
 function Icon({ name, className = 'h-5 w-5' }: { name: IconName; className?: string }) {
   const paths: Record<IconName, ReactNode> = {
@@ -151,26 +125,6 @@ function Icon({ name, className = 'h-5 w-5' }: { name: IconName; className?: str
         <circle cx="9" cy="6" r="2" />
         <circle cx="15" cy="12" r="2" />
         <circle cx="7" cy="18" r="2" />
-      </>
-    ),
-    shield: <path d="M12 3 20 6v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3zM9 12l2 2 4-5" />,
-    mic: (
-      <>
-        <rect x="9" y="3" width="6" height="11" rx="3" />
-        <path d="M6 11a6 6 0 0 0 12 0M12 17v4M8 21h8" />
-      </>
-    ),
-    amp: (
-      <>
-        <rect x="4" y="7" width="16" height="12" rx="2" />
-        <circle cx="9" cy="13" r="2" />
-        <path d="M14 11v4M17 10v6" />
-      </>
-    ),
-    cable: (
-      <>
-        <path d="M7 7a5 5 0 0 1 10 0v4a3 3 0 0 1-3 3h-1" />
-        <path d="M10 14v3M14 14v3M8 20h8" />
       </>
     ),
     users: (
@@ -429,14 +383,14 @@ function TopRatedRoomCard({
           <button
             type="button"
             onClick={() => onOpenDetail(room)}
-            className="rounded-xl border border-[#E8E4DC] bg-white px-4 py-2.5 font-display text-sm font-semibold text-[#5C5348] transition-colors hover:border-brand-orange/40 hover:text-brand-orange"
+            className="cursor-pointer rounded-xl border border-[#E8E4DC] bg-white px-4 py-2.5 font-display text-sm font-semibold text-[#5C5348] transition-colors hover:border-brand-orange/40 hover:text-brand-orange"
           >
             Chi tiết
           </button>
           <button
             type="button"
             onClick={() => onBook(room)}
-            className="rounded-xl bg-brand-orange px-4 py-2.5 font-display text-sm font-semibold text-white shadow-[0_10px_24px_rgba(255,117,24,0.24)] transition-colors hover:bg-brand-orangeHover"
+            className="cursor-pointer rounded-xl bg-brand-orange px-4 py-2.5 font-display text-sm font-semibold text-white shadow-[0_10px_24px_rgba(255,117,24,0.24)] transition-colors hover:bg-brand-orangeHover"
           >
             Đặt phòng
           </button>
@@ -667,55 +621,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section id="equipment" className="scroll-mt-20 bg-surface-container py-20 sm:py-24">
-        <div className="mx-auto max-w-7xl px-5 sm:px-8">
-          <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
-            <div className="max-w-2xl">
-              <p className="font-display text-sm font-semibold uppercase tracking-[0.12em] text-brand-orange">
-                Thiết bị studio
-              </p>
-              <h2 className="mt-3 font-display text-3xl font-bold leading-tight text-on-surface sm:text-4xl">
-                Nhạc cụ &amp; âm thanh có sẵn trong phòng
-              </h2>
-              <p className="mt-4 text-base leading-7 text-on-surface-variant">
-                Thiết bị đi kèm khi đặt phòng — không cần mang cả dàn nhạc. Ghi chú nhu cầu khi đặt để studio chuẩn bị
-                trước giờ tập.
-              </p>
-            </div>
-            <Link
-              href="/rooms"
-              className="inline-flex h-12 shrink-0 items-center rounded-xl border border-outline-variant bg-white px-6 font-display text-sm font-semibold text-on-surface transition-colors hover:border-brand-orange/40 hover:text-brand-orange"
-            >
-              Chọn phòng có thiết bị phù hợp
-            </Link>
-          </div>
-
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {equipmentCategories.map((category) => (
-              <article
-                key={category.title}
-                className="group rounded-2xl border border-outline-variant bg-white p-6 shadow-[var(--shadow-card)] transition-all duration-300 hover:-translate-y-1 hover:border-brand-orange/25 hover:shadow-[var(--shadow-elevated)]"
-              >
-                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-primary-container text-brand-orange transition-colors group-hover:bg-brand-orange group-hover:text-white">
-                  <Icon name={category.icon} />
-                </div>
-                <h3 className="font-display text-lg font-bold text-on-surface">{category.title}</h3>
-                <p className="mt-3 text-sm leading-6 text-on-surface-variant">{category.description}</p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {category.items.map((item) => (
-                    <span
-                      key={item}
-                      className="rounded-full border border-outline-variant bg-surface-container-low px-3 py-1 text-xs font-medium text-on-surface-variant"
-                    >
-                      {item}
-                    </span>
-                  ))}
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
+      <EquipmentShowcase />
 
       <TopRatedRoomsSection
         rooms={topRatedRooms}
@@ -724,7 +630,7 @@ export default function HomePage() {
         onBook={(room) => setQuickBooking({ room })}
       />
 
-      <section className="relative scroll-mt-24 overflow-hidden bg-brand-bgGray py-20 sm:py-24">
+      <section className="relative scroll-mt-24 overflow-hidden bg-gradient-to-br from-primary-container/45 via-brand-bgGray to-brand-bgGray py-20 sm:py-24">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 opacity-[0.4]"
@@ -735,7 +641,11 @@ export default function HomePage() {
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute -right-20 top-10 h-64 w-64 rounded-full bg-brand-orange/10 blur-3xl"
+          className="pointer-events-none absolute -right-20 top-10 h-64 w-64 rounded-full bg-brand-orange/15 blur-3xl"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -left-24 bottom-0 h-72 w-72 rounded-full bg-brand-greenLight/10 blur-3xl"
         />
 
         <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-5 sm:px-8 lg:grid-cols-[1.1fr_0.9fr]">
@@ -752,13 +662,13 @@ export default function HomePage() {
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
                 href="/rooms"
-                className="inline-flex h-12 items-center rounded-xl bg-brand-orange px-6 font-display text-sm font-semibold text-white shadow-[0_14px_32px_rgba(255,117,24,0.35)] transition-all hover:bg-brand-orangeHover active:scale-[0.98]"
+                className="inline-flex h-12 cursor-pointer items-center rounded-xl bg-brand-orange px-6 font-display text-sm font-semibold text-white shadow-[0_14px_32px_rgba(255,117,24,0.35)] transition-all hover:bg-brand-orangeHover active:scale-[0.98]"
               >
                 Vào trang Phòng tập
               </Link>
               <Link
                 href="/customer/support"
-                className="inline-flex h-12 items-center rounded-xl border border-outline-variant bg-white px-6 font-display text-sm font-semibold text-on-surface transition-colors hover:border-brand-orange/40 hover:text-brand-orange"
+                className="inline-flex h-12 cursor-pointer items-center rounded-xl border border-outline-variant bg-white px-6 font-display text-sm font-semibold text-on-surface transition-colors hover:border-brand-orange/40 hover:text-brand-orange"
               >
                 Cần tư vấn chọn phòng
               </Link>
@@ -779,13 +689,13 @@ export default function HomePage() {
                 Lịch trống theo ngày và khung giờ
               </li>
               <li className="flex gap-3">
-                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary-container text-brand-orange">
+                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#E3F0E8] text-brand-greenLight">
                   <Icon name="sliders" className="h-4 w-4" />
                 </span>
                 Bộ lọc loại phòng, sức chứa, giá
               </li>
               <li className="flex gap-3">
-                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary-container text-brand-orange">
+                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-tertiary-container text-tertiary">
                   <Icon name="bolt" className="h-4 w-4" />
                 </span>
                 Đặt nhanh ngay trên thẻ phòng
@@ -806,20 +716,26 @@ export default function HomePage() {
 
           <div className="relative mt-14 grid gap-6 md:grid-cols-3">
             <div className="absolute left-[16%] right-[16%] top-12 hidden h-px bg-gradient-to-r from-transparent via-outline-variant to-transparent md:block" />
-            {steps.map((step) => (
-              <article
-                key={step.number}
-                className="group relative rounded-2xl border border-outline-variant bg-white p-6 text-center shadow-[var(--shadow-card)] transition-all duration-300 hover:-translate-y-1 hover:border-brand-orange/25 hover:shadow-[var(--shadow-elevated)]"
-              >
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-outline-variant bg-primary-container font-display text-lg font-bold text-brand-orange transition-all duration-300 group-hover:border-brand-orange group-hover:bg-brand-orange group-hover:text-white group-hover:shadow-[0_12px_28px_rgba(255,117,24,0.35)]">
-                  {step.number}
-                </div>
-                <h3 className="mt-5 font-display text-xl font-bold text-on-surface transition-colors group-hover:text-brand-orange">
-                  {step.title}
-                </h3>
-                <p className="mx-auto mt-3 max-w-xs text-sm leading-6 text-on-surface-variant">{step.description}</p>
-              </article>
-            ))}
+            {steps.map((step, index) => {
+              const accent = stepAccents[index % stepAccents.length]
+
+              return (
+                <article
+                  key={step.number}
+                  className={`group relative rounded-2xl border border-outline-variant bg-white p-6 text-center shadow-[var(--shadow-card)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[var(--shadow-elevated)] ${accent.cardHover}`}
+                >
+                  <div
+                    className={`mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-outline-variant font-display text-lg font-bold transition-all duration-300 ${accent.badge}`}
+                  >
+                    {step.number}
+                  </div>
+                  <h3 className={`mt-5 font-display text-xl font-bold text-on-surface transition-colors ${accent.titleHover}`}>
+                    {step.title}
+                  </h3>
+                  <p className="mx-auto mt-3 max-w-xs text-sm leading-6 text-on-surface-variant">{step.description}</p>
+                </article>
+              )
+            })}
           </div>
         </div>
       </section>
@@ -951,13 +867,13 @@ export default function HomePage() {
           <div className="flex w-full flex-wrap gap-3 sm:w-auto">
             <Link
               href="/rooms"
-              className="inline-flex h-12 flex-1 items-center justify-center rounded-xl bg-brand-orange px-6 font-display text-sm font-semibold text-white shadow-[0_14px_32px_rgba(255,117,24,0.35)] transition-all hover:bg-brand-orangeHover hover:shadow-[0_18px_36px_rgba(255,117,24,0.42)] active:scale-[0.98] sm:flex-none"
+              className="inline-flex h-12 flex-1 cursor-pointer items-center justify-center rounded-xl bg-brand-orange px-6 font-display text-sm font-semibold text-white shadow-[0_14px_32px_rgba(255,117,24,0.35)] transition-all hover:bg-brand-orangeHover hover:shadow-[0_18px_36px_rgba(255,117,24,0.42)] active:scale-[0.98] sm:flex-none"
             >
               Khám phá phòng
             </Link>
             <Link
               href="/customer/support"
-              className="inline-flex h-12 flex-1 items-center justify-center rounded-xl border border-outline-variant bg-white px-6 font-display text-sm font-semibold text-on-surface transition-colors hover:border-brand-orange/40 hover:text-brand-orange sm:flex-none"
+              className="inline-flex h-12 flex-1 cursor-pointer items-center justify-center rounded-xl border border-outline-variant bg-white px-6 font-display text-sm font-semibold text-on-surface transition-colors hover:border-brand-orange/40 hover:text-brand-orange sm:flex-none"
             >
               Nhận tư vấn
             </Link>

@@ -60,6 +60,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -355,6 +356,8 @@ public class BookingUseCaseService implements
         Booking booking = loadBookingPort.loadBooking(command.bookingId())
                 .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay don dat phong"));
 
+        validateBookingStatusTransition(booking, command.status());
+
         booking.setStatus(command.status());
 
         Booking savedBooking = saveBookingPort.save(booking);
@@ -494,6 +497,55 @@ public class BookingUseCaseService implements
         }
         if (query.from() != null && query.to() != null && query.from().isAfter(query.to())) {
             throw new IllegalArgumentException("Thoi gian bat dau khong duoc sau thoi gian ket thuc");
+        }
+    }
+
+    private void validateBookingStatusTransition(Booking booking, BookingStatus nextStatus) {
+        BookingStatus currentStatus = booking.getStatus();
+
+        if (currentStatus == nextStatus) {
+            return;
+        }
+
+        boolean allowed = switch (nextStatus) {
+            case PAID -> currentStatus == BookingStatus.PENDING_PAYMENT
+                    || currentStatus == BookingStatus.DEPOSIT_PAID;
+            case CHECKED_IN -> currentStatus == BookingStatus.PAID
+                    || currentStatus == BookingStatus.DEPOSIT_PAID;
+            case COMPLETED -> currentStatus == BookingStatus.CHECKED_IN;
+            case CANCELLED -> currentStatus != BookingStatus.COMPLETED
+                    && currentStatus != BookingStatus.CANCELLED;
+            case PENDING_PAYMENT, DEPOSIT_PAID -> false;
+        };
+
+        if (!allowed) {
+            throw new IllegalStateException(
+                    "Khong the chuyen trang thai tu " + currentStatus + " sang " + nextStatus
+            );
+        }
+
+        if (nextStatus == BookingStatus.CHECKED_IN) {
+            // Booking start/end are stored as Vietnam wall-clock LocalDateTime values
+            // (frontend sends naive ISO without timezone), so compare against Vietnam "now".
+            LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));
+            LocalDateTime startTime = booking.getStartTime();
+            LocalDateTime endTime = booking.getEndTime();
+
+            if (startTime == null || endTime == null) {
+                throw new IllegalStateException("Don dat phong thieu thoi gian bat dau/ket thuc");
+            }
+
+            if (now.isBefore(startTime)) {
+                throw new IllegalStateException(
+                        "Chua den gio bat dau. Chi check-in tu " + startTime + " tro di"
+                );
+            }
+
+            if (!now.isBefore(endTime)) {
+                throw new IllegalStateException(
+                        "Da qua gio ket thuc. Khong the check-in sau " + endTime
+                );
+            }
         }
     }
 

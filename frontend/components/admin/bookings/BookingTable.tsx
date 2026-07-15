@@ -59,7 +59,9 @@ export default function BookingTable({ bookings, isLoading, selectedId, onSelect
     <div className="flex max-h-[min(70vh,680px)] flex-col overflow-hidden rounded-2xl border border-outline-variant bg-white shadow-[var(--shadow-card)]">
       <div className="shrink-0 border-b border-outline-variant bg-gradient-to-r from-brand-greenDark/5 via-primary-container/20 to-transparent px-4 py-3">
         <p className="font-display text-sm font-bold text-on-surface">Danh sách đơn đặt</p>
-        <p className="text-xs text-on-surface-variant">Nhấn dòng để xem chi tiết bên phải</p>
+        <p className="text-xs text-on-surface-variant">
+          Theo ngày chơi · trong ngày ưu tiên chờ thanh toán → đang dùng → theo giờ
+        </p>
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto bg-brand-bgGray/40">
@@ -122,16 +124,36 @@ function DayGroup({
               <span className="h-2 w-2 rounded-full bg-brand-orange shadow-[0_0_8px_rgba(255,117,24,0.6)]" />
               <p className="font-display text-sm font-bold capitalize text-on-surface">{group.label}</p>
             </div>
-            <span className="rounded-full border border-outline-variant bg-white px-2.5 py-0.5 text-[11px] font-semibold text-on-surface-variant shadow-sm">
-              {group.items.length} đơn
-            </span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {group.pendingCount > 0 && (
+                <span className="rounded-full border border-tertiary/25 bg-tertiary-container px-2.5 py-0.5 text-[11px] font-semibold text-on-tertiary-container shadow-sm">
+                  {group.pendingCount} chờ TT
+                </span>
+              )}
+              {group.activeCount > 0 && (
+                <span className="rounded-full border border-brand-greenLight/25 bg-[#E3F0E8] px-2.5 py-0.5 text-[11px] font-semibold text-brand-greenLight shadow-sm">
+                  {group.activeCount} đang dùng
+                </span>
+              )}
+              <span className="rounded-full border border-outline-variant bg-white px-2.5 py-0.5 text-[11px] font-semibold text-on-surface-variant shadow-sm">
+                {group.items.length} đơn
+              </span>
+            </div>
           </div>
         </td>
       </tr>
 
       {group.items.map((booking) => {
         const active = selectedId === booking.bookingId
-        const rowBg = active ? 'bg-primary-container/30' : 'bg-white'
+        const needsAttention = booking.bookingStatus === 'PENDING_PAYMENT'
+        const inProgress = booking.bookingStatus === 'CHECKED_IN'
+        const rowBg = active
+          ? 'bg-primary-container/30'
+          : needsAttention
+            ? 'bg-tertiary-container/35'
+            : inProgress
+              ? 'bg-[#E3F0E8]/55'
+              : 'bg-white'
 
         return (
           <tr
@@ -141,7 +163,11 @@ function DayGroup({
               'cursor-pointer transition-colors',
               active
                 ? 'shadow-[inset_3px_0_0_0_#FF7518,inset_0_0_0_1px_rgba(255,117,24,0.12)]'
-                : 'hover:bg-surface-container-low/80',
+                : needsAttention
+                  ? 'shadow-[inset_3px_0_0_0_#B45309] hover:bg-tertiary-container/50'
+                  : inProgress
+                    ? 'shadow-[inset_3px_0_0_0_#0A4D27] hover:bg-[#E3F0E8]/80'
+                    : 'hover:bg-surface-container-low/80',
             ].join(' ')}
           >
             <td className={`border-b border-outline-variant/50 px-4 py-3.5 ${rowBg}`}>
@@ -183,6 +209,8 @@ type BookingDayGroup = {
   dateKey: string
   label: string
   items: AdminBooking[]
+  pendingCount: number
+  activeCount: number
 }
 
 function groupBookingsByDate(bookings: AdminBooking[]): BookingDayGroup[] {
@@ -199,5 +227,7 @@ function groupBookingsByDate(bookings: AdminBooking[]): BookingDayGroup[] {
     dateKey,
     label: formatBookingDayHeading(items[0]?.startTime ?? dateKey),
     items,
+    pendingCount: items.filter((booking) => booking.bookingStatus === 'PENDING_PAYMENT').length,
+    activeCount: items.filter((booking) => booking.bookingStatus === 'CHECKED_IN').length,
   }))
 }
