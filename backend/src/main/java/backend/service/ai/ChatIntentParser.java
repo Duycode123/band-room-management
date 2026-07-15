@@ -48,7 +48,10 @@ public class ChatIntentParser {
         List<String> equipmentKeywords = extractEquipmentKeywords(normalizedMessage);
         String requestedRoomName = extractRequestedRoomName(normalizedMessage).orElse(null);
         String category = null;
-        if (RoomNameIntentGuard.isAskingOtherRooms(normalizedMessage)) {
+        if (RoomNameIntentGuard.isAskingHighestRated(normalizedMessage)) {
+            requestedRoomName = null;
+            category = "TOP_RATED";
+        } else if (RoomNameIntentGuard.isAskingOtherRooms(normalizedMessage)) {
             requestedRoomName = null;
             category = "ROOM_SEARCH";
         } else if (requestedRoomName != null) {
@@ -314,6 +317,9 @@ public class ChatIntentParser {
 
     private Optional<String> extractRequestedRoomName(String normalizedMessage) {
         if (RoomNameIntentGuard.isAskingOtherRooms(normalizedMessage)) {
+            return Optional.empty();
+        }
+        if (RoomNameIntentGuard.isAskingHighestRated(normalizedMessage)) {
             return Optional.empty();
         }
 

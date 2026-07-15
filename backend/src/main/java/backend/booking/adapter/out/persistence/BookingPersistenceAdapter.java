@@ -100,7 +100,7 @@ public class BookingPersistenceAdapter implements
             LocalDateTime endTime,
             BookingStatus cancelledStatus
     ) {
-        return bookingRepository.findBlockingBookings(roomId, startTime, endTime, cancelledStatus);
+        return bookingRepository.findBlockingBookings(roomId, startTime, endTime);
     }
 
     @Override

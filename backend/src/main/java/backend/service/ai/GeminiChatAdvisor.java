@@ -7,7 +7,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 
 @Component
 @RequiredArgsConstructor
@@ -27,6 +30,8 @@ public class GeminiChatAdvisor {
             List<AiChatHistoryMessage> history,
             List<Integer> excludeRoomIds
     ) {
+        // Prefer Gemini for natural answers. Local answer is grounding + offline fallback only —
+        // not a hard override that replaces the model for ranking/price/name questions.
         if (!geminiAiClient.isConfigured()) {
             return new Advice(localAnswer, "LOCAL_DB_RULES", false);
         }
@@ -39,7 +44,10 @@ public class GeminiChatAdvisor {
             if (AiChatText.isLikelyIncompleteAnswer(aiAnswer)) {
                 return new Advice(localAnswer, "LOCAL_DB_RULES:GEMINI_INCOMPLETE", false);
             }
-            return new Advice(aiAnswer, "GEMINI_RAG:" + geminiAiClient.getModel(), true);
+            if (isClearlyUngrounded(intent, matchedRooms, aiAnswer)) {
+                return new Advice(localAnswer, "LOCAL_DB_RULES:GEMINI_UNGROUNDED", false);
+            }
+            return new Advice(aiAnswer, "GEMINI_GROUNDED:" + geminiAiClient.getModel(), true);
         } catch (RuntimeException ignored) {
             return new Advice(localAnswer, "LOCAL_DB_RULES", false);
         }
@@ -49,8 +57,9 @@ public class GeminiChatAdvisor {
         return """
                 You are BandBot for BandHub Studio (band room booking).
                 Answer in natural Vietnamese, no markdown tables.
-                Use ONLY provided room/price/capacity/equipment/availability/policy context.
-                Hard rules:
+                You are the customer-facing voice: write freely and conversationally.
+                Facts (rooms, prices, ratings, capacity, equipment, availability, policy) come ONLY from the provided context.
+                Hard grounding rules:
                 1) If people is set, NEVER recommend a room with smaller capacity.
                 2) If max price is set, NEVER recommend a more expensive room as the main pick.
                 3) If Matched rooms is non-empty, MAIN recommendation MUST come from Matched rooms.
@@ -58,12 +67,15 @@ public class GeminiChatAdvisor {
                 5) Understand slang: "8ng" = 8 people; "duoi 300k" = budget; "toi nay 18h-20h" = time window.
                 6) Vary wording; do not always start with "Mình gợi ý".
                 7) Answer the exact question first, then one next-step suggestion.
-                8) Never invent rooms, prices, coupons, or availability.
+                8) Never invent rooms, prices, coupons, ratings, or availability.
                 9) If requestedRoomName is set and Matched rooms is empty: clearly say that room name was not found. Do NOT recommend random rooms as if they were the answer. You may briefly list 1-3 existing room names only as alternatives to try typing correctly.
                 10) If requestedRoomName is set and Matched rooms is non-empty: answer about those named rooms only.
                 11) Phrases like "phòng khác", "loại khác", "tư vấn phòng khác" mean recommend other/available rooms, NOT a room named "khác"/"loại".
                 12) Use recent conversation only for continuity (pronouns, prior filters, what was already suggested). Never invent facts from history.
                 13) Prefer rooms that were NOT already suggested when the customer asks for alternatives.
+                14) If category is TOP_RATED or the question asks for the highest-rated room: lead with the top room(s) by averageRating from Matched rooms / Grounded facts. If no room has approved reviews, say ratings are not available yet. Do NOT invent star ratings.
+                15) If the question asks for the cheapest room: lead with the lowest pricePerHour room from the provided lists. Do NOT promote a more expensive room as cheapest.
+                16) "Grounded facts from database" is verified evidence — keep those conclusions about names/prices/ratings. You may rephrase freely, but do not change which room wins or invent values.
                 """;
     }
 
@@ -71,7 +83,7 @@ public class GeminiChatAdvisor {
             ChatIntent intent,
             List<AiSuggestedRoomResponse> matchedRooms,
             List<AiSuggestedRoomResponse> allRooms,
-            String fallbackAnswer,
+            String groundedFacts,
             List<AiChatHistoryMessage> history,
             List<Integer> excludeRoomIds
     ) {
@@ -120,7 +132,7 @@ public class GeminiChatAdvisor {
         prompt.append(localChatAnswerBuilder.buildCouponContext()).append("\n\n");
         prompt.append("Privacy rule: never reveal another customer's personal or booking details.\n\n");
 
-        prompt.append("Matched rooms to prioritize:\n");
+        prompt.append("Matched rooms to prioritize (already filtered/sorted for this question):\n");
         appendRoomContext(prompt, matchedRooms);
         if (intent.hasRequestedRoomName() && matchedRooms.isEmpty()) {
             prompt.append("\nIMPORTANT: Customer asked for room name \"")
@@ -133,14 +145,70 @@ public class GeminiChatAdvisor {
         }
         prompt.append("\nAll room context from database (comparison only):\n");
         appendRoomContext(prompt, allRooms);
-        prompt.append("\nDeterministic fallback answer:\n");
-        prompt.append(fallbackAnswer).append("\n\n");
+        prompt.append("\nGrounded facts from database (verified — keep conclusions, rephrase wording freely):\n");
+        prompt.append(groundedFacts).append("\n\n");
         if (intent.hasRequestedRoomName() && matchedRooms.isEmpty()) {
-            prompt.append("Write the final answer now. Confirm the room name was not found.");
+            prompt.append("Write the final customer-facing answer now. Confirm the room name was not found.");
         } else {
-            prompt.append("Write the final answer now. Keep continuity with the conversation. Mention 1-3 best MATCHING rooms when useful.");
+            prompt.append("Write the final customer-facing answer now. Keep continuity with the conversation. Mention 1-3 best MATCHING rooms when useful.");
         }
         return prompt.toString();
+    }
+
+    /**
+     * Soft guard: if Gemini clearly ignores the DB ranking/price winner, fall back to local facts.
+     * Does not skip Gemini up-front — only rejects obviously ungrounded rewrites.
+     */
+    boolean isClearlyUngrounded(
+            ChatIntent intent,
+            List<AiSuggestedRoomResponse> matchedRooms,
+            String aiAnswer
+    ) {
+        if (aiAnswer == null || aiAnswer.isBlank() || matchedRooms == null || matchedRooms.isEmpty()) {
+            return false;
+        }
+
+        String message = intent.normalizedMessage();
+        boolean topRated = "TOP_RATED".equals(intent.category())
+                || RoomNameIntentGuard.isAskingHighestRated(message);
+        if (topRated) {
+            return matchedRooms.stream()
+                    .filter(room -> room.getAverageRating() != null
+                            && room.getApprovedReviewCount() != null
+                            && room.getApprovedReviewCount() > 0)
+                    .max(Comparator.comparing(AiSuggestedRoomResponse::getAverageRating)
+                            .thenComparing(AiSuggestedRoomResponse::getApprovedReviewCount))
+                    .map(AiSuggestedRoomResponse::getRoomName)
+                    .filter(Objects::nonNull)
+                    .map(String::trim)
+                    .filter(name -> !name.isEmpty())
+                    .map(winner -> !containsIgnoreCase(aiAnswer, winner))
+                    .orElse(false);
+        }
+
+        if (isAskingCheapest(message)) {
+            return matchedRooms.stream()
+                    .filter(room -> room.getPricePerHour() != null)
+                    .min(Comparator.comparing(AiSuggestedRoomResponse::getPricePerHour)
+                            .thenComparing(room -> room.getRoomId() == null ? Integer.MAX_VALUE : room.getRoomId()))
+                    .map(AiSuggestedRoomResponse::getRoomName)
+                    .filter(Objects::nonNull)
+                    .map(String::trim)
+                    .filter(name -> !name.isEmpty())
+                    .map(winner -> !containsIgnoreCase(aiAnswer, winner))
+                    .orElse(false);
+        }
+
+        return false;
+    }
+
+    private static boolean isAskingCheapest(String normalizedMessage) {
+        return normalizedMessage != null
+                && (normalizedMessage.contains("re nhat") || normalizedMessage.contains("gia thap nhat"));
+    }
+
+    private static boolean containsIgnoreCase(String haystack, String needle) {
+        return haystack.toLowerCase(Locale.ROOT).contains(needle.toLowerCase(Locale.ROOT));
     }
 
     private void appendRoomContext(StringBuilder prompt, List<AiSuggestedRoomResponse> rooms) {

@@ -18,7 +18,8 @@ public final class RoomNameIntentGuard {
             "loai", "kieu", "nhom", "to", "khach", "nguoi", "ng", "gio", "h",
             "thiet", "bi", "gia", "uu", "tien", "sang", "khac", "them", "nua",
             "yeu", "cau", "nhu", "y", "la", "tim", "tu", "van", "goi", "minh",
-            "hoi", "giup", "option", "options", "other", "type", "types"
+            "hoi", "giup", "option", "options", "other", "type", "types",
+            "danh", "cao", "nhat", "rating", "review", "reviews", "diem", "hang"
     );
 
     private RoomNameIntentGuard() {
@@ -41,6 +42,24 @@ public final class RoomNameIntentGuard {
                 || normalizedMessage.contains("con phong khac")
                 || normalizedMessage.contains("cai khac")
                 || normalizedMessage.contains("option khac");
+    }
+
+    public static boolean isAskingHighestRated(String normalizedMessage) {
+        if (normalizedMessage == null || normalizedMessage.isBlank()) {
+            return false;
+        }
+        return normalizedMessage.contains("danh gia cao")
+                || normalizedMessage.contains("diem cao nhat")
+                || normalizedMessage.contains("sao cao nhat")
+                || normalizedMessage.contains("rating cao")
+                || normalizedMessage.contains("review cao")
+                || normalizedMessage.contains("duoc danh gia cao")
+                || normalizedMessage.contains("phong danh gia")
+                || normalizedMessage.contains("phong nao danh gia")
+                || normalizedMessage.contains("noi tieng nhat")
+                || (normalizedMessage.contains("danh gia") && normalizedMessage.contains("nhat"))
+                || (normalizedMessage.contains("review") && normalizedMessage.contains("tot nhat"))
+                || (normalizedMessage.contains("rating") && normalizedMessage.contains("cao"));
     }
 
     public static String sanitizeRequestedRoomName(String rawName) {

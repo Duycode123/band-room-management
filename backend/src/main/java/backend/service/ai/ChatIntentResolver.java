@@ -52,7 +52,10 @@ public class ChatIntentResolver {
         List<String> equipment = mergeEquipment(aiIntent.equipmentKeywords(), regexIntent.equipmentKeywords());
         String requestedRoomName = resolveRequestedRoomName(aiIntent, regexIntent);
         String category = firstNonNull(aiIntent.category(), regexIntent.category());
-        if (RoomNameIntentGuard.isAskingOtherRooms(regexIntent.normalizedMessage())) {
+        if (RoomNameIntentGuard.isAskingHighestRated(regexIntent.normalizedMessage())) {
+            requestedRoomName = null;
+            category = "TOP_RATED";
+        } else if (RoomNameIntentGuard.isAskingOtherRooms(regexIntent.normalizedMessage())) {
             requestedRoomName = null;
             if (category == null || "ROOM_LOOKUP".equals(category) || "OTHER".equals(category)) {
                 category = "ROOM_SEARCH";

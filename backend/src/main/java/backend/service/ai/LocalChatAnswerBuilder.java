@@ -44,6 +44,10 @@ public class LocalChatAnswerBuilder {
             return buildRequestedRoomAnswer(intent, matchedRooms, allRooms);
         }
 
+        if ("TOP_RATED".equals(intent.category()) || RoomNameIntentGuard.isAskingHighestRated(normalizedMessage)) {
+            return buildHighestRatedRoomAnswer(matchedRooms.isEmpty() ? allRooms : matchedRooms);
+        }
+
         if (isAskingOtherRooms(normalizedMessage)) {
             return buildOtherRoomsAnswer(matchedRooms.isEmpty() ? allRooms : matchedRooms);
         }
@@ -147,6 +151,49 @@ public class LocalChatAnswerBuilder {
                 .reduce((first, second) -> first + " | " + second)
                 .orElse("không có dữ liệu")
                 + ". Bạn muốn kiểm tra lịch trống theo khung giờ cụ thể không?";
+    }
+
+    private String buildHighestRatedRoomAnswer(List<AiSuggestedRoomResponse> rooms) {
+        List<AiSuggestedRoomResponse> ranked = rooms.stream()
+                .filter(room -> room.getStatus() != RoomStatus.MAINTENANCE)
+                .filter(room -> room.getAverageRating() != null
+                        && room.getApprovedReviewCount() != null
+                        && room.getApprovedReviewCount() > 0)
+                .sorted(Comparator
+                        .comparing(AiSuggestedRoomResponse::getAverageRating, Comparator.reverseOrder())
+                        .thenComparing(AiSuggestedRoomResponse::getApprovedReviewCount, Comparator.reverseOrder())
+                        .thenComparing(AiSuggestedRoomResponse::getRoomName))
+                .toList();
+
+        if (ranked.isEmpty()) {
+            return "Hiện chưa có phòng nào có đánh giá đã duyệt trong hệ thống, nên mình chưa xếp hạng được theo rating. "
+                    + "Bạn hỏi \"Cho tôi xem tất cả phòng đang có\" để tham khảo trước, hoặc quay lại sau khi có review từ khách.";
+        }
+
+        AiSuggestedRoomResponse best = ranked.getFirst();
+        StringBuilder answer = new StringBuilder();
+        answer.append("Phòng được đánh giá cao nhất hiện tại là ")
+                .append(best.getRoomName())
+                .append(" — ")
+                .append(AiChatText.formatRating(best))
+                .append(", giá ")
+                .append(AiChatText.formatMoney(best.getPricePerHour()))
+                .append("/giờ")
+                .append(AiChatText.capacityText(best))
+                .append(".");
+
+        if (ranked.size() > 1) {
+            answer.append(" Các phòng điểm cao tiếp theo: ")
+                    .append(ranked.stream()
+                            .skip(1)
+                            .limit(2)
+                            .map(room -> room.getRoomName() + " (" + AiChatText.formatRating(room) + ")")
+                            .collect(Collectors.joining("; ")))
+                    .append(".");
+        }
+
+        answer.append(" Bạn muốn mình lọc thêm theo số người, ngân sách hoặc khung giờ không?");
+        return answer.toString();
     }
 
     private String buildOtherRoomsAnswer(List<AiSuggestedRoomResponse> rooms) {
@@ -340,10 +387,24 @@ public class LocalChatAnswerBuilder {
 
         if (isAskingRating(normalizedMessage)) {
             targetRooms = targetRooms.stream()
+                    .filter(room -> room.getAverageRating() != null
+                            && room.getApprovedReviewCount() != null
+                            && room.getApprovedReviewCount() > 0)
                     .sorted(Comparator.comparing(
-                            (AiSuggestedRoomResponse room) -> room.getAverageRating() == null ? -1D : room.getAverageRating()
-                    ).reversed().thenComparing(AiSuggestedRoomResponse::getRoomName))
+                            AiSuggestedRoomResponse::getAverageRating,
+                            Comparator.reverseOrder()
+                    ).thenComparing(AiSuggestedRoomResponse::getApprovedReviewCount, Comparator.reverseOrder())
+                            .thenComparing(AiSuggestedRoomResponse::getRoomName))
                     .toList();
+            if (targetRooms.isEmpty()) {
+                return "Hiện chưa có phòng nào có đánh giá đã duyệt để xếp hạng. Bạn hỏi lại sau khi có review nhé.";
+            }
+            return "Theo điểm đánh giá (cao → thấp): "
+                    + targetRooms.stream()
+                    .limit(5)
+                    .map(room -> room.getRoomName() + " — " + AiChatText.formatRating(room))
+                    .collect(Collectors.joining("; "))
+                    + ".";
         }
 
         return "Mình có thông tin phòng như sau: "

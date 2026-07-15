@@ -26,15 +26,16 @@ Help a customer ask natural-language questions about room options, pricing, capa
    - Explicit request fields always win
 3. Backend loads room facts from the database and filters by the resolved intent.
 4. For "phòng khác" / alternative requests, backend excludes previously suggested room IDs when provided.
-5. Backend builds a deterministic local answer from filtered rooms.
-6. If Gemini is configured, backend asks Gemini to rewrite a natural answer using matched room context plus conversation continuity.
-7. Backend returns answer, suggested rooms, interpreted filters, and follow-up questions.
+5. Backend builds grounded local facts from filtered rooms (ranking, cheapest, policy text) for prompt context and offline fallback.
+6. If Gemini is configured, Gemini writes the customer-facing answer using matched room context, grounded facts, and conversation continuity (including top-rated / cheapest / room-name questions).
+7. If Gemini is missing, incomplete, or clearly ungrounded on ranking/price winners, backend keeps the local DB answer.
+8. Backend returns answer, suggested rooms, interpreted filters, and follow-up questions.
 
 ## Alternate and error flows
 
 - Gemini API key is missing: regex intent + local DB answer.
 - Gemini extraction fails: fall back to regex intent.
-- Gemini answer rewrite fails/incomplete: keep local DB answer.
+- Gemini answer rewrite fails/incomplete/ungrounded: keep local DB answer.
 - No matching room: explain missing condition and suggest closest alternatives.
 
 ## Business rules
@@ -75,7 +76,7 @@ Help a customer ask natural-language questions about room options, pricing, capa
   - `LocalChatAnswerBuilder`
   - `GeminiChatAdvisor`
   - `SuggestedQuestionsProvider`
-- Pipeline: understand (AI/regex) → filter DB → answer (local + optional Gemini rewrite).
+- Pipeline: understand (AI/regex) → filter DB → grounded local facts → Gemini customer voice (local fallback only when AI unavailable/ungrounded).
 - Gemini integration is implemented by `GeminiAiClient`.
 - Configuration lives under `gemini.ai.*`.
 - Natural-language parsing covers people slang (`8ng`), budget (`duoi 300k`), hour ranges, soft periods (`toi nay`), and equipment keywords.

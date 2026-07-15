@@ -1,7 +1,6 @@
 package backend.staffschedule.adapter.out.persistence;
 
 import backend.entity.Booking;
-import backend.entity.BookingStatus;
 import backend.repository.BookingRepository;
 import backend.staffschedule.application.port.out.LoadStaffSchedulePort;
 import backend.staffschedule.domain.model.StaffShift;
@@ -67,11 +66,7 @@ public class StaffSchedulePersistenceAdapter implements LoadStaffSchedulePort {
 
     @Override
     public List<StaffShiftBooking> loadBookingsInShiftWindow(LocalDateTime shiftStart, LocalDateTime shiftEnd) {
-        List<Booking> bookings = bookingRepository.findBookingsOverlappingWindow(
-                shiftStart,
-                shiftEnd,
-                BookingStatus.CANCELLED
-        );
+        List<Booking> bookings = bookingRepository.findBookingsOverlappingWindow(shiftStart, shiftEnd);
 
         return bookings.stream()
                 .map(mapper::toShiftBooking)

@@ -27,7 +27,7 @@ public interface BookingRepository extends JpaRepository<Booking, Integer>, JpaS
             SELECT b
             FROM Booking b
             WHERE b.room.id = :roomId
-              AND b.status <> :cancelledStatus
+              AND cast(b.status as string) <> 'CANCELLED'
               AND b.startTime < :endTime
               AND b.endTime > :startTime
             ORDER BY b.startTime ASC, b.endTime ASC
@@ -35,8 +35,7 @@ public interface BookingRepository extends JpaRepository<Booking, Integer>, JpaS
     List<Booking> findBlockingBookings(
             @Param("roomId") Integer roomId,
             @Param("startTime") LocalDateTime startTime,
-            @Param("endTime") LocalDateTime endTime,
-            @Param("cancelledStatus") BookingStatus cancelledStatus
+            @Param("endTime") LocalDateTime endTime
     );
 
     @Query("""
@@ -44,15 +43,14 @@ public interface BookingRepository extends JpaRepository<Booking, Integer>, JpaS
             FROM Booking b
             JOIN FETCH b.room
             JOIN FETCH b.customer
-            WHERE b.status <> :cancelledStatus
+            WHERE cast(b.status as string) <> 'CANCELLED'
               AND b.startTime < :endTime
               AND b.endTime > :startTime
             ORDER BY b.startTime ASC, b.endTime ASC, b.room.roomName ASC
             """)
     List<Booking> findBookingsOverlappingWindow(
             @Param("startTime") LocalDateTime startTime,
-            @Param("endTime") LocalDateTime endTime,
-            @Param("cancelledStatus") BookingStatus cancelledStatus
+            @Param("endTime") LocalDateTime endTime
     );
 
     @Query("""
@@ -84,15 +82,14 @@ public interface BookingRepository extends JpaRepository<Booking, Integer>, JpaS
                    count(b.id) as upcomingBookingCount,
                    min(b.startTime) as nextStartTime
             from Booking b
-            where b.status <> :cancelledStatus
+            where cast(b.status as string) <> 'CANCELLED'
               and b.endTime > :fromTime
               and b.startTime < :toTime
             group by b.room.id
             """)
     List<RoomUpcomingBookingStatsProjection> findUpcomingRoomBookingStats(
             @Param("fromTime") LocalDateTime fromTime,
-            @Param("toTime") LocalDateTime toTime,
-            @Param("cancelledStatus") BookingStatus cancelledStatus
+            @Param("toTime") LocalDateTime toTime
     );
 
     interface RoomUpcomingBookingStatsProjection {
