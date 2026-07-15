@@ -74,7 +74,7 @@ const RESPONSE_RULES: Array<{ keywords: string[]; reply: ChatbotReply }> = [
     keywords: ['thanh toán', 'payment', 'vnpay', 'sepay', 'chuyển khoản', 'tiền mặt', 'đặt cọc'],
     reply: {
       content:
-        'Thanh toán online qua VietQR/SePay. Ở checkout bạn có thể **đặt cọc 50.000đ** hoặc thanh toán toàn bộ. Booking chờ thanh toán có thể hết hạn nếu chưa hoàn tất.',
+        'Thanh toán online qua VietQR/SePay bằng chuyển khoản. Ở checkout bạn thanh toán toàn bộ số tiền booking. Booking chờ thanh toán có thể hết hạn nếu chưa hoàn tất.',
     },
   },
   {
@@ -468,7 +468,7 @@ function matchReply(message: string): ChatbotReply {
   if (asksBookingGuide) {
     return {
       content:
-        'Để đặt phòng, bạn làm theo 4 bước nhé:\n1. Chọn phòng phù hợp với số người, ngân sách và thiết bị cần dùng.\n2. Chọn ngày và khung giờ còn trống.\n3. Kiểm tra tổng tiền, nhập mã giảm giá nếu có.\n4. Xác nhận đặt phòng rồi thanh toán đặt cọc hoặc thanh toán toàn bộ qua SePay.\n\nNếu bạn cho mình biết số người và khung giờ, mình có thể gợi ý phòng phù hợp trước.',
+        'Để đặt phòng, bạn làm theo 4 bước nhé:\n1. Chọn phòng phù hợp với số người, ngân sách và thiết bị cần dùng.\n2. Chọn ngày và khung giờ còn trống.\n3. Kiểm tra tổng tiền, nhập mã giảm giá nếu có.\n4. Xác nhận đặt phòng rồi thanh toán toàn bộ qua chuyển khoản SePay.\n\nNếu bạn cho mình biết số người và khung giờ, mình có thể gợi ý phòng phù hợp trước.',
       quickReplies: [
         { id: 'qr-guide-room', label: 'Gợi ý phòng', message: 'Band 4 người nên chọn phòng nào?' },
         { id: 'qr-guide-time', label: 'Kiểm tra giờ', message: 'Tối nay 18h-20h còn phòng nào cho 4 người?' },

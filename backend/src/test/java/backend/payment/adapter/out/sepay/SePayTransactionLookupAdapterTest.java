@@ -120,12 +120,14 @@ class SePayTransactionLookupAdapterTest {
     }
 
     private SePayIncomingPaymentQuery query() {
+        // createdAt is UTC; the SePay transaction_date "2026-07-09 19:05:30"
+        // is Vietnam time, i.e. 12:05:30 UTC.
         return new SePayIncomingPaymentQuery(
                 "PAY1234567890ABCDEF",
                 new BigDecimal("50000.00"),
                 LocalDate.of(2026, 7, 9),
                 LocalDate.of(2026, 7, 9),
-                LocalDateTime.of(2026, 7, 9, 19, 0)
+                LocalDateTime.of(2026, 7, 9, 12, 0)
         );
     }
 }

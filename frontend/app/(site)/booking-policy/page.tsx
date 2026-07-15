@@ -37,8 +37,8 @@ export default function BookingPolicyPage() {
 
       <PublicContentSection title="3. Thanh toán">
         <p>
-          Phương thức thanh toán khả dụng được hiển thị tại bước checkout. Một số phòng có thể yêu cầu đặt cọc hoặc
-          thanh toán trước để giữ chỗ.
+          Phương thức thanh toán khả dụng được hiển thị tại bước checkout. Khách hàng thanh toán toàn bộ bằng chuyển khoản
+          ngân hàng (VietQR) để giữ chỗ.
         </p>
       </PublicContentSection>
 

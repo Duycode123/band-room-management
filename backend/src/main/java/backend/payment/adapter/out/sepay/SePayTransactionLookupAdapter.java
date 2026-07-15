@@ -17,6 +17,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URI;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Optional;
@@ -30,6 +32,8 @@ public class SePayTransactionLookupAdapter implements FindSePayIncomingPaymentPo
     private static final String SEPAY_V1_TRANSACTIONS_URL = "https://my.sepay.vn/userapi/transactions/list";
     private static final DateTimeFormatter SEPAY_DATE_TIME_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    /** SePay reports transaction timestamps in Vietnam local time. */
+    private static final ZoneId SEPAY_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final Pattern UUID_PATTERN =
             Pattern.compile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
 
@@ -164,12 +168,15 @@ public class SePayTransactionLookupAdapter implements FindSePayIncomingPaymentPo
         return Optional.empty();
     }
 
+    // Query dates come from UTC timestamps while SePay filters by Vietnam local
+    // dates, so widen the window by one day on each side to avoid missing
+    // transfers around midnight.
     private String formatStartOfDay(SePayIncomingPaymentQuery query) {
-        return SEPAY_DATE_TIME_FORMATTER.format(query.fromDate().atStartOfDay());
+        return SEPAY_DATE_TIME_FORMATTER.format(query.fromDate().minusDays(1).atStartOfDay());
     }
 
     private String formatEndOfDay(SePayIncomingPaymentQuery query) {
-        return SEPAY_DATE_TIME_FORMATTER.format(query.toDate().atTime(23, 59, 59));
+        return SEPAY_DATE_TIME_FORMATTER.format(query.toDate().plusDays(1).atTime(23, 59, 59));
     }
 
     private boolean matchesConfiguredBankAccount(JsonNode item) {
@@ -228,7 +235,12 @@ public class SePayTransactionLookupAdapter implements FindSePayIncomingPaymentPo
         }
 
         try {
-            return LocalDateTime.parse(rawDate, SEPAY_DATE_TIME_FORMATTER);
+            // Convert from Vietnam local time to UTC so comparisons against
+            // backend timestamps (JVM runs with user.timezone=UTC) are correct.
+            return LocalDateTime.parse(rawDate, SEPAY_DATE_TIME_FORMATTER)
+                    .atZone(SEPAY_ZONE)
+                    .withZoneSameInstant(ZoneOffset.UTC)
+                    .toLocalDateTime();
         } catch (DateTimeParseException exception) {
             return null;
         }

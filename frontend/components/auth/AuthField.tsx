@@ -11,6 +11,9 @@ type AuthFieldProps = {
   trailing?: ReactNode
   max?: string
   min?: string
+  /** Prefer custom form validation over browser native `required` (which only highlights one field). */
+  required?: boolean
+  error?: string
 }
 
 const iconPaths = {
@@ -33,7 +36,11 @@ export function AuthField({
   trailing,
   max,
   min,
+  required = false,
+  error,
 }: AuthFieldProps) {
+  const hasError = Boolean(error)
+
   return (
     <div>
       <label
@@ -54,19 +61,29 @@ export function AuthField({
           name={name}
           value={value}
           onChange={onChange}
-          required
+          required={required}
+          aria-invalid={hasError}
+          aria-describedby={hasError ? `${name}-error` : undefined}
           max={max}
           min={min}
           placeholder={placeholder}
           className={[
-            'w-full rounded-lg border border-outline bg-white py-2.5 pl-10 text-sm text-on-surface',
+            'w-full rounded-lg border bg-white py-2.5 pl-10 text-sm text-on-surface',
             'placeholder:text-on-surface-variant/50',
-            'transition-colors focus:border-brand-orange focus:outline-none focus:ring-1 focus:ring-brand-orange',
+            'transition-colors focus:outline-none focus:ring-1',
+            hasError
+              ? 'border-error focus:border-error focus:ring-error'
+              : 'border-outline focus:border-brand-orange focus:ring-brand-orange',
             trailing ? 'pr-10' : 'pr-4',
           ].join(' ')}
         />
         {trailing}
       </div>
+      {hasError ? (
+        <p id={`${name}-error`} className="mt-1.5 text-xs text-error">
+          {error}
+        </p>
+      ) : null}
     </div>
   )
 }

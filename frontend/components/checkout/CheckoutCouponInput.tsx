@@ -97,7 +97,7 @@ export default function CheckoutCouponInput({
         )}
       </div>
 
-      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+      <div className="mt-2 flex flex-col gap-2 sm:flex-row">
         <input
           type="text"
           value={code}

@@ -53,7 +53,7 @@ export const paymentMethodOptions: Array<{
   {
     id: 'bank_transfer',
     label: 'Chuyển khoản ngân hàng',
-    description: 'Đặt cọc online bằng chuyển khoản ngân hàng.',
+    description: 'Thanh toán toàn bộ online bằng chuyển khoản ngân hàng (VietQR).',
   },
   {
     id: 'e_wallet',

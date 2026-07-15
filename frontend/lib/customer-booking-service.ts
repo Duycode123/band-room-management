@@ -217,12 +217,31 @@ async function fetchBackendBookingDetail(backendBookingId: number) {
   return response.data.data
 }
 
-export function canReviewBooking(booking: Pick<BookingHistoryItem, 'status' | 'canReview'>) {
+export function canReviewBooking(
+  booking: Pick<BookingHistoryItem, 'status' | 'canReview' | 'endDateTime' | 'alreadyReviewed'>,
+) {
   if (typeof booking.canReview === 'boolean') {
     return booking.canReview
   }
 
-  return booking.status === 'COMPLETED'
+  if (booking.alreadyReviewed || booking.status === 'CANCELLED' || booking.status === 'PENDING_PAYMENT') {
+    return false
+  }
+
+  if (booking.status === 'COMPLETED') {
+    return true
+  }
+
+  // Fallback when API omits canReview: allow after endTime for paid/checked-in bookings.
+  if (
+    (booking.status === 'PAID' || booking.status === 'CHECKED_IN') &&
+    booking.endDateTime
+  ) {
+    const end = new Date(booking.endDateTime).getTime()
+    return Number.isFinite(end) && Date.now() >= end
+  }
+
+  return false
 }
 
 export function formatBookingStatus(status: CustomerBookingStatus) {

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import BandRoomFooter from '@/components/layout/BandRoomFooter'
 import BandRoomHeader from '@/components/layout/BandRoomHeader'
 import RouteScrollRestorer from '@/components/layout/RouteScrollRestorer'
+import PendingPaymentBanner from '@/components/payment/PendingPaymentBanner'
 
 export default function PublicSiteLayout({ children }: { children: ReactNode }) {
   return (
@@ -10,6 +11,7 @@ export default function PublicSiteLayout({ children }: { children: ReactNode }) 
       <BandRoomHeader />
       <div className="flex flex-1 flex-col">{children}</div>
       <BandRoomFooter />
+      <PendingPaymentBanner />
     </div>
   )
 }

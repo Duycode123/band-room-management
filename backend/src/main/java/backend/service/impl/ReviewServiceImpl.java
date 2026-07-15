@@ -1,5 +1,6 @@
 package backend.service.impl;
 
+import backend.booking.domain.service.BookingReviewPolicy;
 import backend.dto.request.CreateReviewRequest;
 import backend.dto.request.UpsertReviewResponseRequest;
 import backend.dto.request.UpdateReviewApprovalRequest;
@@ -7,7 +8,6 @@ import backend.dto.response.PagedResponse;
 import backend.dto.response.ReviewEligibilityResponse;
 import backend.dto.response.ReviewResponse;
 import backend.entity.Booking;
-import backend.entity.BookingStatus;
 import backend.entity.Customer;
 import backend.entity.Review;
 import backend.entity.ReviewAdminResponse;
@@ -104,8 +104,9 @@ public class ReviewServiceImpl implements ReviewService {
             return new ReviewEligibilityResponse(bookingId, false, true, "Don dat phong nay da duoc danh gia");
         }
 
-        if (booking.getStatus() != BookingStatus.COMPLETED) {
-            return new ReviewEligibilityResponse(bookingId, false, false, "Chi co the danh gia sau khi don dat phong da hoan tat");
+        String denialReason = BookingReviewPolicy.denialReason(booking, false);
+        if (denialReason != null) {
+            return new ReviewEligibilityResponse(bookingId, false, false, denialReason);
         }
 
         return new ReviewEligibilityResponse(bookingId, true, false, "Co the danh gia don dat phong nay");
@@ -282,8 +283,9 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     private void validateBookingCanBeReviewed(Booking booking) {
-        if (booking.getStatus() != BookingStatus.COMPLETED) {
-            throw new IllegalStateException("Chi co the danh gia sau khi don dat phong da hoan tat");
+        String denialReason = BookingReviewPolicy.denialReason(booking, false);
+        if (denialReason != null) {
+            throw new IllegalStateException(denialReason);
         }
     }
 

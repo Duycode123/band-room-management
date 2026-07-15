@@ -211,7 +211,7 @@ public class LocalChatAnswerBuilder {
             return Optional.of("Để đặt phòng: 1) Chọn phòng phù hợp, 2) Chọn ngày & khung giờ trống, 3) Kiểm tra tổng tiền/mã giảm giá, 4) Xác nhận rồi thanh toán online. Cho mình số người và giờ tập nếu bạn muốn được gợi ý phòng trước.");
         }
         if ("PAYMENT".equals(category) || isAskingPayment(normalizedMessage)) {
-            return Optional.of("Hệ thống hỗ trợ thanh toán online (VietQR/SePay). Ở checkout bạn có thể đặt cọc 50.000đ hoặc thanh toán toàn bộ. Booking chờ thanh toán có thể hết hạn nếu không hoàn tất kịp.");
+            return Optional.of("Hệ thống hỗ trợ thanh toán online bằng chuyển khoản (VietQR/SePay). Ở checkout bạn thanh toán toàn bộ số tiền booking. Booking chờ thanh toán có thể hết hạn nếu không hoàn tất kịp.");
         }
         if ("CANCELLATION".equals(category) || isAskingCancellation(normalizedMessage)) {
             return Optional.of("Bạn có thể hủy lịch trước giờ tập tối thiểu 24 tiếng theo chính sách hiện tại. Số tiền đã thanh toán sẽ được tính hoàn theo quy trình vận hành.");

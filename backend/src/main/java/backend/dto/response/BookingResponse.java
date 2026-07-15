@@ -1,5 +1,6 @@
 package backend.dto.response;
 
+import backend.booking.domain.service.BookingReviewPolicy;
 import backend.entity.Booking;
 import backend.entity.BookingStatus;
 import backend.entity.Customer;
@@ -91,6 +92,6 @@ public class BookingResponse {
     public BookingResponse(Booking booking, boolean alreadyReviewed) {
         this(booking);
         this.alreadyReviewed = alreadyReviewed;
-        this.canReview = booking.getStatus() == BookingStatus.COMPLETED && !alreadyReviewed;
+        this.canReview = BookingReviewPolicy.canBeReviewed(booking, alreadyReviewed);
     }
 }

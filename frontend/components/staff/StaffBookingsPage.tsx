@@ -129,6 +129,11 @@ export default function StaffBookingsPage() {
       return
     }
 
+    if (action.kind === 'blocked') {
+      setToastMessage(action.reason)
+      return
+    }
+
     if (action.kind === 'cancel') {
       setConfirmAction({
         title: 'Hủy booking này?',
@@ -301,6 +306,7 @@ export default function StaffBookingsPage() {
 type StaffBookingAction =
   | { kind: 'detail'; label: string }
   | { kind: 'cancel'; label: string }
+  | { kind: 'blocked'; label: string; reason: string }
   | {
       kind: 'status'
       label: string
@@ -309,7 +315,39 @@ type StaffBookingAction =
       description: (booking: AdminBooking) => string
     }
 
-function getAvailableActions(status: BookingStatus): StaffBookingAction[] {
+function parseBookingDate(value: string) {
+  // Booking times are naive Vietnam wall-clock values from the API (no timezone suffix).
+  // Parse as local time so staff UI matches the stored hour the customer booked.
+  return new Date(value)
+}
+
+function canCheckInNow(booking: AdminBooking, now = Date.now()) {
+  const start = parseBookingDate(booking.startTime).getTime()
+  const end = parseBookingDate(booking.endTime).getTime()
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return false
+  return now >= start && now < end
+}
+
+function getCheckInBlockedReason(booking: AdminBooking, now = Date.now()) {
+  const start = parseBookingDate(booking.startTime)
+  const end = parseBookingDate(booking.endTime)
+  const startMs = start.getTime()
+  const endMs = end.getTime()
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+    return 'Đơn thiếu thông tin khung giờ.'
+  }
+  if (now < startMs) {
+    return `Chưa đến giờ bắt đầu (${start.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}).`
+  }
+  if (now >= endMs) {
+    return 'Đã quá giờ kết thúc, không thể check-in.'
+  }
+  return null
+}
+
+function getAvailableActions(booking: AdminBooking): StaffBookingAction[] {
+  const status = booking.bookingStatus
+
   if (status === 'PENDING_PAYMENT') {
     return [
       {
@@ -317,7 +355,7 @@ function getAvailableActions(status: BookingStatus): StaffBookingAction[] {
         label: 'Xác nhận đã thanh toán',
         title: 'Đánh dấu đã thanh toán?',
         nextStatus: 'PAID',
-        description: (booking) => `${booking.bookingCode} sẽ chuyển sang trạng thái đã thanh toán.`,
+        description: (item) => `${item.bookingCode} sẽ chuyển sang trạng thái đã thanh toán.`,
       },
       { kind: 'cancel', label: 'Hủy booking' },
       { kind: 'detail', label: 'Xem chi tiết' },
@@ -325,17 +363,26 @@ function getAvailableActions(status: BookingStatus): StaffBookingAction[] {
   }
 
   if (status === 'PAID') {
-    return [
-      {
+    const actions: StaffBookingAction[] = []
+
+    if (canCheckInNow(booking)) {
+      actions.push({
         kind: 'status',
         label: 'Check-in',
         title: 'Check-in booking?',
         nextStatus: 'CHECKED_IN',
-        description: (booking) => `${booking.customerName} sẽ được ghi nhận đang sử dụng phòng.`,
-      },
-      { kind: 'cancel', label: 'Hủy booking' },
-      { kind: 'detail', label: 'Xem chi tiết' },
-    ]
+        description: (item) => `${item.customerName} sẽ được ghi nhận đang sử dụng phòng.`,
+      })
+    } else {
+      actions.push({
+        kind: 'blocked',
+        label: 'Check-in',
+        reason: getCheckInBlockedReason(booking) ?? 'Chưa thể check-in.',
+      })
+    }
+
+    actions.push({ kind: 'cancel', label: 'Hủy booking' }, { kind: 'detail', label: 'Xem chi tiết' })
+    return actions
   }
 
   if (status === 'CHECKED_IN') {
@@ -345,7 +392,7 @@ function getAvailableActions(status: BookingStatus): StaffBookingAction[] {
         label: 'Hoàn tất',
         title: 'Kết thúc booking?',
         nextStatus: 'COMPLETED',
-        description: (booking) => `${booking.bookingCode} sẽ chuyển sang trạng thái hoàn tất.`,
+        description: (item) => `${item.bookingCode} sẽ chuyển sang trạng thái hoàn tất.`,
       },
       { kind: 'detail', label: 'Xem chi tiết' },
     ]
@@ -361,9 +408,11 @@ function BookingCard({
   booking: AdminBooking
   onAction: (action: StaffBookingAction) => void
 }) {
-  const actions = getAvailableActions(booking.bookingStatus)
-  const primaryAction = actions.find((action) => action.kind === 'status') ?? actions[0]
+  const actions = getAvailableActions(booking)
+  const primaryAction =
+    actions.find((action) => action.kind === 'status' || action.kind === 'blocked') ?? actions[0]
   const secondaryActions = actions.filter((action) => action !== primaryAction)
+  const blockedReason = primaryAction.kind === 'blocked' ? primaryAction.reason : null
 
   return (
     <article className="rounded-3xl border border-outline-variant bg-white p-5 shadow-[var(--band-shadow-card)]">
@@ -383,6 +432,11 @@ function BookingCard({
               {booking.note}
             </p>
           )}
+          {blockedReason && (
+            <p className="mt-3 rounded-2xl border border-tertiary/25 bg-tertiary-container/60 px-3 py-2 text-sm leading-6 text-on-tertiary-container">
+              {blockedReason}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-wrap gap-2 xl:justify-end">
@@ -396,9 +450,15 @@ function BookingCard({
               {action.label}
             </button>
           ))}
-          <button type="button" onClick={() => onAction(primaryAction)} className="btn-warm">
-            {primaryAction.label}
-          </button>
+          {primaryAction.kind === 'blocked' ? (
+            <button type="button" disabled className="btn-warm cursor-not-allowed opacity-50">
+              {primaryAction.label}
+            </button>
+          ) : (
+            <button type="button" onClick={() => onAction(primaryAction)} className="btn-warm">
+              {primaryAction.label}
+            </button>
+          )}
         </div>
       </div>
 
@@ -420,7 +480,7 @@ function BookingDetailPanel({
   onClose: () => void
   onAction: (action: StaffBookingAction) => void
 }) {
-  const actions = getAvailableActions(booking.bookingStatus)
+  const actions = getAvailableActions(booking)
 
   return (
     <>
@@ -485,17 +545,34 @@ function BookingDetailPanel({
 
         <footer className="border-t border-outline-variant bg-surface-container-low/40 px-5 py-4">
           <div className="flex flex-wrap gap-2">
-            {actions.map((action) => (
-              <button
-                key={action.label}
-                type="button"
-                onClick={() => onAction(action)}
-                className={action.kind === 'status' ? 'btn-warm' : action.kind === 'cancel' ? 'btn-secondary border-error text-error hover:bg-error-container/30' : 'btn-secondary'}
-              >
-                {action.label}
-              </button>
-            ))}
+            {actions.map((action) =>
+              action.kind === 'blocked' ? (
+                <button
+                  key={action.label}
+                  type="button"
+                  disabled
+                  title={action.reason}
+                  className="btn-warm cursor-not-allowed opacity-50"
+                >
+                  {action.label}
+                </button>
+              ) : (
+                <button
+                  key={action.label}
+                  type="button"
+                  onClick={() => onAction(action)}
+                  className={action.kind === 'status' ? 'btn-warm' : action.kind === 'cancel' ? 'btn-secondary border-error text-error hover:bg-error-container/30' : 'btn-secondary'}
+                >
+                  {action.label}
+                </button>
+              ),
+            )}
           </div>
+          {(() => {
+            const blocked = actions.find((action) => action.kind === 'blocked')
+            if (!blocked || blocked.kind !== 'blocked') return null
+            return <p className="mt-3 text-sm text-on-tertiary-container">{blocked.reason}</p>
+          })()}
         </footer>
       </aside>
     </>
